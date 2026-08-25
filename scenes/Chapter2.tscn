@@ -1,0 +1,43 @@
+[gd_scene format=3 uid="uid://b8647hubhxrfd"]
+
+[ext_resource type="Script" path="res://scripts/flow/standalone_house.gd" id="1_chapter"]
+[ext_resource type="Script" path="res://scripts/world/iso_floor.gd" id="2_floor"]
+[ext_resource type="PackedScene" uid="uid://bwdwhud0001" path="res://scenes/ui/Hud.tscn" id="3_hud"]
+[ext_resource type="PackedScene" uid="uid://bwdwdialogue01" path="res://scenes/ui/DialogueView.tscn" id="4_dialogue"]
+[ext_resource type="PackedScene" uid="uid://bwdwpause0001" path="res://scenes/ui/PauseMenu.tscn" id="5_pause"]
+[ext_resource type="Script" path="res://scripts/chapters/chapter_2_red.gd" id="6_quest"]
+
+[node name="Chapter2" type="Node2D"]
+script = ExtResource("1_chapter")
+chapter_id = 2
+quest_script = ExtResource("6_quest")
+player_spawn_cell = Vector2(0, 7)
+camera_zoom = Vector2(1.15, 1.15)
+starting_gray = 1.0
+
+[node name="Floor" type="Node2D" parent="."]
+script = ExtResource("2_floor")
+cols = 17
+rows = 17
+origin_cell = Vector2i(-8, -8)
+base_color = Color(0.2, 0.175, 0.17, 1)
+alt_color = Color(0.235, 0.2, 0.195, 1)
+grout_color = Color(0.12, 0.1, 0.095, 0.85)
+weave_accent = Color(0.36, 0.24, 0.22, 0.35)
+border_color = Color(0.4, 0.28, 0.24, 0.7)
+terrain_texture_path = "res://assets/images/environments/house_red/tileset.png"
+
+[node name="World" type="Node2D" parent="."]
+y_sort_enabled = true
+
+[node name="Camera" type="Camera2D" parent="."]
+zoom = Vector2(1.15, 1.15)
+
+[node name="UiLayer" type="CanvasLayer" parent="."]
+layer = 120
+
+[node name="Hud" parent="." instance=ExtResource("3_hud")]
+
+[node name="Dialogue" parent="." instance=ExtResource("4_dialogue")]
+
+[node name="Pause" parent="." instance=ExtResource("5_pause")]

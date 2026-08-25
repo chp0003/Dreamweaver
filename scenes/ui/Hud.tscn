@@ -1,0 +1,350 @@
+[gd_scene load_steps=8 format=3 uid="uid://bwdwhud0001"]
+
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1_hud"]
+[ext_resource type="Theme" uid="uid://bwdreamtheme" path="res://assets/themes/dreamweaver.tres" id="2_theme"]
+[ext_resource type="Script" path="res://scripts/ui/hud_hearts.gd" id="4_hearts"]
+[ext_resource type="FontFile" path="res://assets/fonts/Cinzel-Bold.ttf" id="5_cinzel"]
+[ext_resource type="FontFile" path="res://assets/fonts/CrimsonPro-Regular.ttf" id="6_crimson"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bar_bg"]
+bg_color = Color(0.027, 0.035, 0.071, 0.72)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.69, 0.541, 0.18, 0.22)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_health_fill"]
+bg_color = Color(0.784, 0.208, 0.169, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0.886, 0.376, 0.29, 0.45)
+shadow_size = 7
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_chime_fill"]
+bg_color = Color(0.388, 0.839, 0.776, 0.92)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0.388, 0.839, 0.776, 0.4)
+shadow_size = 6
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_weave_fill"]
+bg_color = Color(0.929, 0.82, 0.447, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0.969, 0.878, 0.643, 0.4)
+shadow_size = 6
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_integrity_fill"]
+bg_color = Color(0.42, 0.541, 0.27, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0.42, 0.541, 0.27, 0.4)
+shadow_size = 6
+anti_aliasing = true
+
+[node name="Hud" type="CanvasLayer"]
+layer = 110
+script = ExtResource("1_hud")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("2_theme")
+
+[node name="QuestPlate" type="PanelContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+offset_left = 24.0
+offset_top = 18.0
+offset_right = 396.0
+offset_bottom = 214.0
+mouse_filter = 2
+
+[node name="QuestCol" type="VBoxContainer" parent="Root/QuestPlate"]
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="ChapterLabel" type="Label" parent="Root/QuestPlate/QuestCol"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.72, 0.42, 0.9)
+theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.85)
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = ExtResource("5_cinzel")
+theme_override_font_sizes/font_size = 15
+text = "DREAMWEAVER"
+
+[node name="ObjectiveLabel" type="Label" parent="Root/QuestPlate/QuestCol"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(340, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.95, 0.9, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.9)
+theme_override_constants/outline_size = 8
+theme_override_fonts/font = ExtResource("6_crimson")
+theme_override_font_sizes/font_size = 24
+text = "-"
+autowrap_mode = 3
+
+[node name="QuestSteps" type="VBoxContainer" parent="Root/QuestPlate/QuestCol"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="VitalPlate" type="PanelContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -300.0
+offset_top = 22.0
+offset_right = -28.0
+offset_bottom = 128.0
+grow_horizontal = 0
+mouse_filter = 2
+
+[node name="VitalCol" type="VBoxContainer" parent="Root/VitalPlate"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="VitalHead" type="HBoxContainer" parent="Root/VitalPlate/VitalCol"]
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 10
+
+[node name="Hearts" type="Control" parent="Root/VitalPlate/VitalCol/VitalHead"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(78, 20)
+layout_mode = 2
+mouse_filter = 2
+script = ExtResource("4_hearts")
+
+[node name="HealthRow" type="HBoxContainer" parent="Root/VitalPlate/VitalCol"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 2
+
+[node name="HealthBar" type="ProgressBar" parent="Root/VitalPlate/VitalCol/HealthRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(168, 11)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_health_fill")
+value = 100.0
+show_percentage = false
+
+[node name="HealthValue" type="Label" parent="Root/VitalPlate/VitalCol/HealthRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.93, 0.86, 0.95)
+theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.85)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("5_cinzel")
+theme_override_font_sizes/font_size = 14
+text = "100"
+
+[node name="ChimeBar" type="ProgressBar" parent="Root/VitalPlate/VitalCol"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 6)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_chime_fill")
+value = 100.0
+show_percentage = false
+
+[node name="IntegrityBox" type="VBoxContainer" parent="Root/VitalPlate/VitalCol"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="IntegrityTag" type="Label" parent="Root/VitalPlate/VitalCol/IntegrityBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.72, 0.42, 0.75)
+theme_override_font_sizes/font_size = 11
+text = "LOOM"
+horizontal_alignment = 2
+
+[node name="IntegrityBar" type="ProgressBar" parent="Root/VitalPlate/VitalCol/IntegrityBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 7)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_integrity_fill")
+value = 100.0
+show_percentage = false
+
+[node name="BottomDock" type="Control" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -110.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="EssencePlate" type="PanelContainer" parent="Root/BottomDock"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -100.0
+offset_right = 400.0
+offset_bottom = -20.0
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="EssenceCol" type="VBoxContainer" parent="Root/BottomDock/EssencePlate"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="EssenceRow" type="HBoxContainer" parent="Root/BottomDock/EssencePlate/EssenceCol"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="ItemsLabel" type="Label" parent="Root/BottomDock/EssencePlate/EssenceCol"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.82, 0.68, 0.9)
+theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.85)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("6_crimson")
+theme_override_font_sizes/font_size = 14
+text = ""
+
+[node name="WeavePlate" type="PanelContainer" parent="Root/BottomDock"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -280.0
+offset_top = -100.0
+offset_right = -28.0
+offset_bottom = -20.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="WeaveCol" type="VBoxContainer" parent="Root/BottomDock/WeavePlate"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="WeaveHead" type="HBoxContainer" parent="Root/BottomDock/WeavePlate/WeaveCol"]
+layout_mode = 2
+alignment = 2
+
+[node name="WeaveLabel" type="Label" parent="Root/BottomDock/WeavePlate/WeaveCol/WeaveHead"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.84, 0.5, 0.95)
+theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.85)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("5_cinzel")
+theme_override_font_sizes/font_size = 13
+text = "0%"
+horizontal_alignment = 2
+
+[node name="WeaveBar" type="ProgressBar" parent="Root/BottomDock/WeavePlate/WeaveCol"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_weave_fill")
+show_percentage = false
+
+[node name="ScoreLabel" type="Label" parent="Root/BottomDock/WeavePlate/WeaveCol"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.93, 0.82, 0.92)
+theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.85)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("5_cinzel")
+theme_override_font_sizes/font_size = 18
+text = "0"
+horizontal_alignment = 2
+
+[node name="CenterTop" type="VBoxContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 200.0
+offset_top = 120.0
+offset_right = -200.0
+offset_bottom = 220.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="BannerPlate" type="PanelContainer" parent="Root/CenterTop"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+
+[node name="BannerLabel" type="Label" parent="Root/CenterTop/BannerPlate"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.93, 0.82, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.92)
+theme_override_constants/outline_size = 10
+theme_override_fonts/font = ExtResource("5_cinzel")
+theme_override_font_sizes/font_size = 26
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="ModeLabel" type="Label" parent="Root/CenterTop"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.9)
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = ExtResource("5_cinzel")
+theme_override_font_sizes/font_size = 18
+text = ""
+horizontal_alignment = 1
+
+[node name="CounterLabel" type="Label" parent="Root/CenterTop"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.93, 0.82, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.9)
+theme_override_constants/outline_size = 7
+theme_override_fonts/font = ExtResource("6_crimson")
+theme_override_font_sizes/font_size = 20
+text = ""
+horizontal_alignment = 1

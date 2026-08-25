@@ -1,0 +1,210 @@
+[gd_resource type="Theme" format=3 uid="uid://bwdreamtheme"]
+
+[ext_resource type="FontFile" path="res://assets/fonts/Cinzel-Regular.ttf" id="1_cinzel"]
+[ext_resource type="FontFile" path="res://assets/fonts/Cinzel-Bold.ttf" id="2_cinzel_b"]
+[ext_resource type="FontFile" path="res://assets/fonts/CrimsonPro-Regular.ttf" id="3_crimson"]
+[ext_resource type="FontFile" path="res://assets/fonts/CrimsonPro-Italic.ttf" id="4_crimson_i"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_normal"]
+bg_color = Color(0.055, 0.075, 0.149, 0.62)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.69, 0.541, 0.18, 0.42)
+content_margin_left = 28.0
+content_margin_top = 13.0
+content_margin_right = 28.0
+content_margin_bottom = 13.0
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+shadow_color = Color(0.969, 0.878, 0.643, 0.10)
+shadow_size = 10
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_hover"]
+bg_color = Color(0.086, 0.114, 0.227, 0.82)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.929, 0.82, 0.447, 0.85)
+content_margin_left = 28.0
+content_margin_top = 13.0
+content_margin_right = 28.0
+content_margin_bottom = 13.0
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+shadow_color = Color(0.969, 0.878, 0.643, 0.28)
+shadow_size = 18
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_pressed"]
+bg_color = Color(0.027, 0.035, 0.071, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.69, 0.541, 0.18, 0.7)
+content_margin_left = 28.0
+content_margin_top = 13.0
+content_margin_right = 28.0
+content_margin_bottom = 13.0
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_disabled"]
+bg_color = Color(0.055, 0.075, 0.149, 0.28)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.42, 0.38, 0.32, 0.28)
+content_margin_left = 28.0
+content_margin_top = 13.0
+content_margin_right = 28.0
+content_margin_bottom = 13.0
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_line"]
+bg_color = Color(0.027, 0.035, 0.071, 0.45)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.69, 0.541, 0.18, 0.35)
+content_margin_left = 14.0
+content_margin_top = 10.0
+content_margin_right = 14.0
+content_margin_bottom = 10.0
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_line_focus"]
+bg_color = Color(0.055, 0.075, 0.149, 0.62)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.929, 0.82, 0.447, 0.85)
+content_margin_left = 14.0
+content_margin_top = 10.0
+content_margin_right = 14.0
+content_margin_bottom = 10.0
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0.969, 0.878, 0.643, 0.22)
+shadow_size = 12
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.055, 0.075, 0.149, 0.78)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.69, 0.541, 0.18, 0.32)
+content_margin_left = 24.0
+content_margin_top = 20.0
+content_margin_right = 24.0
+content_margin_bottom = 18.0
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+shadow_color = Color(0.027, 0.035, 0.071, 0.55)
+shadow_size = 18
+anti_aliasing = true
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_ghost"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ghost_hover"]
+bg_color = Color(0.086, 0.114, 0.227, 0.35)
+border_width_bottom = 2
+border_color = Color(0.929, 0.82, 0.447, 1)
+content_margin_left = 16.0
+content_margin_top = 10.0
+content_margin_right = 16.0
+content_margin_bottom = 10.0
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+anti_aliasing = true
+
+[resource]
+default_font = ExtResource("3_crimson")
+default_font_size = 18
+Button/colors/font_color = Color(0.957, 0.918, 0.839, 1)
+Button/colors/font_disabled_color = Color(0.58, 0.55, 0.48, 0.5)
+Button/colors/font_focus_color = Color(0.973, 0.914, 0.659, 1)
+Button/colors/font_hover_color = Color(1, 0.973, 0.878, 1)
+Button/colors/font_pressed_color = Color(0.86, 0.76, 0.55, 1)
+Button/font_sizes/font_size = 16
+Button/fonts/font = ExtResource("2_cinzel_b")
+Button/styles/disabled = SubResource("StyleBoxFlat_btn_disabled")
+Button/styles/focus = SubResource("StyleBoxFlat_btn_hover")
+Button/styles/hover = SubResource("StyleBoxFlat_btn_hover")
+Button/styles/normal = SubResource("StyleBoxFlat_btn_normal")
+Button/styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
+ErrorLabel/base_type = "Label"
+ErrorLabel/colors/font_color = Color(0.886, 0.376, 0.29, 1)
+ErrorLabel/font_sizes/font_size = 15
+ErrorLabel/fonts/font = ExtResource("4_crimson_i")
+FieldLabel/base_type = "Label"
+FieldLabel/colors/font_color = Color(0.69, 0.541, 0.18, 0.92)
+FieldLabel/font_sizes/font_size = 12
+FieldLabel/fonts/font = ExtResource("1_cinzel")
+GhostButton/base_type = "Button"
+GhostButton/colors/font_color = Color(0.576, 0.651, 0.8, 0.92)
+GhostButton/colors/font_hover_color = Color(0.973, 0.914, 0.659, 1)
+GhostButton/colors/font_pressed_color = Color(0.69, 0.541, 0.18, 1)
+GhostButton/font_sizes/font_size = 16
+GhostButton/fonts/font = ExtResource("1_cinzel")
+GhostButton/styles/disabled = SubResource("StyleBoxEmpty_ghost")
+GhostButton/styles/focus = SubResource("StyleBoxFlat_ghost_hover")
+GhostButton/styles/hover = SubResource("StyleBoxFlat_ghost_hover")
+GhostButton/styles/normal = SubResource("StyleBoxEmpty_ghost")
+GhostButton/styles/pressed = SubResource("StyleBoxEmpty_ghost")
+HeaderLabel/base_type = "Label"
+HeaderLabel/colors/font_color = Color(0.973, 0.914, 0.659, 1)
+HeaderLabel/colors/font_outline_color = Color(0.027, 0.035, 0.071, 0.92)
+HeaderLabel/colors/font_shadow_color = Color(0.969, 0.878, 0.643, 0.28)
+HeaderLabel/constants/outline_size = 8
+HeaderLabel/constants/shadow_offset_x = 0
+HeaderLabel/constants/shadow_offset_y = 0
+HeaderLabel/constants/shadow_outline_size = 12
+HeaderLabel/font_sizes/font_size = 42
+HeaderLabel/fonts/font = ExtResource("2_cinzel_b")
+Label/colors/font_color = Color(0.957, 0.918, 0.839, 1)
+Label/fonts/font = ExtResource("3_crimson")
+LineEdit/colors/caret_color = Color(0.929, 0.82, 0.447, 1)
+LineEdit/colors/font_color = Color(0.957, 0.918, 0.839, 1)
+LineEdit/colors/font_placeholder_color = Color(0.576, 0.651, 0.8, 0.45)
+LineEdit/colors/selection_color = Color(0.388, 0.839, 0.776, 0.28)
+LineEdit/font_sizes/font_size = 18
+LineEdit/fonts/font = ExtResource("3_crimson")
+LineEdit/styles/focus = SubResource("StyleBoxFlat_line_focus")
+LineEdit/styles/normal = SubResource("StyleBoxFlat_line")
+LineEdit/styles/read_only = SubResource("StyleBoxFlat_line")
+PanelContainer/styles/panel = SubResource("StyleBoxFlat_panel")
+TaglineLabel/base_type = "Label"
+TaglineLabel/colors/font_color = Color(0.706, 0.659, 0.557, 0.92)
+TaglineLabel/font_sizes/font_size = 16
+TaglineLabel/fonts/font = ExtResource("4_crimson_i")

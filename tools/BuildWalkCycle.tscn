@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://b87p0sorxocrc"]
+
+[ext_resource type="Script" path="res://tools/build_walk_cycle.gd" id="1"]
+
+[node name="BuildWalkCycle" type="Node"]
+script = ExtResource("1")

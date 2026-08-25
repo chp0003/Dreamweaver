@@ -1,0 +1,122 @@
+[gd_scene format=3 uid="uid://bwdwending001"]
+
+[ext_resource type="Script" path="res://scripts/flow/ending.gd" id="1_ending"]
+[ext_resource type="Theme" uid="uid://bwdreamtheme" path="res://assets/themes/dreamweaver.tres" id="2_theme"]
+[ext_resource type="Script" path="res://scripts/flow/mountain_silhouette.gd" id="3_silhouette"]
+
+[node name="Ending" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_ending")
+
+[node name="Ridge" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_silhouette")
+art_path = ""
+sky_top = Color(0.114, 0.173, 0.251, 1)
+sky_horizon = Color(0.769, 0.478, 0.235, 1)
+moon_color = Color(0.973, 0.914, 0.659, 1)
+ridge_color = Color(0.086, 0.114, 0.086, 1)
+haze_color = Color(0.769, 0.478, 0.235, 1)
+moon_x = 0.22
+draw_stars = false
+
+[node name="Dim" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.03, 0.02, 0.02, 0.42)
+
+[node name="Layout" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 64
+theme_override_constants/margin_top = 32
+theme_override_constants/margin_right = 64
+theme_override_constants/margin_bottom = 28
+
+[node name="Column" type="VBoxContainer" parent="Layout"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Heading" type="Label" parent="Layout/Column"]
+layout_mode = 2
+theme_type_variation = &"FieldLabel"
+text = "THE DREAM IS FINISHED"
+horizontal_alignment = 1
+
+[node name="RankLabel" type="Label" parent="Layout/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+theme_override_font_sizes/font_size = 44
+text = "Dreamweaver"
+horizontal_alignment = 1
+
+[node name="ScoreLabel" type="Label" parent="Layout/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"TaglineLabel"
+theme_override_font_sizes/font_size = 20
+text = "Final score  0"
+horizontal_alignment = 1
+
+[node name="SummaryLabel" type="Label" parent="Layout/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"FieldLabel"
+theme_override_font_sizes/font_size = 13
+text = ""
+horizontal_alignment = 1
+
+[node name="Divider" type="HSeparator" parent="Layout/Column"]
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+
+[node name="Scroll" type="ScrollContainer" parent="Layout/Column"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="CreditsColumn" type="VBoxContainer" parent="Layout/Column/Scroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Buttons" type="HBoxContainer" parent="Layout/Column"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 14
+
+[node name="CodexButton" type="Button" parent="Layout/Column/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(230, 44)
+layout_mode = 2
+theme_type_variation = &"GhostButton"
+text = "LORE CODEX"
+
+[node name="GatewayButton" type="Button" parent="Layout/Column/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(230, 44)
+layout_mode = 2
+text = "THE GATEWAY"

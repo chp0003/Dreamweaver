@@ -1,0 +1,150 @@
+[gd_scene format=3 uid="uid://b86801jed5rfc"]
+
+[ext_resource type="Script" path="res://scripts/flow/gateway.gd" id="1_gateway"]
+[ext_resource type="Script" path="res://scripts/flow/mountain_silhouette.gd" id="2_silhouette"]
+[ext_resource type="Theme" uid="uid://bwdreamtheme" path="res://assets/themes/dreamweaver.tres" id="3_theme"]
+[ext_resource type="Texture2D" path="res://assets/images/ui/logo_emblem.png" id="4_emblem"]
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("3_theme")
+script = ExtResource("1_gateway")
+
+[node name="Backdrop" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_silhouette")
+
+[node name="Vignette" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.027, 0.035, 0.071, 0.28)
+
+[node name="Layout" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 72
+theme_override_constants/margin_top = 40
+theme_override_constants/margin_right = 72
+theme_override_constants/margin_bottom = 36
+
+[node name="Column" type="VBoxContainer" parent="Layout"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="Emblem" type="TextureRect" parent="Layout/Column"]
+custom_minimum_size = Vector2(0, 130)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("4_emblem")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="Layout/Column"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+theme_override_font_sizes/font_size = 54
+text = "DREAMWEAVER"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="Layout/Column"]
+layout_mode = 2
+theme_type_variation = &"TaglineLabel"
+theme_override_font_sizes/font_size = 20
+text = "The Legend of Fun Kdungon"
+horizontal_alignment = 1
+
+[node name="GatewayTag" type="Label" parent="Layout/Column"]
+layout_mode = 2
+theme_type_variation = &"FieldLabel"
+text = "THE GATEWAY"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="Layout/Column"]
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Buttons" type="VBoxContainer" parent="Layout/Column"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="NewGameButton" type="Button" parent="Layout/Column/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 50)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "NEW GAME"
+
+[node name="LoadGameButton" type="Button" parent="Layout/Column/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 50)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "LOAD GAME"
+
+[node name="CodexButton" type="Button" parent="Layout/Column/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 42)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_type_variation = &"GhostButton"
+text = "LORE CODEX"
+
+[node name="ExitButton" type="Button" parent="Layout/Column/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 42)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_type_variation = &"GhostButton"
+text = "EXIT"
+
+[node name="Spacer2" type="Control" parent="Layout/Column"]
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="ProgressLabel" type="Label" parent="Layout/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"FieldLabel"
+theme_override_font_sizes/font_size = 14
+text = ""
+horizontal_alignment = 1
+
+[node name="WelcomeLabel" type="Label" parent="Layout/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"TaglineLabel"
+text = "Welcome, weaver."
+horizontal_alignment = 1
+
+[node name="ConfirmDialog" type="ConfirmationDialog" parent="."]
+unique_name_in_owner = true
+title = "Unpick the current dream?"
+initial_position = 2
+size = Vector2i(460, 160)
+ok_button_text = "Begin anew"
+dialog_text = ""
+dialog_autowrap = true

@@ -1,0 +1,71 @@
+[gd_scene format=3 uid="uid://bwmenu001"]
+
+[ext_resource type="Script" uid="uid://dcqhuaix27qp2" path="res://scripts/main_menu.gd" id="1_menu"]
+
+[node name="MainMenu" type="Control" unique_id=1145162389]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_menu")
+
+[node name="Background" type="ColorRect" parent="." unique_id=1851565721]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.06, 0.08, 0.18, 1)
+
+[node name="Center" type="CenterContainer" parent="." unique_id=1529430543]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -1.0
+offset_right = -1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Center" unique_id=1304513667]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Title" type="Label" parent="Center/VBox" unique_id=559300889]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
+text = "Dreamweaver"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="Center/VBox" unique_id=566376893]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.75, 0.95, 1)
+theme_override_font_sizes/font_size = 18
+text = "A small dream prototype"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="Center/VBox" unique_id=915804698]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+
+[node name="StartButton" type="Button" parent="Center/VBox" unique_id=1813151763]
+custom_minimum_size = Vector2(220, 44)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Enter the Dream"
+
+[node name="QuitButton" type="Button" parent="Center/VBox" unique_id=541211774]
+custom_minimum_size = Vector2(220, 44)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Quit"
+
+[node name="Hint" type="Label" parent="Center/VBox" unique_id=1958092426]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 0.55, 0.7, 1)
+theme_override_font_sizes/font_size = 14
+text = "WASD move  |  Mouse look  |  Space jump  |  E interact"
+horizontal_alignment = 1

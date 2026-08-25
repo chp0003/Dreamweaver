@@ -1,0 +1,23 @@
+[gd_scene load_steps=4 format=3 uid="uid://bwnpc001"]
+
+[ext_resource type="Script" path="res://scripts/npc_visual.gd" id="1_npc_visual"]
+[ext_resource type="Script" path="res://scripts/npc_interaction.gd" id="2_npc_interaction"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_interact"]
+radius = 3.5
+
+[node name="NPC" type="Node3D"]
+script = ExtResource("1_npc_visual")
+
+[node name="Interaction" type="Node3D" parent="."]
+script = ExtResource("2_npc_interaction")
+
+[node name="InteractionArea" type="Area3D" parent="Interaction"]
+monitoring = true
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Interaction/InteractionArea"]
+shape = SubResource("SphereShape3D_interact")
+
+[node name="PromptAnchor" type="Node3D" parent="Interaction"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 0)

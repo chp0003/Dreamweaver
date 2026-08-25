@@ -1,0 +1,76 @@
+[gd_scene load_steps=5 format=3 uid="uid://bwmaingame001"]
+
+[ext_resource type="Script" path="res://scripts/main_game.gd" id="1_main"]
+[ext_resource type="Theme" uid="uid://bwdreamtheme" path="res://assets/themes/dreamweaver.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://assets/images/story/intro_05_journey.png" id="3_bg"]
+
+[sub_resource type="Gradient" id="Gradient_vig"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.03, 0.02, 0.01, 0.55, 0.03, 0.02, 0.01, 0.78)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_vig"]
+gradient = SubResource("Gradient_vig")
+width = 16
+height = 16
+
+[node name="MainGame" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_main")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("3_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Dim" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = SubResource("GradientTexture2D_vig")
+expand_mode = 1
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Column" type="VBoxContainer" parent="Center"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="StatusLabel" type="Label" parent="Center/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+theme_override_font_sizes/font_size = 40
+text = "The Houses of Weaving"
+horizontal_alignment = 1
+
+[node name="DetailLabel" type="Label" parent="Center/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"TaglineLabel"
+theme_override_font_sizes/font_size = 18
+text = ""
+horizontal_alignment = 1

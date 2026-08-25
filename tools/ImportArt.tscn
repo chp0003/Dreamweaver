@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://b87cdws8wgi8c"]
+
+[ext_resource type="Script" path="res://tools/import_art.gd" id="1_import"]
+
+[node name="ImportArt" type="Node"]
+script = ExtResource("1_import")

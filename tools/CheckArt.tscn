@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://b8647lg1dxlfc"]
+
+[ext_resource type="Script" path="res://tools/check_art.gd" id="1_check"]
+
+[node name="CheckArt" type="Node"]
+script = ExtResource("1_check")

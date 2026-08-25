@@ -1,0 +1,100 @@
+[gd_scene load_steps=5 format=3 uid="uid://b8680ti5ykjfc"]
+
+[ext_resource type="Script" path="res://scripts/ui/game_over.gd" id="1_gameover"]
+[ext_resource type="Theme" uid="uid://bwdreamtheme" path="res://assets/themes/dreamweaver.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://assets/images/story/intro_02_darkness.png" id="3_bg"]
+[ext_resource type="Script" path="res://scripts/ui/woven_frame.gd" id="4_frame"]
+
+[node name="GameOver" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_gameover")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("3_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Dim" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.027, 0.035, 0.071, 0.78)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(520, 0)
+layout_mode = 2
+script = ExtResource("4_frame")
+pad = 26
+lit = true
+draw_kleng = true
+header_band = true
+
+[node name="Column" type="VBoxContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="ReasonLabel" type="Label" parent="Center/Panel/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+theme_override_font_sizes/font_size = 40
+text = "The Pattern Loosened"
+horizontal_alignment = 1
+
+[node name="DetailLabel" type="Label" parent="Center/Panel/Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(520, 0)
+layout_mode = 2
+theme_type_variation = &"TaglineLabel"
+theme_override_font_sizes/font_size = 17
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="RetryButton" type="Button" parent="Center/Panel/Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 46)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Retake the House"
+
+[node name="HubButton" type="Button" parent="Center/Panel/Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 42)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_type_variation = &"GhostButton"
+text = "Return to the Hub"
+
+[node name="MenuButton" type="Button" parent="Center/Panel/Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_type_variation = &"GhostButton"
+text = "Return to the Gateway"

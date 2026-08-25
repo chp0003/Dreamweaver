@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://b87f6xxu36rfc"]
+
+[ext_resource type="Script" path="res://scripts/minigames/qte_sequence.gd" id="1_qte"]
+
+[node name="QteSequence" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("1_qte")
+compact = true
+time_limit = 0.0
+max_attempts = 3
+reward_score = 400
+prompt_count = 6

@@ -1,0 +1,48 @@
+[gd_scene format=3 uid="uid://bwdwhub000001"]
+
+[ext_resource type="Script" path="res://scripts/flow/hub_world.gd" id="1_hub"]
+[ext_resource type="Script" path="res://scripts/world/iso_floor.gd" id="2_floor"]
+[ext_resource type="PackedScene" uid="uid://bwdwhud0001" path="res://scenes/ui/Hud.tscn" id="3_hud"]
+[ext_resource type="PackedScene" uid="uid://bwdwdialogue01" path="res://scenes/ui/DialogueView.tscn" id="4_dialogue"]
+[ext_resource type="PackedScene" uid="uid://bwdwpause0001" path="res://scenes/ui/PauseMenu.tscn" id="5_pause"]
+
+[node name="HubWorld" type="Node2D"]
+script = ExtResource("1_hub")
+chapter_id = 0
+chapter_title = "The Ridge of the Five Houses"
+register_as_current_chapter = false
+player_spawn_cell = Vector2(7.4, 7.4)
+camera_zoom = Vector2(0.88, 0.88)
+camera_follows_player = true
+camera_anchor_cell = Vector2(0, 4)
+starting_gray = 1.0
+lock_input_when_finished = false
+
+[node name="Floor" type="Node2D" parent="."]
+script = ExtResource("2_floor")
+cols = 34
+rows = 30
+origin_cell = Vector2i(-16, -13)
+base_color = Color(0.36, 0.33, 0.29, 1)
+alt_color = Color(0.41, 0.38, 0.33, 1)
+grout_color = Color(0.2, 0.17, 0.14, 0.45)
+weave_accent = Color(0.5, 0.42, 0.3, 0.12)
+border_color = Color(0.5, 0.44, 0.36, 0.4)
+terrain_texture_path = "res://assets/images/environments/hub/tileset_ridge.png"
+scatter_detail = false
+
+[node name="World" type="Node2D" parent="."]
+y_sort_enabled = true
+
+[node name="Camera" type="Camera2D" parent="."]
+zoom = Vector2(0.88, 0.88)
+
+[node name="UiLayer" type="CanvasLayer" parent="."]
+layer = 120
+
+[node name="Hud" parent="." instance=ExtResource("3_hud")]
+
+[node name="Dialogue" parent="." instance=ExtResource("4_dialogue")]
+
+[node name="Pause" parent="." instance=ExtResource("5_pause")]
+allow_return_to_hub = false

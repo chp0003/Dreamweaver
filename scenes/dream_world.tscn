@@ -1,0 +1,89 @@
+[gd_scene load_steps=8 format=3 uid="uid://bwdream001"]
+
+[ext_resource type="Script" path="res://scripts/dream_world.gd" id="1_dream"]
+[ext_resource type="Script" path="res://scripts/world_builder.gd" id="2_world"]
+[ext_resource type="Script" path="res://scripts/dream_transformation.gd" id="3_transform"]
+[ext_resource type="PackedScene" uid="uid://bwplayer001" path="res://scenes/player.tscn" id="4_player"]
+[ext_resource type="PackedScene" uid="uid://bwnpc001" path="res://scenes/npc.tscn" id="5_npc"]
+[ext_resource type="PackedScene" uid="uid://bwdialogue001" path="res://scenes/ui/dialogue_box.tscn" id="6_dialogue"]
+[ext_resource type="PackedScene" uid="uid://bwchoices001" path="res://scenes/ui/choices_panel.tscn" id="7_choices"]
+
+[node name="DreamWorld" type="Node3D"]
+script = ExtResource("1_dream")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 10, 0)
+shadow_enabled = true
+
+[node name="WorldBuilder" type="Node3D" parent="."]
+script = ExtResource("2_world")
+
+[node name="Player" parent="." instance=ExtResource("4_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 8)
+
+[node name="NPC" parent="." instance=ExtResource("5_npc")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6)
+
+[node name="DreamTransformation" type="Node" parent="."]
+script = ExtResource("3_transform")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="InteractionPrompt" type="Label" parent="UI"]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -120.0
+offset_top = -80.0
+offset_right = 120.0
+offset_bottom = -50.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_font_sizes/font_size = 18
+text = "Press E to talk"
+horizontal_alignment = 1
+
+[node name="DialogueBox" parent="UI" instance=ExtResource("6_dialogue")]
+
+[node name="ChoicesPanel" parent="UI" instance=ExtResource("7_choices")]
+
+[node name="DreamCompletePanel" type="PanelContainer" parent="UI"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -120.0
+offset_right = 260.0
+offset_bottom = 120.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="UI/DreamCompletePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="UI/DreamCompletePanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="MessageLabel" type="Label" parent="UI/DreamCompletePanel/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Dream Complete"
+horizontal_alignment = 1
+
+[node name="ReturnButton" type="Button" parent="UI/DreamCompletePanel/Margin/VBox"]
+custom_minimum_size = Vector2(200, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Return to Menu"

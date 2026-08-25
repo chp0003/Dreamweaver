@@ -1,0 +1,339 @@
+[gd_scene load_steps=13 format=3 uid="uid://bwregister001"]
+
+[ext_resource type="Script" path="res://scripts/register.gd" id="1_register"]
+[ext_resource type="Theme" uid="uid://bwdreamtheme" path="res://assets/themes/dreamweaver.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://assets/images/ui/login_hero_cinematic.png" id="3_bg"]
+[ext_resource type="FontFile" path="res://assets/fonts/Cinzel-Bold.ttf" id="4_cinzel_b"]
+[ext_resource type="FontFile" path="res://assets/fonts/CrimsonPro-Italic.ttf" id="5_crimson_i"]
+[ext_resource type="FontFile" path="res://assets/fonts/CrimsonPro-Regular.ttf" id="6_crimson"]
+[ext_resource type="Script" path="res://scripts/ui/woven_frame.gd" id="7_frame"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_field"]
+bg_color = Color(0.027, 0.035, 0.071, 0.5)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.69, 0.541, 0.18, 0.4)
+content_margin_left = 14.0
+content_margin_top = 12.0
+content_margin_right = 14.0
+content_margin_bottom = 12.0
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_field_focus"]
+bg_color = Color(0.055, 0.075, 0.149, 0.72)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.929, 0.82, 0.447, 0.9)
+content_margin_left = 14.0
+content_margin_top = 12.0
+content_margin_right = 14.0
+content_margin_bottom = 12.0
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0.969, 0.878, 0.643, 0.25)
+shadow_size = 12
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cta"]
+bg_color = Color(0.62, 0.157, 0.137, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.886, 0.376, 0.29, 0.55)
+content_margin_left = 20.0
+content_margin_top = 14.0
+content_margin_right = 20.0
+content_margin_bottom = 14.0
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+shadow_color = Color(0.784, 0.208, 0.169, 0.4)
+shadow_size = 16
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cta_hover"]
+bg_color = Color(0.784, 0.208, 0.169, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.973, 0.914, 0.659, 0.7)
+content_margin_left = 20.0
+content_margin_top = 14.0
+content_margin_right = 20.0
+content_margin_bottom = 14.0
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+shadow_color = Color(0.886, 0.376, 0.29, 0.5)
+shadow_size = 20
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cta_pressed"]
+bg_color = Color(0.349, 0.078, 0.059, 1)
+content_margin_left = 20.0
+content_margin_top = 14.0
+content_margin_right = 20.0
+content_margin_bottom = 14.0
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+anti_aliasing = true
+
+[sub_resource type="Gradient" id="Gradient_wash"]
+offsets = PackedFloat32Array(0, 0.42, 0.72, 1)
+colors = PackedColorArray(0.027, 0.035, 0.071, 0.62, 0.027, 0.035, 0.071, 0.12, 0.055, 0.075, 0.149, 0.28, 0.027, 0.035, 0.071, 0.72)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_wash"]
+gradient = SubResource("Gradient_wash")
+fill_from = Vector2(0, 0.5)
+fill_to = Vector2(1, 0.5)
+width = 256
+height = 64
+
+[sub_resource type="Gradient" id="Gradient_bottom"]
+offsets = PackedFloat32Array(0, 0.55, 1)
+colors = PackedColorArray(0.027, 0.035, 0.071, 0, 0.027, 0.035, 0.071, 0.28, 0.027, 0.035, 0.071, 0.82)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_bottom"]
+gradient = SubResource("Gradient_bottom")
+fill_from = Vector2(0.5, 0)
+fill_to = Vector2(0.5, 1)
+width = 64
+height = 256
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_embers"]
+emission_shape = 3
+emission_box_extents = Vector3(640, 8, 1)
+direction = Vector3(0, -1, 0)
+spread = 28.0
+initial_velocity_min = 12.0
+initial_velocity_max = 36.0
+gravity = Vector3(0, -6, 0)
+scale_min = 0.4
+scale_max = 1.4
+color = Color(0.969, 0.878, 0.643, 0.85)
+
+[node name="Register" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_register")
+
+[node name="Background" type="TextureRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("3_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Wash" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = SubResource("GradientTexture2D_wash")
+expand_mode = 1
+
+[node name="BottomFade" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = SubResource("GradientTexture2D_bottom")
+expand_mode = 1
+
+[node name="Embers" type="GPUParticles2D" parent="."]
+unique_name_in_owner = true
+position = Vector2(640, 700)
+amount = 28
+process_material = SubResource("ParticleProcessMaterial_embers")
+lifetime = 4.5
+preprocess = 2.0
+visibility_rect = Rect2(-800, -800, 1600, 900)
+
+[node name="Brand" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 56.0
+offset_top = -280.0
+offset_right = 720.0
+offset_bottom = -56.0
+grow_vertical = 0
+
+[node name="Title" type="Label" parent="Brand"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -148.0
+offset_right = 640.0
+offset_bottom = -52.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.98, 0.93, 0.82, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.85)
+theme_override_constants/outline_size = 10
+theme_override_fonts/font = ExtResource("4_cinzel_b")
+theme_override_font_sizes/font_size = 64
+text = "DREAMWEAVER"
+vertical_alignment = 2
+
+[node name="Tagline" type="Label" parent="Brand"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -52.0
+offset_right = 560.0
+offset_bottom = -8.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.9, 0.82, 0.68, 0.92)
+theme_override_fonts/font = ExtResource("5_crimson_i")
+theme_override_font_sizes/font_size = 22
+text = "Take a name. Begin the weave."
+vertical_alignment = 1
+
+[node name="FormHost" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -440.0
+offset_top = -480.0
+offset_right = -40.0
+offset_bottom = -40.0
+grow_horizontal = 0
+grow_vertical = 0
+script = ExtResource("7_frame")
+pad = 22
+lit = true
+draw_kleng = true
+fill = Color(0.086, 0.114, 0.227, 0.92)
+
+[node name="Form" type="VBoxContainer" parent="FormHost"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="FormEyebrow" type="Label" parent="FormHost/Form"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.72, 0.42, 0.9)
+theme_override_fonts/font = ExtResource("6_crimson")
+theme_override_font_sizes/font_size = 13
+text = "CREATE YOUR ACCOUNT"
+
+[node name="UsernameLabel" type="Label" parent="FormHost/Form"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.72, 0.62, 0.85)
+theme_override_fonts/font = ExtResource("6_crimson")
+theme_override_font_sizes/font_size = 12
+text = "USERNAME"
+
+[node name="UsernameField" type="LineEdit" parent="FormHost/Form"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_field")
+theme_override_styles/focus = SubResource("StyleBoxFlat_field_focus")
+placeholder_text = "Choose a name"
+max_length = 24
+caret_blink = true
+
+[node name="PasswordLabel" type="Label" parent="FormHost/Form"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.72, 0.62, 0.85)
+theme_override_fonts/font = ExtResource("6_crimson")
+theme_override_font_sizes/font_size = 12
+text = "PASSWORD"
+
+[node name="PasswordField" type="LineEdit" parent="FormHost/Form"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_field")
+theme_override_styles/focus = SubResource("StyleBoxFlat_field_focus")
+placeholder_text = "At least 6 characters"
+secret = true
+secret_character = "•"
+caret_blink = true
+
+[node name="ConfirmLabel" type="Label" parent="FormHost/Form"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.72, 0.62, 0.85)
+theme_override_fonts/font = ExtResource("6_crimson")
+theme_override_font_sizes/font_size = 12
+text = "CONFIRM PASSWORD"
+
+[node name="ConfirmField" type="LineEdit" parent="FormHost/Form"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_field")
+theme_override_styles/focus = SubResource("StyleBoxFlat_field_focus")
+placeholder_text = "Repeat your password"
+secret = true
+secret_character = "•"
+caret_blink = true
+
+[node name="ErrorLabel" type="Label" parent="FormHost/Form"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.45, 0.38, 1)
+theme_override_font_sizes/font_size = 13
+autowrap_mode = 3
+
+[node name="RegisterButton" type="Button" parent="FormHost/Form"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_cinzel_b")
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_cta")
+theme_override_styles/hover = SubResource("StyleBoxFlat_cta_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_cta_pressed")
+text = "BEGIN"
+
+[node name="LoginButton" type="Button" parent="FormHost/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"GhostButton"
+theme_override_colors/font_color = Color(0.86, 0.78, 0.62, 0.9)
+theme_override_font_sizes/font_size = 14
+text = "Already weaving? Sign in"
+flat = true

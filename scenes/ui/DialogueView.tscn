@@ -1,0 +1,139 @@
+[gd_scene load_steps=9 format=3 uid="uid://bwdwdialogue01"]
+
+[ext_resource type="Script" path="res://scripts/ui/dialogue_view.gd" id="1_dialogue"]
+[ext_resource type="Theme" uid="uid://bwdreamtheme" path="res://assets/themes/dreamweaver.tres" id="2_theme"]
+[ext_resource type="FontFile" path="res://assets/fonts/Cinzel-Bold.ttf" id="3_cinzel"]
+[ext_resource type="FontFile" path="res://assets/fonts/CrimsonPro-Regular.ttf" id="4_crimson"]
+[ext_resource type="Script" path="res://scripts/ui/woven_frame.gd" id="5_frame"]
+
+[sub_resource type="Gradient" id="Gradient_bottom"]
+offsets = PackedFloat32Array(0, 0.4, 1)
+colors = PackedColorArray(0.027, 0.035, 0.071, 0, 0.027, 0.035, 0.071, 0.55, 0.027, 0.035, 0.071, 0.9)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_bottom"]
+gradient = SubResource("Gradient_bottom")
+fill_from = Vector2(0.5, 0)
+fill_to = Vector2(0.5, 1)
+width = 64
+height = 256
+
+[node name="DialogueView" type="CanvasLayer" groups=["dialogue_view"]]
+layer = 115
+script = ExtResource("1_dialogue")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("2_theme")
+
+[node name="BottomFade" type="TextureRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -280.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+texture = SubResource("GradientTexture2D_bottom")
+expand_mode = 1
+
+[node name="Dock" type="MarginContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -220.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_override_constants/margin_left = 96
+theme_override_constants/margin_right = 96
+theme_override_constants/margin_bottom = 36
+
+[node name="Column" type="VBoxContainer" parent="Root/Dock"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 12
+alignment = 2
+
+[node name="ChoiceBox" type="VBoxContainer" parent="Root/Dock/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Panel" type="PanelContainer" parent="Root/Dock/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+script = ExtResource("5_frame")
+pad = 20
+lit = true
+draw_kleng = true
+header_band = true
+
+[node name="Inner" type="HBoxContainer" parent="Root/Dock/Column/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="PortraitWell" type="PanelContainer" parent="Root/Dock/Column/Panel/Inner"]
+custom_minimum_size = Vector2(108, 148)
+layout_mode = 2
+mouse_filter = 2
+size_flags_vertical = 4
+
+[node name="Portrait" type="TextureRect" parent="Root/Dock/Column/Panel/Inner/PortraitWell"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 6
+texture_filter = 2
+
+[node name="TextColumn" type="VBoxContainer" parent="Root/Dock/Column/Panel/Inner"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="SpeakerLabel" type="Label" parent="Root/Dock/Column/Panel/Inner/TextColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.973, 0.914, 0.659, 0.95)
+theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.9)
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = ExtResource("3_cinzel")
+theme_override_font_sizes/font_size = 13
+text = "NARRATOR"
+
+[node name="TextLabel" type="Label" parent="Root/Dock/Column/Panel/Inner/TextColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(540, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.98, 0.95, 0.9, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.92)
+theme_override_constants/outline_size = 8
+theme_override_fonts/font = ExtResource("4_crimson")
+theme_override_font_sizes/font_size = 22
+text = ""
+vertical_alignment = 0
+autowrap_mode = 3
+
+[node name="ContinueHint" type="Label" parent="Root/Dock/Column/Panel/Inner/TextColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.72, 0.6, 0.75)
+theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.8)
+theme_override_constants/outline_size = 4
+theme_override_fonts/font = ExtResource("3_cinzel")
+theme_override_font_sizes/font_size = 11
+text = "E  ·  continue"
+horizontal_alignment = 2

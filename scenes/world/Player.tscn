@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://bwdwplayer001"]
+
+[ext_resource type="Script" path="res://scripts/world/player.gd" id="1_player"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_feet"]
+radius = 14.0
+
+[node name="Player" type="CharacterBody2D"]
+collision_layer = 1
+collision_mask = 4
+motion_mode = 1
+script = ExtResource("1_player")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -2)
+shape = SubResource("CircleShape2D_feet")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+offset = Vector2(0, -46)
+
+[node name="Swing" type="Node2D" parent="."]
+visible = false
+z_index = 10

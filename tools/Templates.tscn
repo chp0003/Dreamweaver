@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cipcsvf3epcf1"]
+
+[ext_resource type="Script" path="res://tools/generate_templates.gd" id="1_templates"]
+
+[node name="Templates" type="Node"]
+script = ExtResource("1_templates")

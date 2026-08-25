@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://bwdwmgfiber01"]
+
+[ext_resource type="Script" path="res://scripts/minigames/fiber_sorting.gd" id="1_fiber"]
+
+[node name="FiberSorting" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_fiber")
+time_limit = 50.0
+max_attempts = 3
+reward_score = 300
