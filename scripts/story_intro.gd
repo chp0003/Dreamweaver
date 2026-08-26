@@ -3,9 +3,6 @@ extends Control
 
 const CHARS_PER_SECOND := 52.0
 const SLIDE_FADE := 0.45
-const SEGMENT_HEIGHT := 5.0
-const SEGMENT_WIDTH := 40.0
-const SEGMENT_RADIUS := 3
 
 const SLIDES: Array[Dictionary] = [
 	{
@@ -51,7 +48,7 @@ const SLIDES: Array[Dictionary] = [
 @onready var title_label: Label = %TitleLabel
 @onready var narration_label: Label = %NarrationLabel
 @onready var continue_hint: Label = %ContinueHint
-@onready var progress_dots: HBoxContainer = %ProgressDots
+@onready var progress_dots: StoryProgress = %ProgressDots
 @onready var skip_button: Button = %SkipButton
 @onready var caption: Control = %Caption
 
@@ -60,14 +57,12 @@ var _typing: Tween
 var _slide_busy: bool = false
 var _hint_tween: Tween
 var _ken_burns: Tween
-var _pulse_tween: Tween
 var _line_length: int = 0
-var _dots: Array[Panel] = []
 
 
 func _ready() -> void:
 	skip_button.pressed.connect(_finish_intro)
-	_build_progress_dots()
+	progress_dots.set_progress(0, SLIDES.size())
 	_pulse_hint()
 	_show_slide(0, false)
 
@@ -110,7 +105,7 @@ func _on_advance() -> void:
 
 func _show_slide(index: int, animate: bool) -> void:
 	_index = index
-	_refresh_dots()
+	progress_dots.set_progress(_index, SLIDES.size())
 	continue_hint.text = "Continue  →" if _index < SLIDES.size() - 1 else "Begin the journey  →"
 
 	if animate:
@@ -198,73 +193,6 @@ func _kill_typing() -> void:
 	if _typing != null and _typing.is_valid():
 		_typing.kill()
 	_typing = null
-
-
-func _build_progress_dots() -> void:
-	for child in progress_dots.get_children():
-		child.queue_free()
-	_dots.clear()
-	for _i in range(SLIDES.size()):
-		var segment := Panel.new()
-		# Fixed-size ticks. HBox would otherwise stretch ColorRect/Panel children
-		# across the full top bar — that is what made the old bars look so ugly.
-		segment.custom_minimum_size = Vector2(SEGMENT_WIDTH, SEGMENT_HEIGHT)
-		segment.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		segment.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		segment.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		segment.add_theme_stylebox_override("panel", _segment_style(false, false))
-		progress_dots.add_child(segment)
-		_dots.append(segment)
-
-
-func _refresh_dots() -> void:
-	if _pulse_tween != null and _pulse_tween.is_valid():
-		_pulse_tween.kill()
-	_pulse_tween = null
-
-	for i in range(_dots.size()):
-		var segment := _dots[i]
-		var is_active := i == _index
-		var is_done := i < _index
-		segment.add_theme_stylebox_override("panel", _segment_style(is_active, is_done))
-		segment.modulate = Color.WHITE
-		if is_active:
-			_pulse_active_segment(segment)
-
-
-func _segment_style(is_active: bool, is_done: bool) -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.set_corner_radius_all(SEGMENT_RADIUS)
-	box.anti_aliasing = true
-	if is_active:
-		# Lit spindle thread — the slide you're on.
-		box.bg_color = Palette.GOLD_SUN
-		box.set_border_width_all(1)
-		box.border_color = Palette.alpha(Palette.GOLD_SACRED, 0.85)
-		box.shadow_color = Palette.alpha(Palette.DREAM_LANTERN, 0.35)
-		box.shadow_size = 3
-	elif is_done:
-		# Already woven — solid brass, quieter than the active thread.
-		box.bg_color = Palette.alpha(Palette.GOLD_SACRED, 0.92)
-		box.set_border_width_all(0)
-		box.shadow_size = 0
-	else:
-		# Empty loom slot — dark recessed track so it stays readable on any art.
-		box.bg_color = Palette.alpha(Palette.DREAM_ABYSS, 0.55)
-		box.set_border_width_all(1)
-		box.border_color = Palette.alpha(Palette.GOLD_BRASS, 0.5)
-		box.shadow_size = 0
-	return box
-
-
-func _pulse_active_segment(segment: Panel) -> void:
-	segment.modulate = Color(1.0, 1.0, 1.0, 0.85)
-	_pulse_tween = create_tween()
-	_pulse_tween.set_loops()
-	_pulse_tween.tween_property(segment, "modulate:a", 1.0, 0.9)\
-		.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
-	_pulse_tween.tween_property(segment, "modulate:a", 0.7, 0.9)\
-		.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
 
 
 func _pulse_hint() -> void:

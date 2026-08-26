@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://bxw8sgtm261ey"]
+[gd_scene load_steps=11 format=3 uid="uid://bxw8sgtm261ey"]
 
 [ext_resource type="Script" path="res://scripts/story_intro.gd" id="1_intro"]
 [ext_resource type="Theme" uid="uid://bwdreamtheme" path="res://assets/themes/dreamweaver.tres" id="2_theme"]
@@ -6,6 +6,7 @@
 [ext_resource type="FontFile" path="res://assets/fonts/Cinzel-Bold.ttf" id="4_cinzel_b"]
 [ext_resource type="FontFile" path="res://assets/fonts/CrimsonPro-Regular.ttf" id="5_crimson"]
 [ext_resource type="FontFile" path="res://assets/fonts/CrimsonPro-Italic.ttf" id="6_crimson_i"]
+[ext_resource type="Script" path="res://scripts/ui/story_progress.gd" id="7_progress"]
 
 [sub_resource type="Gradient" id="Gradient_bottom"]
 offsets = PackedFloat32Array(0, 0.35, 0.7, 1)
@@ -20,7 +21,7 @@ height = 256
 
 [sub_resource type="Gradient" id="Gradient_top"]
 offsets = PackedFloat32Array(0, 1)
-colors = PackedColorArray(0.02, 0.015, 0.02, 0.55, 0.02, 0.015, 0.02, 0)
+colors = PackedColorArray(0.02, 0.015, 0.02, 0.28, 0.02, 0.015, 0.02, 0)
 
 [sub_resource type="GradientTexture2D" id="GradientTexture2D_top"]
 gradient = SubResource("Gradient_top")
@@ -85,7 +86,7 @@ stretch_mode = 6
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 120.0
+offset_bottom = 72.0
 grow_horizontal = 2
 mouse_filter = 2
 texture = SubResource("GradientTexture2D_top")
@@ -108,7 +109,7 @@ expand_mode = 1
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 28.0
+offset_bottom = 16.0
 grow_horizontal = 2
 mouse_filter = 2
 color = Color(0.02, 0.015, 0.02, 1)
@@ -119,7 +120,7 @@ anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -28.0
+offset_top = -16.0
 grow_horizontal = 2
 grow_vertical = 0
 mouse_filter = 2
@@ -129,28 +130,27 @@ color = Color(0.02, 0.015, 0.02, 1)
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 64.0
+offset_bottom = 52.0
 grow_horizontal = 2
 mouse_filter = 2
-theme_override_constants/margin_left = 48
-theme_override_constants/margin_top = 34
-theme_override_constants/margin_right = 40
+theme_override_constants/margin_left = 36
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 28
 
 [node name="TopRow" type="HBoxContainer" parent="TopBar"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 20
+theme_override_constants/separation = 24
 alignment = 1
 
-[node name="ProgressDots" type="HBoxContainer" parent="TopBar/TopRow"]
+[node name="ProgressDots" type="Control" parent="TopBar/TopRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 5)
+custom_minimum_size = Vector2(0, 4)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 4
 mouse_filter = 2
-theme_override_constants/separation = 8
-alignment = 0
+script = ExtResource("7_progress")
 
 [node name="SkipButton" type="Button" parent="TopBar/TopRow"]
 unique_name_in_owner = true
