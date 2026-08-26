@@ -239,15 +239,15 @@ func _segment_style(is_active: bool, is_done: bool) -> StyleBoxFlat:
 	if is_active:
 		# Lit spindle thread — the slide you're on.
 		box.bg_color = Palette.GOLD_SUN
-		box.set_border_width_all(0)
-		box.shadow_color = Palette.alpha(Palette.DREAM_LANTERN, 0.45)
-		box.shadow_size = 6
+		box.set_border_width_all(1)
+		box.border_color = Palette.alpha(Palette.GOLD_SACRED, 0.85)
+		box.shadow_color = Palette.alpha(Palette.DREAM_LANTERN, 0.35)
+		box.shadow_size = 3
 	elif is_done:
 		# Already woven — solid brass, quieter than the active thread.
-		box.bg_color = Palette.alpha(Palette.GOLD_SACRED, 0.9)
+		box.bg_color = Palette.alpha(Palette.GOLD_SACRED, 0.92)
 		box.set_border_width_all(0)
-		box.shadow_color = Palette.alpha(Palette.GOLD_BRASS, 0.18)
-		box.shadow_size = 3
+		box.shadow_size = 0
 	else:
 		# Empty loom slot — dark recessed track so it stays readable on any art.
 		box.bg_color = Palette.alpha(Palette.DREAM_ABYSS, 0.55)
