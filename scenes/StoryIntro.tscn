@@ -144,13 +144,13 @@ alignment = 1
 
 [node name="ProgressDots" type="HBoxContainer" parent="TopBar/TopRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 4)
+custom_minimum_size = Vector2(0, 5)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 4
 mouse_filter = 2
-theme_override_constants/separation = 6
-alignment = 1
+theme_override_constants/separation = 8
+alignment = 0
 
 [node name="SkipButton" type="Button" parent="TopBar/TopRow"]
 unique_name_in_owner = true

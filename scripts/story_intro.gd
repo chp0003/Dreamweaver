@@ -3,8 +3,9 @@ extends Control
 
 const CHARS_PER_SECOND := 52.0
 const SLIDE_FADE := 0.45
-const SEGMENT_HEIGHT := 4.0
-const SEGMENT_RADIUS := 2
+const SEGMENT_HEIGHT := 5.0
+const SEGMENT_WIDTH := 40.0
+const SEGMENT_RADIUS := 3
 
 const SLIDES: Array[Dictionary] = [
 	{
@@ -205,9 +206,10 @@ func _build_progress_dots() -> void:
 	_dots.clear()
 	for _i in range(SLIDES.size()):
 		var segment := Panel.new()
-		# Expand across the top row, but never stretch taller than a thin thread.
-		segment.custom_minimum_size = Vector2(24, SEGMENT_HEIGHT)
-		segment.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Fixed-size ticks. HBox would otherwise stretch ColorRect/Panel children
+		# across the full top bar — that is what made the old bars look so ugly.
+		segment.custom_minimum_size = Vector2(SEGMENT_WIDTH, SEGMENT_HEIGHT)
+		segment.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		segment.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		segment.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		segment.add_theme_stylebox_override("panel", _segment_style(false, false))
@@ -233,18 +235,24 @@ func _refresh_dots() -> void:
 func _segment_style(is_active: bool, is_done: bool) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.set_corner_radius_all(SEGMENT_RADIUS)
-	box.set_border_width_all(0)
 	box.anti_aliasing = true
 	if is_active:
+		# Lit spindle thread — the slide you're on.
 		box.bg_color = Palette.GOLD_SUN
-		box.shadow_color = Palette.alpha(Palette.DREAM_LANTERN, 0.55)
-		box.shadow_size = 8
+		box.set_border_width_all(0)
+		box.shadow_color = Palette.alpha(Palette.DREAM_LANTERN, 0.45)
+		box.shadow_size = 6
 	elif is_done:
-		box.bg_color = Palette.alpha(Palette.GOLD_SACRED, 0.72)
+		# Already woven — solid brass, quieter than the active thread.
+		box.bg_color = Palette.alpha(Palette.GOLD_SACRED, 0.9)
+		box.set_border_width_all(0)
 		box.shadow_color = Palette.alpha(Palette.GOLD_BRASS, 0.18)
 		box.shadow_size = 3
 	else:
-		box.bg_color = Palette.alpha(Palette.GOLD_BRASS, 0.28)
+		# Empty loom slot — dark recessed track so it stays readable on any art.
+		box.bg_color = Palette.alpha(Palette.DREAM_ABYSS, 0.55)
+		box.set_border_width_all(1)
+		box.border_color = Palette.alpha(Palette.GOLD_BRASS, 0.5)
 		box.shadow_size = 0
 	return box
 
