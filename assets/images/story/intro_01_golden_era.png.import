@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bai467yfxx2yw"
-path="res://.godot/imported/intro_03_fun_kdungon.png-f32a8f93d6cf1828a22b7b8d146d6ab6.ctex"
+uid="uid://dq3w5kd7e65cf"
+path="res://.godot/imported/intro_01_golden_era.png-672b01fa02ea08a7c2fc936fad1a10c4.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/images/story/intro_03_fun_kdungon.png"
-dest_files=["res://.godot/imported/intro_03_fun_kdungon.png-f32a8f93d6cf1828a22b7b8d146d6ab6.ctex"]
+source_file="res://assets/images/story/intro_01_golden_era.png"
+dest_files=["res://.godot/imported/intro_01_golden_era.png-672b01fa02ea08a7c2fc936fad1a10c4.ctex"]
 
 [params]
 

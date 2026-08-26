@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/story_intro.gd" id="1_intro"]
 [ext_resource type="Theme" uid="uid://bwdreamtheme" path="res://assets/themes/dreamweaver.tres" id="2_theme"]
-[ext_resource type="Texture2D" path="res://assets/images/story/intro_01_sacred_world.png" id="3_art"]
+[ext_resource type="Texture2D" path="res://assets/images/story/intro_01_golden_era.png" id="3_art"]
 [ext_resource type="FontFile" path="res://assets/fonts/Cinzel-Bold.ttf" id="4_cinzel_b"]
 [ext_resource type="FontFile" path="res://assets/fonts/CrimsonPro-Regular.ttf" id="5_crimson"]
 [ext_resource type="FontFile" path="res://assets/fonts/CrimsonPro-Italic.ttf" id="6_crimson_i"]

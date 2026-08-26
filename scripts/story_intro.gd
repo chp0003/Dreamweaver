@@ -7,38 +7,31 @@ const SLIDE_FADE := 0.45
 const SLIDES: Array[Dictionary] = [
 	{
 		"chapter": "PROLOGUE  ·  I",
-		"title": "The Cloth of the World",
-		"texture": "res://assets/images/story/intro_01_sacred_world.png",
-		"text": "In the time before forgetting, the world was a cloth.\n\nBlack was the foundation. Red was courage. Gold was the sun-thread. From these sacred colors the ancestors wove balance itself — and they called this work Dreamweaving.",
+		"title": "The Golden Era",
+		"texture": "res://assets/images/story/intro_01_golden_era.png",
+		"text": "Long ago, our world was a living tapestry. Every thread held a story, and every vibrant color—the deep blacks, the bright reds, the shining golds—was a sign of life and heritage.",
 		"pan": Vector2(1.04, 1.04),
 	},
 	{
 		"chapter": "PROLOGUE  ·  II",
-		"title": "The Forgetting",
-		"texture": "res://assets/images/story/intro_02_darkness.png",
-		"text": "Then a grayness came that did not belong to night.\n\nIt crept between the threads. Patterns sung for generations began to loosen — not torn in anger, but forgotten. The Houses of Weaving grew dim. The world began to fray.",
-		"pan": Vector2(1.06, 1.03),
+		"title": "The Covenant of the Loom",
+		"texture": "res://assets/images/story/intro_02_covenant_loom.png",
+		"text": "The spirits blessed our weavers with sacred dreams (damgo), guiding our hands to create the T’nalak cloth. We were the guardians of these colors, keeping our culture alive through every stitch.",
+		"pan": Vector2(1.05, 1.03),
 	},
 	{
 		"chapter": "PROLOGUE  ·  III",
-		"title": "Fun Kdungon",
-		"texture": "res://assets/images/story/intro_03_fun_kdungon.png",
-		"text": "In a dream thick as abaca, she came.\n\nFun Kdungon — Goddess of Weaving, keeper of the sacred cloth. She looked upon the loosening world, and upon a sleeping village, and she chose not a warrior — but a weaver. Young. Ordinary. Listening.",
-		"pan": Vector2(1.05, 1.05),
+		"title": "The Great Bleaching",
+		"texture": "res://assets/images/story/intro_03_great_bleaching.png",
+		"text": "But as time passed, a shadow crept in—the Shadow of Forgetfulness. We began to neglect our traditions and forgot the old ways. When we stopped caring for our heritage, the spirits grew silent. The colors fled. Our world unraveled into gray.",
+		"pan": Vector2(1.06, 1.04),
 	},
 	{
 		"chapter": "PROLOGUE  ·  IV",
-		"title": "The Dreamweaver",
-		"texture": "res://assets/images/story/intro_04_slang_chosen.png",
-		"text": "S'lang, daughter of the loom — I name you Dreamweaver.\n\nTake up the threads I place in your hands. Walk the Houses of Black Foundation, Red Courage, Golden Sun, and the Dream Ancestors. Restore what the forgetting has unmade.",
-		"pan": Vector2(1.03, 1.06),
-	},
-	{
-		"chapter": "PROLOGUE  ·  V",
-		"title": "The Road Beyond",
-		"texture": "res://assets/images/story/intro_05_journey.png",
-		"text": "S'lang woke with gold still burning behind her eyes, and a road she had never walked waiting beyond the door.\n\nThe houses waited. The colors waited. And the cloth of the world, though thinning, had not yet torn.",
-		"pan": Vector2(1.05, 1.04),
+		"title": "The Last Spark",
+		"texture": "res://assets/images/story/intro_04_last_spark.png",
+		"text": "The colors... they're gone. The loom is silent. How can I weave a dream when the world itself has unraveled?\n\nThe bleaching has taken everyone, S'lang. But the rhythm still beats in you. Enter the ancestral houses, gather the lost essences, and weave the colors back to life.",
+		"pan": Vector2(1.03, 1.05),
 	},
 ]
 
@@ -106,7 +99,7 @@ func _on_advance() -> void:
 func _show_slide(index: int, animate: bool) -> void:
 	_index = index
 	_set_progress(_index)
-	continue_hint.text = "Continue  →" if _index < SLIDES.size() - 1 else "Begin the journey  →"
+	continue_hint.text = "Continue  →" if _index < SLIDES.size() - 1 else "Take up the Lewet Staff  →"
 
 	if animate:
 		_slide_busy = true

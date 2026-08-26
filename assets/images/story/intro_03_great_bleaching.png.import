@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dygvb4swcfhvk"
-path="res://.godot/imported/intro_01_sacred_world.png-4a1424a9870dc402d00e6fea07cb1129.ctex"
+uid="uid://dcm3tfvkix0ad"
+path="res://.godot/imported/intro_03_great_bleaching.png-99b43bfaeaac1004e1592ed18291c34d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/images/story/intro_01_sacred_world.png"
-dest_files=["res://.godot/imported/intro_01_sacred_world.png-4a1424a9870dc402d00e6fea07cb1129.ctex"]
+source_file="res://assets/images/story/intro_03_great_bleaching.png"
+dest_files=["res://.godot/imported/intro_03_great_bleaching.png-99b43bfaeaac1004e1592ed18291c34d.ctex"]
 
 [params]
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dovlxgunnv54n"
-path="res://.godot/imported/intro_02_darkness.png-01d3259f2e54a099a16770cccd99fa9e.ctex"
+uid="uid://b2lyqcfscaa1x"
+path="res://.godot/imported/intro_04_last_spark.png-dffbf9f816ab00d4220fc01ef12bf5ce.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/images/story/intro_02_darkness.png"
-dest_files=["res://.godot/imported/intro_02_darkness.png-01d3259f2e54a099a16770cccd99fa9e.ctex"]
+source_file="res://assets/images/story/intro_04_last_spark.png"
+dest_files=["res://.godot/imported/intro_04_last_spark.png-dffbf9f816ab00d4220fc01ef12bf5ce.ctex"]
 
 [params]
 

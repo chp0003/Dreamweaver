@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://du3f44cjj0jis"
-path="res://.godot/imported/intro_04_slang_chosen.png-dc7ac44e590f8e745491f2ae52c69615.ctex"
+uid="uid://c4me5xjl5qhkg"
+path="res://.godot/imported/intro_02_covenant_loom.png-704c388968bc5744c02ac5eee772700d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/images/story/intro_04_slang_chosen.png"
-dest_files=["res://.godot/imported/intro_04_slang_chosen.png-dc7ac44e590f8e745491f2ae52c69615.ctex"]
+source_file="res://assets/images/story/intro_02_covenant_loom.png"
+dest_files=["res://.godot/imported/intro_02_covenant_loom.png-704c388968bc5744c02ac5eee772700d.ctex"]
 
 [params]
 
