@@ -3,6 +3,8 @@ extends Control
 
 const CHARS_PER_SECOND := 52.0
 const SLIDE_FADE := 0.45
+const SEGMENT_HEIGHT := 4.0
+const SEGMENT_RADIUS := 2
 
 const SLIDES: Array[Dictionary] = [
 	{
@@ -57,8 +59,9 @@ var _typing: Tween
 var _slide_busy: bool = false
 var _hint_tween: Tween
 var _ken_burns: Tween
+var _pulse_tween: Tween
 var _line_length: int = 0
-var _dots: Array[ColorRect] = []
+var _dots: Array[Panel] = []
 
 
 func _ready() -> void:
@@ -201,18 +204,59 @@ func _build_progress_dots() -> void:
 		child.queue_free()
 	_dots.clear()
 	for _i in range(SLIDES.size()):
-		var dot := ColorRect.new()
-		dot.custom_minimum_size = Vector2(28, 3)
-		dot.color = Color(0.86, 0.72, 0.42, 0.25)
-		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		progress_dots.add_child(dot)
-		_dots.append(dot)
+		var segment := Panel.new()
+		# Expand across the top row, but never stretch taller than a thin thread.
+		segment.custom_minimum_size = Vector2(24, SEGMENT_HEIGHT)
+		segment.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		segment.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		segment.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		segment.add_theme_stylebox_override("panel", _segment_style(false, false))
+		progress_dots.add_child(segment)
+		_dots.append(segment)
 
 
 func _refresh_dots() -> void:
+	if _pulse_tween != null and _pulse_tween.is_valid():
+		_pulse_tween.kill()
+	_pulse_tween = null
+
 	for i in range(_dots.size()):
-		_dots[i].color = Color(0.95, 0.84, 0.5, 1.0) if i == _index \
-			else (Color(0.86, 0.72, 0.42, 0.55) if i < _index else Color(0.86, 0.72, 0.42, 0.22))
+		var segment := _dots[i]
+		var is_active := i == _index
+		var is_done := i < _index
+		segment.add_theme_stylebox_override("panel", _segment_style(is_active, is_done))
+		segment.modulate = Color.WHITE
+		if is_active:
+			_pulse_active_segment(segment)
+
+
+func _segment_style(is_active: bool, is_done: bool) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.set_corner_radius_all(SEGMENT_RADIUS)
+	box.set_border_width_all(0)
+	box.anti_aliasing = true
+	if is_active:
+		box.bg_color = Palette.GOLD_SUN
+		box.shadow_color = Palette.alpha(Palette.DREAM_LANTERN, 0.55)
+		box.shadow_size = 8
+	elif is_done:
+		box.bg_color = Palette.alpha(Palette.GOLD_SACRED, 0.72)
+		box.shadow_color = Palette.alpha(Palette.GOLD_BRASS, 0.18)
+		box.shadow_size = 3
+	else:
+		box.bg_color = Palette.alpha(Palette.GOLD_BRASS, 0.28)
+		box.shadow_size = 0
+	return box
+
+
+func _pulse_active_segment(segment: Panel) -> void:
+	segment.modulate = Color(1.0, 1.0, 1.0, 0.85)
+	_pulse_tween = create_tween()
+	_pulse_tween.set_loops()
+	_pulse_tween.tween_property(segment, "modulate:a", 1.0, 0.9)\
+		.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+	_pulse_tween.tween_property(segment, "modulate:a", 0.7, 0.9)\
+		.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
 
 
 func _pulse_hint() -> void:
