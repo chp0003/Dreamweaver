@@ -48,7 +48,7 @@ const SLIDES: Array[Dictionary] = [
 @onready var title_label: Label = %TitleLabel
 @onready var narration_label: Label = %NarrationLabel
 @onready var continue_hint: Label = %ContinueHint
-@onready var progress_dots: StoryProgress = %ProgressDots
+@onready var progress_dots: Control = %ProgressDots
 @onready var skip_button: Button = %SkipButton
 @onready var caption: Control = %Caption
 
@@ -62,7 +62,7 @@ var _line_length: int = 0
 
 func _ready() -> void:
 	skip_button.pressed.connect(_finish_intro)
-	progress_dots.set_progress(0, SLIDES.size())
+	_set_progress(0)
 	_pulse_hint()
 	_show_slide(0, false)
 
@@ -105,7 +105,7 @@ func _on_advance() -> void:
 
 func _show_slide(index: int, animate: bool) -> void:
 	_index = index
-	progress_dots.set_progress(_index, SLIDES.size())
+	_set_progress(_index)
 	continue_hint.text = "Continue  →" if _index < SLIDES.size() - 1 else "Begin the journey  →"
 
 	if animate:
@@ -193,6 +193,11 @@ func _kill_typing() -> void:
 	if _typing != null and _typing.is_valid():
 		_typing.kill()
 	_typing = null
+
+
+func _set_progress(slide_index: int) -> void:
+	if progress_dots != null and progress_dots.has_method("set_progress"):
+		progress_dots.call("set_progress", slide_index, SLIDES.size())
 
 
 func _pulse_hint() -> void:

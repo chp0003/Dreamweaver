@@ -130,11 +130,11 @@ color = Color(0.02, 0.015, 0.02, 1)
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 52.0
+offset_bottom = 56.0
 grow_horizontal = 2
 mouse_filter = 2
 theme_override_constants/margin_left = 36
-theme_override_constants/margin_top = 24
+theme_override_constants/margin_top = 22
 theme_override_constants/margin_right = 28
 
 [node name="TopRow" type="HBoxContainer" parent="TopBar"]
@@ -145,7 +145,7 @@ alignment = 1
 
 [node name="ProgressDots" type="Control" parent="TopBar/TopRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 4)
+custom_minimum_size = Vector2(0, 14)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 4
