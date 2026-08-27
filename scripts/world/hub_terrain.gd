@@ -132,16 +132,18 @@ func _paint_roads() -> void:
 		var along_x := absi(delta.x) >= absi(delta.y)
 		var wood := PATH_WOOD_A if along_x else PATH_WOOD_B
 		_paint_run(a, b, wood, wood)
-		# Soft dirt shoulders so the boardwalk sits in the field.
+		# Twin-plank width + moss shoulders so the X reads as a real boardwalk.
 		var steps := maxi(absi(delta.x), absi(delta.y))
 		for i in range(steps + 1):
 			var t := 0.0 if steps == 0 else float(i) / float(steps)
 			var c := Vector2i(roundi(lerpf(a.x, b.x, t)), roundi(lerpf(a.y, b.y, t)))
 			if along_x:
-				_set_tile_soft(c + Vector2i(0, 1), _pick(DIRT_MOSS, c))
+				_set_tile(c + Vector2i(0, 1), wood)
+				_set_tile_soft(c + Vector2i(0, 2), _pick(DIRT_MOSS, c))
 				_set_tile_soft(c + Vector2i(0, -1), _pick(DIRT_MOSS, c + Vector2i(1, 0)))
 			else:
-				_set_tile_soft(c + Vector2i(1, 0), _pick(DIRT_MOSS, c))
+				_set_tile(c + Vector2i(1, 0), wood)
+				_set_tile_soft(c + Vector2i(2, 0), _pick(DIRT_MOSS, c))
 				_set_tile_soft(c + Vector2i(-1, 0), _pick(DIRT_MOSS, c + Vector2i(0, 1)))
 
 
@@ -185,55 +187,82 @@ func _paint_ring() -> void:
 
 func _paint_quadrant_features() -> void:
 	# NW deep pond with rock accents
-	_paint_blob(Vector2i(-7, -7), 3, WATER)
+	_paint_blob(Vector2i(-7, -7), 4, WATER)
 	_set_tile(Vector2i(-7, -7), WATER_SHINE)
 	_set_tile(Vector2i(-6, -8), _pick(WATER_RIPPLE, Vector2i(-6, -8)))
 	_set_tile(Vector2i(-8, -6), _pick(WATER_ROCK, Vector2i(-8, -6)))
 	_set_tile(Vector2i(-5, -7), _pick(WATER_ROCK, Vector2i(-5, -7)))
-	_paint_blob(Vector2i(-9, -5), 1, _pick(DIRT_MOSS, Vector2i(-9, -5)))
+	_set_tile(Vector2i(-9, -8), _pick(WATER_ROCK, Vector2i(-9, -8)))
+	_paint_blob(Vector2i(-10, -5), 2, _pick(DIRT_MOSS, Vector2i(-10, -5)))
+	_set_decor(Vector2i(-10, -4), _pick(DECOR_BUSH, Vector2i(-10, -4)))
+	_set_decor(Vector2i(-5, -9), _pick(DECOR_TALL, Vector2i(-5, -9)))
 
 	# NE flower / garden patio
-	_paint_blob(Vector2i(7, -7), 2, _pick(DIRT, Vector2i(7, -7)))
+	_paint_blob(Vector2i(7, -7), 3, _pick(DIRT, Vector2i(7, -7)))
 	_set_tile(Vector2i(7, -7), PATH_BRICK)
+	_set_tile(Vector2i(8, -7), PATH_FLAG)
 	_set_tile(Vector2i(6, -8), _pick(GRASS_LUSH, Vector2i(6, -8)))
 	_set_tile(Vector2i(8, -6), _pick(GRASS_LUSH, Vector2i(8, -6)))
-	_set_decor(Vector2i(6, -7), _pick(DECOR_FLOWER, Vector2i(6, -7)))
-	_set_decor(Vector2i(8, -7), _pick(DECOR_FLOWER, Vector2i(8, -7)))
-	_set_decor(Vector2i(7, -6), _pick(DECOR_FLOWER, Vector2i(7, -6)))
-	_set_decor(Vector2i(5, -8), _pick(DECOR_BUSH, Vector2i(5, -8)))
+	_set_tile(Vector2i(9, -8), _pick(GRASS_LUSH, Vector2i(9, -8)))
+	for flower_cell in [
+		Vector2i(6, -7), Vector2i(8, -7), Vector2i(7, -6), Vector2i(7, -8),
+		Vector2i(5, -8), Vector2i(9, -6), Vector2i(6, -6), Vector2i(8, -8),
+	]:
+		_set_decor(flower_cell, _pick(DECOR_FLOWER, flower_cell))
+	_set_decor(Vector2i(5, -9), _pick(DECOR_BUSH, Vector2i(5, -9)))
+	_set_decor(Vector2i(9, -5), _pick(DECOR_BUSH, Vector2i(9, -5)))
 
 	# SW rock orchard
-	_paint_blob(Vector2i(-7, 7), 2, _pick(DIRT, Vector2i(-7, 7)))
+	_paint_blob(Vector2i(-7, 7), 3, _pick(DIRT, Vector2i(-7, 7)))
 	_set_tile(Vector2i(-7, 7), _pick(DIRT_MOSS, Vector2i(-7, 7)))
-	_set_decor(Vector2i(-8, 6), _pick(DECOR_ROCK, Vector2i(-8, 6)))
-	_set_decor(Vector2i(-6, 8), _pick(DECOR_ROCK, Vector2i(-6, 8)))
+	_set_tile(Vector2i(-8, 8), _pick(DIRT_MOSS, Vector2i(-8, 8)))
+	for rock_cell in [
+		Vector2i(-8, 6), Vector2i(-6, 8), Vector2i(-9, 7), Vector2i(-5, 6),
+		Vector2i(-7, 5), Vector2i(-6, 6),
+	]:
+		_set_decor(rock_cell, _pick(DECOR_ROCK, rock_cell))
 	_set_decor(Vector2i(-7, 6), _pick(DECOR_LOG, Vector2i(-7, 6)))
 	_set_decor(Vector2i(-5, 7), _pick(DECOR_TALL, Vector2i(-5, 7)))
+	_set_decor(Vector2i(-9, 5), _pick(DECOR_BUSH, Vector2i(-9, 5)))
 
 	# SE shallow water garden
-	_paint_blob(Vector2i(7, 6), 2, _pick(WATER_SHALLOW, Vector2i(7, 6)))
+	_paint_blob(Vector2i(7, 6), 3, _pick(WATER_SHALLOW, Vector2i(7, 6)))
 	_set_tile(Vector2i(7, 6), WATER_SHINE)
 	_set_tile(Vector2i(8, 7), _pick(WATER_ROCK, Vector2i(8, 7)))
 	_set_tile(Vector2i(6, 5), _pick(WATER_RIPPLE, Vector2i(6, 5)))
-	_paint_blob(Vector2i(9, 8), 1, _pick(DIRT_MOSS, Vector2i(9, 8)))
+	_set_tile(Vector2i(9, 5), _pick(WATER_ROCK, Vector2i(9, 5)))
+	_paint_blob(Vector2i(10, 8), 2, _pick(DIRT_MOSS, Vector2i(10, 8)))
+	_set_decor(Vector2i(10, 7), _pick(DECOR_FLOWER, Vector2i(10, 7)))
+	_set_decor(Vector2i(5, 8), _pick(DECOR_BUSH, Vector2i(5, 8)))
 
 	# Outer diamond-edge pockets so the rim is not empty grass
-	_paint_blob(Vector2i(0, -13), 2, _pick(DIRT, Vector2i(0, -13)))
-	_paint_blob(Vector2i(0, 13), 2, _pick(DIRT_MOSS, Vector2i(0, 13)))
-	_paint_blob(Vector2i(-13, 0), 2, _pick(DIRT, Vector2i(-13, 0)))
-	_paint_blob(Vector2i(13, 0), 2, _pick(DIRT_MOSS, Vector2i(13, 0)))
-	_set_decor(Vector2i(-12, -2), _pick(DECOR_ROCK, Vector2i(-12, -2)))
-	_set_decor(Vector2i(12, 2), _pick(DECOR_BUSH, Vector2i(12, 2)))
-	_set_decor(Vector2i(-2, 12), _pick(DECOR_LOG, Vector2i(-2, 12)))
-	_set_decor(Vector2i(2, -12), _pick(DECOR_TALL, Vector2i(2, -12)))
+	_paint_blob(Vector2i(0, -13), 3, _pick(DIRT, Vector2i(0, -13)))
+	_paint_blob(Vector2i(0, 13), 3, _pick(DIRT_MOSS, Vector2i(0, 13)))
+	_paint_blob(Vector2i(-13, 0), 3, _pick(DIRT, Vector2i(-13, 0)))
+	_paint_blob(Vector2i(13, 0), 3, _pick(DIRT_MOSS, Vector2i(13, 0)))
+	_paint_blob(Vector2i(-11, -11), 2, _pick(GRASS_LUSH, Vector2i(-11, -11)))
+	_paint_blob(Vector2i(11, -11), 2, _pick(DIRT_MOSS, Vector2i(11, -11)))
+	_paint_blob(Vector2i(-11, 11), 2, _pick(DIRT_MOSS, Vector2i(-11, 11)))
+	_paint_blob(Vector2i(11, 11), 2, _pick(GRASS_LUSH, Vector2i(11, 11)))
+	for rim in [
+		Vector2i(-12, -2), Vector2i(12, 2), Vector2i(-2, 12), Vector2i(2, -12),
+		Vector2i(-12, 3), Vector2i(12, -3), Vector2i(3, 12), Vector2i(-3, -12),
+		Vector2i(-10, -10), Vector2i(10, -10), Vector2i(-10, 10), Vector2i(10, 10),
+	]:
+		var kind: Array = DECOR_ROCK if _hash(rim) % 3 == 0 else (
+			DECOR_BUSH if _hash(rim) % 3 == 1 else DECOR_TALL)
+		_set_decor(rim, _pick(kind, rim))
 
 	# Mid-arm garden beds flanking the boardwalk
 	for bed in [
 		Vector2i(-3, -6), Vector2i(3, -6), Vector2i(-6, -3), Vector2i(6, -3),
 		Vector2i(-3, 6), Vector2i(3, 6), Vector2i(-6, 3), Vector2i(6, 3),
+		Vector2i(-4, -8), Vector2i(4, -8), Vector2i(-8, -4), Vector2i(8, -4),
+		Vector2i(-4, 8), Vector2i(4, 8), Vector2i(-8, 4), Vector2i(8, 4),
 	]:
 		_set_tile_soft(bed, _pick(DIRT_MOSS, bed))
-		_set_decor(bed, _pick(DECOR_FLOWER if _hash(bed) % 2 == 0 else DECOR_BUSH, bed))
+		var decor_set: Array = DECOR_FLOWER if _hash(bed) % 2 == 0 else DECOR_BUSH
+		_set_decor(bed, _pick(decor_set, bed))
 
 
 func _scatter_decor() -> void:
@@ -247,14 +276,16 @@ func _scatter_decor() -> void:
 			if _is_hard_floor(floor_name) or _is_water(floor_name):
 				continue
 			var n := _hash(cell)
-			if n % 37 == 0:
+			if n % 23 == 0:
 				_set_decor(cell, _pick(DECOR_BUSH, cell))
-			elif n % 41 == 0:
+			elif n % 29 == 0:
 				_set_decor(cell, _pick(DECOR_ROCK, cell))
-			elif n % 53 == 0:
+			elif n % 31 == 0:
 				_set_decor(cell, _pick(DECOR_FLOWER, cell))
-			elif n % 61 == 0:
+			elif n % 43 == 0:
 				_set_decor(cell, _pick(DECOR_TALL, cell))
+			elif n % 47 == 0:
+				_set_decor(cell, _pick(DECOR_LOG, cell))
 
 
 func _is_hard_floor(name: String) -> bool:
