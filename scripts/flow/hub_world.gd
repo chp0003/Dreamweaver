@@ -212,17 +212,19 @@ func _dress_park() -> void:
 
 
 func _dress_mid_zone() -> void:
+	# Sit in the wedges between path arms — only skip exact road cells.
 	var fences: Array[Vector2] = [
 		Vector2(-5.0, 4.0), Vector2(5.0, -4.0), Vector2(-6.0, -3.0), Vector2(3.0, 6.0),
 		Vector2(-4.0, 7.0), Vector2(7.0, -3.0), Vector2(-7.0, 2.0), Vector2(2.0, -7.0),
 		Vector2(-8.0, 5.0), Vector2(8.0, -5.0), Vector2(5.0, 8.0), Vector2(-5.0, -8.0),
+		Vector2(-6.0, 6.0), Vector2(6.0, -6.0), Vector2(-3.0, 8.0), Vector2(8.0, 3.0),
 	]
 	for cell in fences:
-		if not _park_slot_free(cell, 3.5, 1):
+		if not _park_slot_free(cell, 3.5, 0):
 			continue
 		spawn_prop("BAMBOO FENCE", cell, {
 			"texture_path": "res://assets/images/environments/highland/bamboo_fence.png",
-			"prop_size": Vector2(56.0, 40.0),
+			"prop_size": Vector2(64.0, 48.0),
 			"body_color": Palette.EARTH_WOOD,
 			"accent_color": Palette.LIVING_MOSS,
 			"show_label": false,
@@ -235,16 +237,17 @@ func _dress_mid_zone() -> void:
 		Vector2(-6.0, 3.0), Vector2(6.0, -3.0), Vector2(-3.0, -6.0), Vector2(3.0, 6.0),
 		Vector2(-7.0, -5.0), Vector2(7.0, 5.0), Vector2(5.0, -7.0), Vector2(-5.0, 7.0),
 		Vector2(-9.0, 1.0), Vector2(9.0, -1.0), Vector2(1.0, -9.0), Vector2(-1.0, 9.0),
+		Vector2(-8.0, -7.0), Vector2(8.0, 7.0), Vector2(-7.0, 8.0), Vector2(7.0, -8.0),
 	]
 	for i in range(gardens.size()):
 		var cell: Vector2 = gardens[i]
-		if not _park_slot_free(cell, 3.5, 1):
+		if not _park_slot_free(cell, 3.5, 0):
 			continue
 		var flower := i % 2 == 0
 		spawn_prop("GARDEN BED" if flower else "ABACA PATCH", cell, {
 			"texture_path": "res://assets/images/props/red_flowers.png" if flower \
 					else "res://assets/images/props/abaca_plant.png",
-			"prop_size": Vector2(48.0, 36.0) if flower else Vector2(36.0, 72.0),
+			"prop_size": Vector2(56.0, 42.0) if flower else Vector2(40.0, 80.0),
 			"body_color": Palette.RED_DEEP if flower else Palette.BLACK_BARK,
 			"accent_color": Palette.RED_EMBER if flower else Palette.CREAM_STONE,
 			"show_label": false,
@@ -255,14 +258,14 @@ func _dress_mid_zone() -> void:
 
 	var benches: Array[Vector2] = [
 		Vector2(-2.0, 5.0), Vector2(5.0, 2.0), Vector2(2.0, -5.0), Vector2(-5.0, -2.0),
-		Vector2(-4.0, 4.0), Vector2(4.0, -4.0),
+		Vector2(-4.0, 4.0), Vector2(4.0, -4.0), Vector2(-5.0, 5.0), Vector2(5.0, 5.0),
 	]
 	for cell in benches:
-		if not _park_slot_free(cell, 3.0, 1):
+		if not _park_slot_free(cell, 3.0, 0):
 			continue
 		spawn_prop("STRIPPING BENCH", cell, {
 			"texture_path": "res://assets/images/props/stripping_bench.png",
-			"prop_size": Vector2(52.0, 34.0),
+			"prop_size": Vector2(58.0, 38.0),
 			"body_color": Palette.EARTH_WOOD,
 			"accent_color": Palette.CREAM_STONE,
 			"show_label": false,
@@ -273,13 +276,14 @@ func _dress_mid_zone() -> void:
 
 	var mats: Array[Vector2] = [
 		Vector2(4.0, 4.0), Vector2(-4.0, -4.0), Vector2(-3.0, 5.0), Vector2(3.0, -5.0),
+		Vector2(-5.0, -5.0), Vector2(5.0, -5.0),
 	]
 	for cell in mats:
-		if not _park_slot_free(cell, 3.0, 1):
+		if not _park_slot_free(cell, 3.0, 0):
 			continue
 		spawn_prop("REST MAT", cell, {
 			"texture_path": "res://assets/images/props/sleeping_mat.png",
-			"prop_size": Vector2(48.0, 30.0),
+			"prop_size": Vector2(52.0, 34.0),
 			"body_color": Palette.CREAM_STONE,
 			"accent_color": Palette.GOLD_BRASS,
 			"show_label": false,
@@ -290,14 +294,14 @@ func _dress_mid_zone() -> void:
 	var rocks: Array[Vector2] = [
 		Vector2(-8.0, -4.0), Vector2(8.0, 4.0), Vector2(-4.0, 9.0), Vector2(4.0, -9.0),
 		Vector2(9.0, -6.0), Vector2(-9.0, 6.0), Vector2(6.0, 9.0), Vector2(-6.0, -9.0),
-		Vector2(10.0, 3.0), Vector2(-10.0, -3.0),
+		Vector2(10.0, 3.0), Vector2(-10.0, -3.0), Vector2(-9.0, -9.0), Vector2(9.0, 9.0),
 	]
 	for cell in rocks:
-		if not _park_slot_free(cell, 3.5, 1):
+		if not _park_slot_free(cell, 3.5, 0):
 			continue
 		spawn_prop("RIDGE ROCK", cell, {
 			"texture_path": "res://assets/images/environments/highland/highland_rock.png",
-			"prop_size": Vector2(40.0, 32.0),
+			"prop_size": Vector2(46.0, 36.0),
 			"body_color": Palette.CREAM_STONE,
 			"accent_color": Palette.EARTH_WOOD,
 			"show_label": false,
@@ -308,17 +312,17 @@ func _dress_mid_zone() -> void:
 
 	var crates: Array[Vector2] = [
 		Vector2(-7.0, -2.0), Vector2(7.0, 2.0), Vector2(-2.0, 8.0), Vector2(2.0, -8.0),
-		Vector2(8.0, -3.0), Vector2(-8.0, 3.0),
+		Vector2(8.0, -3.0), Vector2(-8.0, 3.0), Vector2(-6.0, 8.0), Vector2(6.0, -8.0),
 	]
 	for i in range(crates.size()):
 		var cell: Vector2 = crates[i]
-		if not _park_slot_free(cell, 3.5, 1):
+		if not _park_slot_free(cell, 3.5, 0):
 			continue
 		var drying := i % 2 == 0
 		spawn_prop("DRYING RACK" if drying else "FIBRE BASKET", cell, {
 			"texture_path": "res://assets/images/props/drying_rack.png" if drying \
 					else "res://assets/images/props/fibre_basket.png",
-			"prop_size": Vector2(44.0, 56.0) if drying else Vector2(34.0, 32.0),
+			"prop_size": Vector2(48.0, 60.0) if drying else Vector2(38.0, 36.0),
 			"body_color": Palette.EARTH_WOOD,
 			"accent_color": Palette.CREAM_STONE,
 			"show_label": false,
@@ -331,10 +335,10 @@ func _dress_mid_zone() -> void:
 func _dress_plaza_lanterns() -> void:
 	# Warm town-square glow — few lanterns, low energy so brick paths stay readable.
 	var lanterns: Array[Dictionary] = [
-		{"cell": Vector2(-2.0, -1.0), "energy": 0.55},
-		{"cell": Vector2(1.0, -2.0), "energy": 0.5},
-		{"cell": Vector2(2.0, 1.0), "energy": 0.55},
-		{"cell": Vector2(-1.0, 2.0), "energy": 0.5},
+		{"cell": Vector2(-2.0, -1.0), "energy": 0.38},
+		{"cell": Vector2(1.0, -2.0), "energy": 0.34},
+		{"cell": Vector2(2.0, 1.0), "energy": 0.38},
+		{"cell": Vector2(-1.0, 2.0), "energy": 0.34},
 	]
 	for entry in lanterns:
 		var cell: Vector2 = entry["cell"]
@@ -352,7 +356,7 @@ func _dress_plaza_lanterns() -> void:
 		light.texture = _hub_light_tex()
 		light.color = Color(1.0, 0.72, 0.38, 1.0)
 		light.energy = float(entry["energy"])
-		light.texture_scale = 2.2
+		light.texture_scale = 1.8
 		light.position = Vector2(0.0, -18.0)
 		prop.add_child(light)
 
@@ -379,7 +383,7 @@ func _dress_living_ridge() -> void:
 	# Progress is readable on the green itself: more colour, more life, more light.
 	if restored >= 1:
 		for i in range(3):
-			spawn_prop("ABACA PLANT", Vector2(-1.8, 3.2 + float(i) * 1.5), {
+			spawn_prop("ABACA PLANT", Vector2(-3.5, 6.0 + float(i) * 1.4), {
 				"texture_path": "res://assets/images/props/abaca_plant.png",
 				"prop_size": Vector2(36.0, 78.0),
 				"body_color": Palette.BLACK_BARK,
@@ -389,7 +393,7 @@ func _dress_living_ridge() -> void:
 			})
 	if restored >= 2:
 		for i in range(3):
-			spawn_prop("RED FLOWERS", Vector2(3.2 + float(i) * 1.5, -1.6), {
+			spawn_prop("RED FLOWERS", Vector2(6.0 + float(i) * 1.4, -3.2), {
 				"texture_path": "res://assets/images/props/red_flowers.png",
 				"prop_size": Vector2(40.0, 34.0),
 				"body_color": Palette.RED_DEEP,
@@ -399,7 +403,7 @@ func _dress_living_ridge() -> void:
 			})
 	if restored >= 3:
 		for i in range(2):
-			var shaft := spawn_prop("LIGHT SHAFT", Vector2(-1.6 + float(i) * 3.2, -1.6 + float(i) * 3.2), {
+			var shaft := spawn_prop("LIGHT SHAFT", Vector2(-3.2 + float(i) * 6.4, -3.2 + float(i) * 6.4), {
 				"prop_size": Vector2(18.0, 160.0),
 				"body_color": Palette.alpha(Palette.GOLD_SUN, 0.18),
 				"accent_color": Palette.GOLD_SACRED,
@@ -410,13 +414,13 @@ func _dress_living_ridge() -> void:
 			var lamp := PointLight2D.new()
 			lamp.texture = _hub_light_tex()
 			lamp.color = Color(1.0, 0.86, 0.55)
-			lamp.energy = 0.7
-			lamp.texture_scale = 2.2
+			lamp.energy = 0.45
+			lamp.texture_scale = 2.0
 			lamp.position = Vector2(0.0, -40.0)
 			shaft.add_child(lamp)
 	if restored >= 4:
 		for i in range(3):
-			spawn_prop("ANCESTOR BANNER", Vector2(-1.4 + float(i) * 1.4, -4.8 - float(i) * 0.8), {
+			spawn_prop("ANCESTOR BANNER", Vector2(-2.4 + float(i) * 1.6, -7.2 - float(i) * 0.8), {
 				"prop_size": Vector2(36.0, 110.0),
 				"body_color": Palette.CREAM_STONE,
 				"accent_color": Palette.GOLD_BRASS,
@@ -426,7 +430,7 @@ func _dress_living_ridge() -> void:
 			})
 	if restored >= 5:
 		for i in range(5):
-			spawn_prop("HIGHLAND GRASS", Vector2(2.0 + float(i) * 1.2, 2.0 + float(i) * 1.2), {
+			spawn_prop("HIGHLAND GRASS", Vector2(4.0 + float(i) * 1.2, 4.0 + float(i) * 1.2), {
 				"texture_path": "res://assets/images/props/highland_grass.png",
 				"prop_size": Vector2(34.0, 42.0),
 				"body_color": Palette.LIVING_LEAF,
@@ -555,7 +559,7 @@ func _restore_completed_colors() -> void:
 			(door as Dictionary)["prop"] as Node2D, 340.0, 0.94)
 	# Soft staff aura only — keep it small so the plaza does not wash out.
 	if player != null:
-		ColorRestoration.add_zone("staff_carried", player, 70.0, 0.55)
+		ColorRestoration.add_zone("staff_carried", player, 48.0, 0.35)
 
 
 func _run_chapter() -> void:

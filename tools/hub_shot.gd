@@ -6,9 +6,7 @@ const OUT_PATH := "res://tools/shots/05_hub.png"
 
 func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute("res://tools/shots")
-	if await AccountManager.try_register(
-			"hubshot", "hubshot@example.com", "abaca123", "abaca123") != "":
-		await AccountManager.try_login("hubshot@example.com", "abaca123")
+	# Offline capture — skip AccountManager (network can hang in CI/headless).
 	GameState.new_game()
 	GameState.add_item("lewet_staff")
 	GameState.unlock_lore("guno_bong")
@@ -16,8 +14,10 @@ func _ready() -> void:
 
 	var packed := load("res://scenes/HubWorld.tscn") as PackedScene
 	var instance := packed.instantiate()
-	get_tree().root.add_child(instance)
-	for _i in range(100):
+	get_tree().root.add_child.call_deferred(instance)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	for _i in range(80):
 		await get_tree().process_frame
 	ColorRestoration.set_global_gray(0.0)
 	# Show house nameplates only — not every interactable E prompt.
@@ -30,14 +30,20 @@ func _ready() -> void:
 				item.visible = false
 			elif node.get_parent() != null and node.get_parent().get_parent() is PlaceholderProp:
 				item.visible = true
-	for _i in range(12):
+	for _i in range(16):
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 
 	var image := get_viewport().get_texture().get_image()
+	if image == null:
+		push_error("hub_shot: viewport texture null")
+		get_tree().quit(1)
+		return
 	var err := image.save_png(OUT_PATH)
-	print("hub_shot %s gray=%.2f" % [
+	print("hub_shot %s gray=%.2f size=%dx%d" % [
 		"ok" if err == OK else "fail(%d)" % err,
 		ColorRestoration.global_gray(),
+		image.get_width(),
+		image.get_height(),
 	])
 	get_tree().quit(0 if err == OK else 1)

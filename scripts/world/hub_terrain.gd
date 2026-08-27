@@ -199,15 +199,20 @@ func _paint_farmland() -> void:
 		Vector2i(-5, -9), Vector2i(5, -9), Vector2i(-9, -5), Vector2i(9, -5),
 		Vector2i(-5, 9), Vector2i(5, 9), Vector2i(-9, 5), Vector2i(9, 5),
 		Vector2i(-4, 4), Vector2i(4, -4), Vector2i(-3, -6), Vector2i(6, 3),
+		Vector2i(-8, -8), Vector2i(8, -8), Vector2i(-8, 8), Vector2i(3, -8),
+		Vector2i(-2, 7), Vector2i(7, -2), Vector2i(-7, -1), Vector2i(1, 7),
 	]
 	for center in plots:
 		if _near_any_house(center, 4):
+			continue
+		if _path_cells.has(center):
 			continue
 		_paint_feature_blob(center, 2, _pick(DIRT, center), false)
 		# Crop rows / flower beds on top of tilled dirt.
 		_set_decor(center, _pick(DECOR_FLOWER, center))
 		_set_decor(center + Vector2i(1, 0), _pick(DECOR_FLOWER, center + Vector2i(1, 0)))
 		_set_decor(center + Vector2i(0, 1), _pick(DECOR_BUSH, center + Vector2i(0, 1)))
+		_set_decor(center + Vector2i(-1, 0), _pick(DECOR_FLOWER, center + Vector2i(-1, 0)))
 		# Soft dirt path spur from nearest ring toward the plot.
 		var spur := Vector2i(
 			clampi(center.x, -6, 6),
