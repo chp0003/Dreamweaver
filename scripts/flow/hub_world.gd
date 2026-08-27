@@ -231,8 +231,8 @@ func _dress_park() -> void:
 	plaza_light.name = "PlazaKeyLight"
 	plaza_light.texture = _hub_light_tex()
 	plaza_light.color = Color(1.0, 0.86, 0.58)
-	plaza_light.energy = 1.35
-	plaza_light.texture_scale = 3.4
+	plaza_light.energy = 0.95
+	plaza_light.texture_scale = 2.6
 	plaza_light.position = Iso.cell_to_world(_plaza_cell) + Vector2(0.0, -8.0)
 	world.add_child(plaza_light)
 
