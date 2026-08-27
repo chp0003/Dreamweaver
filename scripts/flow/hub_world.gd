@@ -202,40 +202,6 @@ func _dress_park() -> void:
 			"collision_feet": Vector2(24.0, 16.0),
 		})
 
-	# Warm plaza lanterns — road-edge posts that cast the hub key light.
-	var lanterns: Array[Vector2] = [
-		Vector2(-2.0, -2.0), Vector2(2.0, -2.0), Vector2(-2.0, 2.0), Vector2(2.0, 2.0),
-		Vector2(0.0, 4.0), Vector2(4.0, 0.0), Vector2(0.0, -4.0), Vector2(-4.0, 0.0),
-	]
-	for cell in lanterns:
-		var lamp_prop := spawn_prop("BRASS LANTERN", cell, {
-			"texture_path": "res://assets/images/environments/highland/brass_lantern.png",
-			"prop_size": Vector2(34.0, 64.0),
-			"body_color": Palette.GOLD_DEEP,
-			"accent_color": Palette.GOLD_SUN,
-			"show_label": false,
-			"nearest_filter": true,
-			"cast_shadow": false,
-			"blocks_movement": false,
-		})
-		var lamp := PointLight2D.new()
-		lamp.texture = _hub_light_tex()
-		lamp.color = Color(1.0, 0.82, 0.52)
-		lamp.energy = 0.85
-		lamp.texture_scale = 1.6
-		lamp.position = Vector2(0.0, -36.0)
-		lamp_prop.add_child(lamp)
-
-	# Key light at the crossing so shadows read off the grid.
-	var plaza_light := PointLight2D.new()
-	plaza_light.name = "PlazaKeyLight"
-	plaza_light.texture = _hub_light_tex()
-	plaza_light.color = Color(1.0, 0.86, 0.58)
-	plaza_light.energy = 0.95
-	plaza_light.texture_scale = 2.6
-	plaza_light.position = Iso.cell_to_world(_plaza_cell) + Vector2(0.0, -8.0)
-	world.add_child(plaza_light)
-
 
 func _near_house(cell: Vector2, radius: float) -> bool:
 	for house in Houses.LIST:
@@ -330,20 +296,21 @@ func _build_door(house: Dictionary) -> void:
 	var completed: bool = GameState.is_house_completed(house_id)
 	var accent: Color = house["accent"]
 	var is_great := house_id == Houses.count()
-	# Landmark scale — readable silhouettes with door/stair facing the road.
-	var house_size := Vector2(244.0, 296.0) if is_great else Vector2(220.0, 268.0)
+	# assets/images/houses/House1..5 — wide (3/4) vs tall (1/2/5) aspect ratios.
+	var house_size := Vector2(300.0, 292.0) if is_great \
+		else (Vector2(300.0, 176.0) if house_id in [3, 4] else Vector2(236.0, 248.0))
 
 	var prop := spawn_prop(str(DOOR_LABELS.get(house_id, "GUNO BONG")), cell, {
-		"texture_path": "res://assets/images/props/guno_bong_%d.png" % house_id,
+		"texture_path": "res://assets/images/houses/House%d.png" % house_id,
 		"prop_size": house_size,
 		"body_color": Palette.EARTH_LOAM,
 		"accent_color": accent.lightened(0.2),
 		"show_label": false,
 		"nearest_filter": true,
-		"cast_shadow": true,
-		"collision_feet": Vector2(88.0, 48.0) if is_great else Vector2(74.0, 42.0),
+		"cast_shadow": false,
+		"collision_feet": Vector2(96.0, 52.0) if is_great else Vector2(80.0, 44.0),
 	})
-	# Nudge slightly toward the plaza so stilts/stairs sit on the brick stoop.
+	# Nudge slightly toward the plaza so stairs sit on the brick path.
 	prop.position = Iso.cell_to_world(cell.lerp(_plaza_cell, 0.06))
 	prop.z_index = 2
 	# Face the staircase toward the plaza along the approaching road.
