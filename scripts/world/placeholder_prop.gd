@@ -55,6 +55,7 @@ static func is_soft_label(label: String, path := "") -> bool:
 		"ancestor banner", "pigment stain", "woven motif", "gray figure",
 		"near fiber", "near plant", "highland grass", "runner", "aisle",
 		"threshold", "work cloth", "hedge", "boardwalk", "plaza weave",
+		"grass tuft", "brass lantern", "bamboo fence",
 	]
 	for token in SOFT:
 		if token in key:
