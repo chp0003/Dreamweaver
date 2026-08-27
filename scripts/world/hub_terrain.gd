@@ -82,6 +82,8 @@ func rebuild() -> void:
 	_paint_roads()
 	_paint_plaza()
 	_paint_house_foundations()
+	_paint_midring()
+	_paint_farmland()
 	_paint_quadrant_features()
 	_scatter_decor()
 	_rebuild_draw_order()
@@ -153,17 +155,65 @@ func _paint_path_arm(from: Vector2i, to: Vector2i) -> void:
 
 
 func _paint_plaza() -> void:
+	# Wide town square — enough brick that the crossing reads as a plaza.
 	var plaza := Vector2i(roundi(plaza_cell.x), roundi(plaza_cell.y))
-	for oy in range(-3, 4):
-		for ox in range(-3, 4):
+	for oy in range(-5, 6):
+		for ox in range(-5, 6):
 			var c := plaza + Vector2i(ox, oy)
 			var d := maxi(absi(ox), absi(oy))
-			if d <= 1:
+			if d <= 2:
 				_mark_path(c, PATH_BRICK)
-			elif d == 2:
+			elif d == 3:
 				_mark_path(c, PATH_STONE)
-			elif d == 3 and (ox == 0 or oy == 0 or absi(ox) == absi(oy)):
+			elif d == 4 and (ox == 0 or oy == 0 or absi(ox) == absi(oy)):
 				_mark_path(c, PATH_FLAG)
+			elif d == 5 and (ox == 0 or oy == 0):
+				_mark_path(c, PATH_FLAG)
+
+
+func _paint_midring() -> void:
+	# Secondary walk ring through the mid-zone so expanded space is usable.
+	var ring: Array[Vector2i] = [
+		Vector2i(6, 6), Vector2i(6, -6), Vector2i(-6, -6), Vector2i(-6, 6), Vector2i(6, 6),
+	]
+	for i in range(ring.size() - 1):
+		_paint_run_dirt(ring[i], ring[i + 1])
+
+
+func _paint_run_dirt(from: Vector2i, to: Vector2i) -> void:
+	var delta := to - from
+	var steps := maxi(absi(delta.x), absi(delta.y))
+	for i in range(steps + 1):
+		var t := 0.0 if steps == 0 else float(i) / float(steps)
+		var c := Vector2i(roundi(lerpf(from.x, to.x, t)), roundi(lerpf(from.y, to.y, t)))
+		if _path_cells.has(c):
+			continue
+		_mark_path(c, PATH_FLAG if i % 2 == 0 else PATH_DIRT)
+		_set_tile_soft(c + Vector2i(1, 0), _pick(DIRT_EDGE, c))
+		_set_tile_soft(c + Vector2i(-1, 0), _pick(DIRT_EDGE, c + Vector2i(0, 1)))
+
+
+func _paint_farmland() -> void:
+	# Mid-zone farm / garden plots between the path arms — fills the diamond.
+	var plots: Array[Vector2i] = [
+		Vector2i(-5, -9), Vector2i(5, -9), Vector2i(-9, -5), Vector2i(9, -5),
+		Vector2i(-5, 9), Vector2i(5, 9), Vector2i(-9, 5), Vector2i(9, 5),
+		Vector2i(-4, 4), Vector2i(4, -4), Vector2i(-3, -6), Vector2i(6, 3),
+	]
+	for center in plots:
+		if _near_any_house(center, 4):
+			continue
+		_paint_feature_blob(center, 2, _pick(DIRT, center), false)
+		# Crop rows / flower beds on top of tilled dirt.
+		_set_decor(center, _pick(DECOR_FLOWER, center))
+		_set_decor(center + Vector2i(1, 0), _pick(DECOR_FLOWER, center + Vector2i(1, 0)))
+		_set_decor(center + Vector2i(0, 1), _pick(DECOR_BUSH, center + Vector2i(0, 1)))
+		# Soft dirt path spur from nearest ring toward the plot.
+		var spur := Vector2i(
+			clampi(center.x, -6, 6),
+			clampi(center.y, -6, 6)
+		)
+		_paint_run_dirt(spur, center)
 
 
 func _paint_house_foundations() -> void:
@@ -208,23 +258,22 @@ func _paint_house_foundations() -> void:
 
 
 func _paint_quadrant_features() -> void:
-	# Contained gardens / ponds in the wedges — never on the road network.
-	_paint_feature_blob(Vector2i(-8, -8), 2, WATER, true)
-	_set_tile(Vector2i(-8, -8), WATER_SHINE)
-	_set_tile(Vector2i(-7, -9), _pick(WATER_ROCK, Vector2i(-7, -9)))
+	# Outer framing only — small ponds/gardens near the diamond rim.
+	_paint_feature_blob(Vector2i(-13, -13), 2, WATER, true)
+	_set_tile(Vector2i(-13, -13), WATER_SHINE)
+	_set_tile(Vector2i(-12, -14), _pick(WATER_ROCK, Vector2i(-12, -14)))
 
-	_paint_feature_blob(Vector2i(8, -8), 2, _pick(DIRT, Vector2i(8, -8)), false)
-	_set_decor(Vector2i(8, -8), _pick(DECOR_FLOWER, Vector2i(8, -8)))
-	_set_decor(Vector2i(7, -9), _pick(DECOR_FLOWER, Vector2i(7, -9)))
-	_set_decor(Vector2i(9, -7), _pick(DECOR_BUSH, Vector2i(9, -7)))
+	_paint_feature_blob(Vector2i(13, -13), 2, _pick(DIRT, Vector2i(13, -13)), false)
+	_set_decor(Vector2i(13, -13), _pick(DECOR_FLOWER, Vector2i(13, -13)))
+	_set_decor(Vector2i(14, -12), _pick(DECOR_BUSH, Vector2i(14, -12)))
 
-	_paint_feature_blob(Vector2i(-8, 8), 2, _pick(DIRT, Vector2i(-8, 8)), false)
-	_set_decor(Vector2i(-8, 7), _pick(DECOR_ROCK, Vector2i(-8, 7)))
-	_set_decor(Vector2i(-7, 9), _pick(DECOR_ROCK, Vector2i(-7, 9)))
+	_paint_feature_blob(Vector2i(-13, 13), 2, _pick(DIRT, Vector2i(-13, 13)), false)
+	_set_decor(Vector2i(-13, 12), _pick(DECOR_ROCK, Vector2i(-13, 12)))
+	_set_decor(Vector2i(-12, 14), _pick(DECOR_ROCK, Vector2i(-12, 14)))
 
-	_paint_feature_blob(Vector2i(11, 3), 2, _pick(WATER_SHALLOW, Vector2i(11, 3)), true)
-	_set_tile(Vector2i(11, 3), WATER_SHINE)
-	_set_tile(Vector2i(12, 2), _pick(WATER_RIPPLE, Vector2i(12, 2)))
+	_paint_feature_blob(Vector2i(14, 4), 2, _pick(WATER_SHALLOW, Vector2i(14, 4)), true)
+	_set_tile(Vector2i(14, 4), WATER_SHINE)
+	_set_tile(Vector2i(15, 3), _pick(WATER_RIPPLE, Vector2i(15, 3)))
 
 
 func _paint_feature_blob(center: Vector2i, radius: int, tile: String, is_water: bool) -> void:

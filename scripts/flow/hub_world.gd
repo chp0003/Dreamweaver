@@ -78,11 +78,11 @@ func _build_world() -> void:
 	_dress_living_ridge()
 	_restore_completed_colors()
 	_set_camera_floor(_ridge_floor)
-	# Hub stays evenly lit — no staff glow / lantern wash on the plaza.
+	# Soft plaza lanterns carry the warm hub glow; keep staff wash tiny.
 	ColorRestoration.remove_zone("lewet_staff")
 	if player != null:
 		player.set_light_enabled(false)
-		ColorRestoration.add_zone("staff_carried", player, 70.0, 0.55)
+		ColorRestoration.add_zone("staff_carried", player, 48.0, 0.35)
 
 
 func _mount_terrain() -> void:
@@ -182,18 +182,17 @@ func _add_house_floor(house_id: int, origin: Vector2) -> void:
 
 
 func _dress_park() -> void:
-	# Trees frame the green from the outer wedges — never on roads or rooflines.
+	# Outer rim trees only — frame the diamond; leave mid-zone for village POIs.
 	var trees: Array[Vector2] = [
-		Vector2(-13.0, -5.0), Vector2(13.0, -5.0), Vector2(-13.0, 5.0), Vector2(13.0, 5.0),
-		Vector2(-5.0, -13.0), Vector2(5.0, -13.0), Vector2(-5.0, 13.0), Vector2(5.0, 13.0),
-		Vector2(-14.0, 0.0), Vector2(14.0, 0.0), Vector2(0.0, 14.0), Vector2(0.0, -14.0),
-		Vector2(-12.0, -12.0), Vector2(12.0, -12.0), Vector2(-12.0, 12.0),
+		Vector2(-14.0, -6.0), Vector2(-14.0, 0.0), Vector2(-14.0, 5.0), Vector2(-13.0, 9.0),
+		Vector2(-9.0, -13.0), Vector2(-4.0, -14.0), Vector2(2.0, -14.0), Vector2(7.0, -13.0),
+		Vector2(13.0, -8.0), Vector2(14.0, -2.0), Vector2(14.0, 4.0), Vector2(13.0, 8.0),
+		Vector2(9.0, 13.0), Vector2(3.0, 14.0), Vector2(-3.0, 14.0), Vector2(-8.0, 13.0),
+		Vector2(-12.0, -10.0), Vector2(11.0, -11.0), Vector2(-11.0, 12.0),
 	]
 	for i in range(trees.size()):
 		var cell: Vector2 = trees[i]
-		if _near_house(cell, 5.0):
-			continue
-		if _terrain != null and (_terrain.is_path_cell(cell) or _terrain.is_near_path(cell, 2)):
+		if not _park_slot_free(cell, 4.5, 2):
 			continue
 		spawn_prop("HIGHLAND TREE", cell, {
 			"texture_path": "res://assets/images/environments/highland/highland_tree.png",
@@ -206,6 +205,164 @@ func _dress_park() -> void:
 			"blocks_movement": true,
 			"collision_feet": Vector2(24.0, 16.0),
 		})
+
+	# Mid-zone POIs between plaza and houses — gardens, benches, fences, crates.
+	_dress_mid_zone()
+	_dress_plaza_lanterns()
+
+
+func _dress_mid_zone() -> void:
+	var fences: Array[Vector2] = [
+		Vector2(-5.0, 4.0), Vector2(5.0, -4.0), Vector2(-6.0, -3.0), Vector2(3.0, 6.0),
+		Vector2(-4.0, 7.0), Vector2(7.0, -3.0), Vector2(-7.0, 2.0), Vector2(2.0, -7.0),
+		Vector2(-8.0, 5.0), Vector2(8.0, -5.0), Vector2(5.0, 8.0), Vector2(-5.0, -8.0),
+	]
+	for cell in fences:
+		if not _park_slot_free(cell, 3.5, 1):
+			continue
+		spawn_prop("BAMBOO FENCE", cell, {
+			"texture_path": "res://assets/images/environments/highland/bamboo_fence.png",
+			"prop_size": Vector2(56.0, 40.0),
+			"body_color": Palette.EARTH_WOOD,
+			"accent_color": Palette.LIVING_MOSS,
+			"show_label": false,
+			"nearest_filter": true,
+			"blocks_movement": true,
+			"collision_feet": Vector2(22.0, 12.0),
+		})
+
+	var gardens: Array[Vector2] = [
+		Vector2(-6.0, 3.0), Vector2(6.0, -3.0), Vector2(-3.0, -6.0), Vector2(3.0, 6.0),
+		Vector2(-7.0, -5.0), Vector2(7.0, 5.0), Vector2(5.0, -7.0), Vector2(-5.0, 7.0),
+		Vector2(-9.0, 1.0), Vector2(9.0, -1.0), Vector2(1.0, -9.0), Vector2(-1.0, 9.0),
+	]
+	for i in range(gardens.size()):
+		var cell: Vector2 = gardens[i]
+		if not _park_slot_free(cell, 3.5, 1):
+			continue
+		var flower := i % 2 == 0
+		spawn_prop("GARDEN BED" if flower else "ABACA PATCH", cell, {
+			"texture_path": "res://assets/images/props/red_flowers.png" if flower \
+					else "res://assets/images/props/abaca_plant.png",
+			"prop_size": Vector2(48.0, 36.0) if flower else Vector2(36.0, 72.0),
+			"body_color": Palette.RED_DEEP if flower else Palette.BLACK_BARK,
+			"accent_color": Palette.RED_EMBER if flower else Palette.CREAM_STONE,
+			"show_label": false,
+			"nearest_filter": true,
+			"sway_degrees": 1.6 if not flower else 0.0,
+			"cast_shadow": not flower,
+		})
+
+	var benches: Array[Vector2] = [
+		Vector2(-2.0, 5.0), Vector2(5.0, 2.0), Vector2(2.0, -5.0), Vector2(-5.0, -2.0),
+		Vector2(-4.0, 4.0), Vector2(4.0, -4.0),
+	]
+	for cell in benches:
+		if not _park_slot_free(cell, 3.0, 1):
+			continue
+		spawn_prop("STRIPPING BENCH", cell, {
+			"texture_path": "res://assets/images/props/stripping_bench.png",
+			"prop_size": Vector2(52.0, 34.0),
+			"body_color": Palette.EARTH_WOOD,
+			"accent_color": Palette.CREAM_STONE,
+			"show_label": false,
+			"nearest_filter": true,
+			"blocks_movement": true,
+			"collision_feet": Vector2(20.0, 12.0),
+		})
+
+	var mats: Array[Vector2] = [
+		Vector2(4.0, 4.0), Vector2(-4.0, -4.0), Vector2(-3.0, 5.0), Vector2(3.0, -5.0),
+	]
+	for cell in mats:
+		if not _park_slot_free(cell, 3.0, 1):
+			continue
+		spawn_prop("REST MAT", cell, {
+			"texture_path": "res://assets/images/props/sleeping_mat.png",
+			"prop_size": Vector2(48.0, 30.0),
+			"body_color": Palette.CREAM_STONE,
+			"accent_color": Palette.GOLD_BRASS,
+			"show_label": false,
+			"nearest_filter": true,
+			"cast_shadow": false,
+		})
+
+	var rocks: Array[Vector2] = [
+		Vector2(-8.0, -4.0), Vector2(8.0, 4.0), Vector2(-4.0, 9.0), Vector2(4.0, -9.0),
+		Vector2(9.0, -6.0), Vector2(-9.0, 6.0), Vector2(6.0, 9.0), Vector2(-6.0, -9.0),
+		Vector2(10.0, 3.0), Vector2(-10.0, -3.0),
+	]
+	for cell in rocks:
+		if not _park_slot_free(cell, 3.5, 1):
+			continue
+		spawn_prop("RIDGE ROCK", cell, {
+			"texture_path": "res://assets/images/environments/highland/highland_rock.png",
+			"prop_size": Vector2(40.0, 32.0),
+			"body_color": Palette.CREAM_STONE,
+			"accent_color": Palette.EARTH_WOOD,
+			"show_label": false,
+			"nearest_filter": true,
+			"blocks_movement": true,
+			"collision_feet": Vector2(16.0, 10.0),
+		})
+
+	var crates: Array[Vector2] = [
+		Vector2(-7.0, -2.0), Vector2(7.0, 2.0), Vector2(-2.0, 8.0), Vector2(2.0, -8.0),
+		Vector2(8.0, -3.0), Vector2(-8.0, 3.0),
+	]
+	for i in range(crates.size()):
+		var cell: Vector2 = crates[i]
+		if not _park_slot_free(cell, 3.5, 1):
+			continue
+		var drying := i % 2 == 0
+		spawn_prop("DRYING RACK" if drying else "FIBRE BASKET", cell, {
+			"texture_path": "res://assets/images/props/drying_rack.png" if drying \
+					else "res://assets/images/props/fibre_basket.png",
+			"prop_size": Vector2(44.0, 56.0) if drying else Vector2(34.0, 32.0),
+			"body_color": Palette.EARTH_WOOD,
+			"accent_color": Palette.CREAM_STONE,
+			"show_label": false,
+			"nearest_filter": true,
+			"blocks_movement": true,
+			"collision_feet": Vector2(14.0, 10.0),
+		})
+
+
+func _dress_plaza_lanterns() -> void:
+	# Warm town-square glow — few lanterns, low energy so brick paths stay readable.
+	var lanterns: Array[Dictionary] = [
+		{"cell": Vector2(-2.0, -1.0), "energy": 0.55},
+		{"cell": Vector2(1.0, -2.0), "energy": 0.5},
+		{"cell": Vector2(2.0, 1.0), "energy": 0.55},
+		{"cell": Vector2(-1.0, 2.0), "energy": 0.5},
+	]
+	for entry in lanterns:
+		var cell: Vector2 = entry["cell"]
+		var prop := spawn_prop("PLAZA LANTERN", cell, {
+			"texture_path": "res://assets/images/environments/highland/brass_lantern.png",
+			"prop_size": Vector2(28.0, 44.0),
+			"body_color": Palette.GOLD_BRASS,
+			"accent_color": Palette.GOLD_SUN,
+			"show_label": false,
+			"nearest_filter": true,
+			"cast_shadow": false,
+		})
+		prop.position += Vector2(0.0, -8.0)
+		var light := PointLight2D.new()
+		light.texture = _hub_light_tex()
+		light.color = Color(1.0, 0.72, 0.38, 1.0)
+		light.energy = float(entry["energy"])
+		light.texture_scale = 2.2
+		light.position = Vector2(0.0, -18.0)
+		prop.add_child(light)
+
+
+func _park_slot_free(cell: Vector2, house_radius: float, path_radius: int) -> bool:
+	if _near_house(cell, house_radius):
+		return false
+	if _terrain != null and (_terrain.is_path_cell(cell) or _terrain.is_near_path(cell, path_radius)):
+		return false
+	return true
 
 
 func _near_house(cell: Vector2, radius: float) -> bool:

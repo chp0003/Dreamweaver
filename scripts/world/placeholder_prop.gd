@@ -349,13 +349,20 @@ func _load_texture() -> void:
 		var loaded := load(texture_path)
 		if loaded is Texture2D:
 			texture = loaded
-	elif FileAccess.file_exists(texture_path):
+	if texture == null:
 		# Freshly-written PNGs may not have a .import yet; load the pixels
 		# directly so art still shows up the same session it is dropped in.
-		var image := Image.new()
-		if image.load(texture_path) == OK:
-			texture = ImageTexture.create_from_image(image)
+		var disk := texture_path
+		if disk.begins_with("res://"):
+			disk = ProjectSettings.globalize_path(disk)
+		if FileAccess.file_exists(disk) or FileAccess.file_exists(texture_path):
+			var image := Image.new()
+			var path := disk if FileAccess.file_exists(disk) else texture_path
+			if image.load(path) == OK:
+				texture = ImageTexture.create_from_image(image)
 	if texture == null:
+		push_warning("PlaceholderProp: failed to load %s" % texture_path)
+		queue_redraw()
 		return
 
 	_sprite = Sprite2D.new()
@@ -377,6 +384,7 @@ func _load_texture() -> void:
 	add_child(_sprite)
 	if cast_shadow:
 		_add_foot_shadow()
+	queue_redraw()
 
 
 func _add_foot_shadow() -> void:
