@@ -60,9 +60,10 @@ func _ready() -> void:
 
 ## A throwaway account so AccountManager has a session to save progress into.
 func _sign_in() -> void:
-	var error := await AccountManager.try_register("smoketest", "abaca123", "abaca123")
+	var error := await AccountManager.try_register(
+		"smoketest", "smoketest@example.com", "abaca123", "abaca123")
 	if not error.is_empty():
-		error = await AccountManager.try_login("smoketest", "abaca123")
+		error = await AccountManager.try_login("smoketest@example.com", "abaca123")
 	if not error.is_empty():
 		print("SMOKE: could not sign in (%s)" % error)
 

@@ -235,7 +235,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -440.0
-offset_top = -380.0
+offset_top = -360.0
 offset_right = -40.0
 offset_bottom = -40.0
 grow_horizontal = 0
@@ -257,21 +257,21 @@ theme_override_fonts/font = ExtResource("6_crimson")
 theme_override_font_sizes/font_size = 13
 text = "SIGN IN"
 
-[node name="UsernameLabel" type="Label" parent="FormHost/Form"]
+[node name="EmailLabel" type="Label" parent="FormHost/Form"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.78, 0.72, 0.62, 0.85)
 theme_override_fonts/font = ExtResource("6_crimson")
 theme_override_font_sizes/font_size = 12
-text = "USERNAME"
+text = "EMAIL"
 
-[node name="UsernameField" type="LineEdit" parent="FormHost/Form"]
+[node name="EmailField" type="LineEdit" parent="FormHost/Form"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_field")
 theme_override_styles/focus = SubResource("StyleBoxFlat_field_focus")
-placeholder_text = "Your name"
-max_length = 24
+placeholder_text = "you@email.com"
+max_length = 120
 caret_blink = true
 
 [node name="PasswordLabel" type="Label" parent="FormHost/Form"]

@@ -1,15 +1,56 @@
 -- Dreamweaver — Supabase schema
--- Run once in: Supabase Dashboard → SQL Editor → New query → Run
---
--- Creates profiles + player_saves with RLS so each Auth user only
--- touches their own rows.
+-- =============================================================================
+-- COPY EVERYTHING BELOW → Supabase Dashboard → SQL Editor → New query → Run
+-- Safe to re-run (idempotent). Creates/updates profiles + player_saves with RLS.
+-- =============================================================================
 
--- Profiles (username ↔ auth.users)
+-- Profiles: display username + real email, linked to Auth
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
-  username text not null unique,
+  username text not null,
+  email text not null,
   created_at timestamptz not null default now()
 );
+
+-- Upgrade path if you already ran an older schema without email
+alter table public.profiles
+  add column if not exists email text;
+
+alter table public.profiles
+  alter column email set default '';
+
+-- Backfill empty emails from Auth when possible
+update public.profiles p
+set email = u.email
+from auth.users u
+where p.id = u.id
+  and (p.email is null or p.email = '');
+
+-- Enforce uniqueness (drop+recreate so re-runs stay clean)
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'profiles_username_key'
+  ) then
+    alter table public.profiles add constraint profiles_username_key unique (username);
+  end if;
+exception when others then
+  -- already unique via another name; ignore
+  null;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'profiles_email_key'
+  ) then
+    alter table public.profiles add constraint profiles_email_key unique (email);
+  end if;
+exception when others then
+  null;
+end $$;
 
 -- Cloud game saves (one row per player)
 create table if not exists public.player_saves (
@@ -66,7 +107,7 @@ create policy "saves_delete_own"
   on public.player_saves for delete
   using (auth.uid() = user_id);
 
--- Optional: keep username in sync when Auth user is created (backup to client upsert)
+-- Auto-create a profile row when an Auth user signs up
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -74,12 +115,18 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, username)
+  insert into public.profiles (id, username, email)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1))
+    coalesce(
+      nullif(trim(new.raw_user_meta_data->>'username'), ''),
+      split_part(new.email, '@', 1)
+    ),
+    coalesce(new.email, '')
   )
-  on conflict (id) do nothing;
+  on conflict (id) do update
+    set username = excluded.username,
+        email = excluded.email;
   return new;
 end;
 $$;

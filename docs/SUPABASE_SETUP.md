@@ -15,11 +15,12 @@ Authentication → **Providers** → **Email**:
 
 - Disable **Confirm email** (otherwise register succeeds but the player cannot sign in until they click a link).
 
-## 3. Create tables
+## 3. Create / update tables
 
 1. Open **SQL Editor** → New query.
-2. Paste the contents of [`supabase/schema.sql`](../supabase/schema.sql).
-3. Run it. You should see `profiles` and `player_saves` under **Table Editor**.
+2. Open [`supabase/schema.sql`](../supabase/schema.sql), **copy the entire file**, paste, Run.
+3. Safe to re-run if you already applied an older version — it adds the `email` column and keeps RLS.
+4. You should see `profiles` (with `username` + `email`) and `player_saves` under **Table Editor**.
 
 ## 4. Copy API keys into the game
 
@@ -44,20 +45,21 @@ Do **not** put the **service_role** key in the game client. Only the anon key.
 |--------|------|
 | `scripts/systems/supabase_config.gd` | URL + anon key |
 | `Supabase` autoload | HTTP Auth + PostgREST |
-| `AccountManager` | Same API as before; routes to cloud when configured |
+| `AccountManager` | Routes to cloud when configured |
 
-- UI still asks for **username + password** (no email field).
-- Under the hood the email is `username@players.dreamweaver.game`.
-- Progress JSON matches what `GameState.save()` already writes.
-- Session tokens live in `user://supabase_session.json`.
+- **Register:** username + email + password
+- **Sign in:** email + password (username is display-only)
+- Auth uses the real email; `profiles.username` is the in-game name
+- Progress JSON matches what `GameState.save()` already writes
+- Session tokens live in `user://supabase_session.json`
 
 ## 6. Verify
 
-1. Register a new username in-game.
-2. In Supabase → **Authentication → Users**, you should see that user.
-3. Play a bit / New Game so progress saves.
-4. In **Table Editor → player_saves**, you should see a row with JSON progress.
-5. Log out, log back in — Continue should restore the run.
+1. Register with a username + real email in-game.
+2. In Supabase → **Authentication → Users**, you should see that email.
+3. In **Table Editor → profiles**, username and email should both appear.
+4. Play a bit / New Game so progress saves → check **player_saves**.
+5. Log out, sign in with the same email — Continue should restore the run.
 
 ## 7. Account deletion note
 
@@ -66,4 +68,4 @@ Removing the Auth user entirely needs the dashboard or a service-role Edge Funct
 
 ## Local fallback
 
-Leave `URL` and `ANON_KEY` as `""` and nothing changes: accounts stay in `user://accounts.json`.
+Leave `URL` and `ANON_KEY` as `""` and accounts stay in `user://accounts.json` (still stores username + email).

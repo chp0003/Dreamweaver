@@ -3,7 +3,7 @@ extends Control
 
 const SETTINGS_SCENE := "res://scenes/ui/SettingsOverlay.tscn"
 
-@onready var username_field: LineEdit = %UsernameField
+@onready var email_field: LineEdit = %EmailField
 @onready var password_field: LineEdit = %PasswordField
 @onready var error_label: Label = %ErrorLabel
 @onready var login_button: Button = %LoginButton
@@ -26,7 +26,7 @@ func _ready() -> void:
 	login_button.pressed.connect(_on_login_pressed)
 	register_button.pressed.connect(_on_register_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)
-	username_field.text_submitted.connect(func(_t: String) -> void: password_field.grab_focus())
+	email_field.text_submitted.connect(func(_t: String) -> void: password_field.grab_focus())
 	password_field.text_submitted.connect(func(_t: String) -> void: _on_login_pressed())
 	get_viewport().size_changed.connect(_fit_embers)
 	_fit_embers()
@@ -35,7 +35,7 @@ func _ready() -> void:
 	add_child(motes)
 	await get_tree().process_frame
 	_play_entrance()
-	username_field.grab_focus()
+	email_field.grab_focus()
 	if brand != null:
 		var title := brand.get_node_or_null("Title") as Label
 		if title != null:
@@ -63,7 +63,7 @@ func _on_login_pressed() -> void:
 	if SceneFader.is_busy():
 		return
 	login_button.disabled = true
-	var message := await AccountManager.try_login(username_field.text, password_field.text)
+	var message := await AccountManager.try_login(email_field.text, password_field.text)
 	login_button.disabled = false
 	error_label.text = message
 	if not message.is_empty():

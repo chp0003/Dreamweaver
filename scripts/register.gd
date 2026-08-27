@@ -4,6 +4,7 @@ extends Control
 const SETTINGS_SCENE := "res://scenes/ui/SettingsOverlay.tscn"
 
 @onready var username_field: LineEdit = %UsernameField
+@onready var email_field: LineEdit = %EmailField
 @onready var password_field: LineEdit = %PasswordField
 @onready var confirm_field: LineEdit = %ConfirmField
 @onready var error_label: Label = %ErrorLabel
@@ -27,7 +28,8 @@ func _ready() -> void:
 	register_button.pressed.connect(_on_register_pressed)
 	login_button.pressed.connect(_on_login_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)
-	username_field.text_submitted.connect(func(_t: String) -> void: password_field.grab_focus())
+	username_field.text_submitted.connect(func(_t: String) -> void: email_field.grab_focus())
+	email_field.text_submitted.connect(func(_t: String) -> void: password_field.grab_focus())
 	password_field.text_submitted.connect(func(_t: String) -> void: confirm_field.grab_focus())
 	confirm_field.text_submitted.connect(func(_t: String) -> void: _on_register_pressed())
 	get_viewport().size_changed.connect(_fit_embers)
@@ -67,6 +69,7 @@ func _on_register_pressed() -> void:
 	register_button.disabled = true
 	var message := await AccountManager.try_register(
 		username_field.text,
+		email_field.text,
 		password_field.text,
 		confirm_field.text
 	)

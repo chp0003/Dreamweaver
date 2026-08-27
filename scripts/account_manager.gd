@@ -30,9 +30,9 @@ var _has_seen_intro_cache: bool = false
 func _ready() -> void:
 	_load_from_disk()
 	if is_cloud_mode() and Supabase.has_session():
-		_current_key = _normalize_key(Supabase.username)
+		_current_key = _normalize_key(Supabase.user_email)
 		if _current_key.is_empty():
-			_current_key = _normalize_key(str(Supabase.user_email).get_slice("@", 0))
+			_current_key = _normalize_key(Supabase.username)
 		await _pull_progress_from_cloud()
 
 
@@ -102,7 +102,10 @@ func change_password(current_password: String, new_password: String, confirm: St
 		return "Pick a password different from the current one."
 
 	if is_cloud_mode():
-		var check: Dictionary = await Supabase.sign_in(current_username(), current_password)
+		var email := str(Supabase.user_email).strip_edges()
+		if email.is_empty():
+			return "Signed-in email missing; log out and sign in again."
+		var check: Dictionary = await Supabase.sign_in(email, current_password)
 		if not bool(check.get("ok", false)):
 			return "Current password is wrong."
 		var upd: Dictionary = await Supabase.update_password(new_password)
@@ -126,7 +129,10 @@ func delete_account(password: String) -> String:
 		return "Enter your password to confirm."
 
 	if is_cloud_mode():
-		var check: Dictionary = await Supabase.sign_in(current_username(), password)
+		var email := str(Supabase.user_email).strip_edges()
+		if email.is_empty():
+			return "Signed-in email missing; log out and sign in again."
+		var check: Dictionary = await Supabase.sign_in(email, password)
 		if not bool(check.get("ok", false)):
 			return "Password does not match."
 		var wiped: Dictionary = await Supabase.soft_delete_account()
@@ -207,21 +213,24 @@ func clear_progress() -> void:
 # --------------------------------------------------------------------------
 
 ## Returns an empty string on success, or a player-facing error message.
-func try_login(username: String, password: String) -> String:
-	var display := username.strip_edges()
-	var key := _normalize_key(display)
-	if key.is_empty() or password.is_empty():
-		return "The loom is empty. Enter your username and password."
+## Login uses email + password (username is display-only, set at register).
+func try_login(email: String, password: String) -> String:
+	var mail := email.strip_edges().to_lower()
+	if mail.is_empty() or password.is_empty():
+		return "The loom is empty. Enter your email and password."
+	if not _looks_like_email(mail):
+		return "Enter a valid email address."
 
 	if is_cloud_mode():
-		var result: Dictionary = await Supabase.sign_in(display, password)
+		var result: Dictionary = await Supabase.sign_in(mail, password)
 		if not bool(result.get("ok", false)):
 			return _friendly_auth_error(str(result.get("error", "")), "Those threads do not match any known weaver.")
-		_current_key = key
+		_current_key = _normalize_key(mail)
 		await _pull_progress_from_cloud()
 		return ""
 
-	if not _accounts.has(key):
+	var key := _find_local_key_by_email(mail)
+	if key.is_empty():
 		return "Those threads do not match any known weaver."
 	var stored := str(_accounts[key].get("password_hash", ""))
 	if stored != _hash_password(password):
@@ -231,22 +240,27 @@ func try_login(username: String, password: String) -> String:
 
 
 ## Creates an account, starts a session, and returns "" on success.
-func try_register(username: String, password: String, confirm: String) -> String:
+func try_register(username: String, email: String, password: String, confirm: String) -> String:
 	var display_name := username.strip_edges()
-	var key := _normalize_key(display_name)
-	if key.is_empty() or password.is_empty() or confirm.is_empty():
+	var mail := email.strip_edges().to_lower()
+	var key := _normalize_key(mail)
+	if display_name.is_empty() or mail.is_empty() or password.is_empty() or confirm.is_empty():
 		return "Every field must be woven. Fill them all."
+	if not _looks_like_email(mail):
+		return "Enter a valid email address."
+	if display_name.length() < 3:
+		return "Username must be at least 3 characters."
 	if password.length() < MIN_PASSWORD_LENGTH:
 		return "A password must be at least %d characters." % MIN_PASSWORD_LENGTH
 	if password != confirm:
 		return "The two passwords do not match."
 
 	if is_cloud_mode():
-		var result: Dictionary = await Supabase.sign_up(display_name, password)
+		var result: Dictionary = await Supabase.sign_up(mail, password, display_name)
 		if not bool(result.get("ok", false)):
 			return _friendly_auth_error(str(result.get("error", "")), "Could not create that account.")
 		if not Supabase.has_session():
-			var login_try: Dictionary = await Supabase.sign_in(display_name, password)
+			var login_try: Dictionary = await Supabase.sign_in(mail, password)
 			if not bool(login_try.get("ok", false)):
 				return "Account created. In Supabase → Authentication → Providers → Email, turn OFF “Confirm email”, then sign in."
 		_current_key = key
@@ -255,10 +269,13 @@ func try_register(username: String, password: String, confirm: String) -> String
 		await _push_progress_to_cloud()
 		return ""
 
-	if _accounts.has(key):
+	if _accounts.has(key) or not _find_local_key_by_email(mail).is_empty():
+		return "That email is already spoken in the village."
+	if _find_local_key_by_username(display_name) != "":
 		return "That name is already spoken in the village."
 	_accounts[key] = {
 		"username": display_name,
+		"email": mail,
 		"password_hash": _hash_password(password),
 		"has_seen_intro": false,
 	}
@@ -302,7 +319,9 @@ func _friendly_auth_error(raw: String, fallback: String) -> String:
 	var lower := raw.to_lower()
 	if "invalid login" in lower or "invalid_credentials" in lower:
 		return "Those threads do not match any known weaver."
-	if "already registered" in lower or "user already" in lower:
+	if "already registered" in lower or "user already" in lower or ("email" in lower and "exist" in lower):
+		return "That email is already spoken in the village."
+	if "duplicate" in lower and "username" in lower:
 		return "That name is already spoken in the village."
 	if "password" in lower and ("weak" in lower or "least" in lower):
 		return "A password must be at least %d characters." % MIN_PASSWORD_LENGTH
@@ -315,8 +334,32 @@ func _friendly_auth_error(raw: String, fallback: String) -> String:
 # Local disk
 # --------------------------------------------------------------------------
 
-func _normalize_key(username: String) -> String:
-	return username.strip_edges().to_lower()
+func _normalize_key(value: String) -> String:
+	return value.strip_edges().to_lower()
+
+
+func _looks_like_email(value: String) -> bool:
+	return value.find("@") > 0 and value.find(".") > value.find("@")
+
+
+func _find_local_key_by_email(mail: String) -> String:
+	var wanted := _normalize_key(mail)
+	if _accounts.has(wanted) and str(_accounts[wanted].get("email", wanted)) == wanted:
+		return wanted
+	for key in _accounts.keys():
+		var row: Dictionary = _accounts[key]
+		if _normalize_key(str(row.get("email", ""))) == wanted:
+			return str(key)
+	return ""
+
+
+func _find_local_key_by_username(username: String) -> String:
+	var wanted := username.strip_edges().to_lower()
+	for key in _accounts.keys():
+		var row: Dictionary = _accounts[key]
+		if str(row.get("username", "")).strip_edges().to_lower() == wanted:
+			return str(key)
+	return ""
 
 
 func _hash_password(password: String) -> String:

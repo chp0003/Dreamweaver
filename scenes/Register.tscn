@@ -235,7 +235,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -440.0
-offset_top = -480.0
+offset_top = -560.0
 offset_right = -40.0
 offset_bottom = -40.0
 grow_horizontal = 0
@@ -266,12 +266,29 @@ text = "USERNAME"
 
 [node name="UsernameField" type="LineEdit" parent="FormHost/Form"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_field")
 theme_override_styles/focus = SubResource("StyleBoxFlat_field_focus")
-placeholder_text = "Choose a name"
+placeholder_text = "Choose a display name"
 max_length = 24
+caret_blink = true
+
+[node name="EmailLabel" type="Label" parent="FormHost/Form"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.72, 0.62, 0.85)
+theme_override_fonts/font = ExtResource("6_crimson")
+theme_override_font_sizes/font_size = 12
+text = "EMAIL"
+
+[node name="EmailField" type="LineEdit" parent="FormHost/Form"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_field")
+theme_override_styles/focus = SubResource("StyleBoxFlat_field_focus")
+placeholder_text = "you@email.com"
+max_length = 120
 caret_blink = true
 
 [node name="PasswordLabel" type="Label" parent="FormHost/Form"]
@@ -283,7 +300,7 @@ text = "PASSWORD"
 
 [node name="PasswordField" type="LineEdit" parent="FormHost/Form"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_field")
 theme_override_styles/focus = SubResource("StyleBoxFlat_field_focus")
@@ -301,7 +318,7 @@ text = "CONFIRM PASSWORD"
 
 [node name="ConfirmField" type="LineEdit" parent="FormHost/Form"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_field")
 theme_override_styles/focus = SubResource("StyleBoxFlat_field_focus")

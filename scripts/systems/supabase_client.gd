@@ -36,24 +36,25 @@ func clear_session() -> void:
 # Auth
 # --------------------------------------------------------------------------
 
-func sign_up(username_value: String, password: String) -> Dictionary:
-	var email := Config.email_for_username(username_value)
+func sign_up(email_value: String, password: String, username_value: String) -> Dictionary:
+	var email := email_value.strip_edges().to_lower()
+	var display := username_value.strip_edges()
 	var body := {
 		"email": email,
 		"password": password,
-		"data": {"username": username_value.strip_edges()},
+		"data": {"username": display},
 	}
 	var result := await _request(HTTPClient.METHOD_POST, "/auth/v1/signup", body, false)
 	if not result.get("ok", false):
 		return result
-	_apply_auth_payload(result.get("data", {}), username_value.strip_edges())
+	_apply_auth_payload(result.get("data", {}), display)
 	if has_session():
-		await upsert_profile(username_value.strip_edges())
+		await upsert_profile(display, email)
 	return result
 
 
-func sign_in(username_value: String, password: String) -> Dictionary:
-	var email := Config.email_for_username(username_value)
+func sign_in(email_value: String, password: String) -> Dictionary:
+	var email := email_value.strip_edges().to_lower()
 	var body := {
 		"email": email,
 		"password": password,
@@ -66,9 +67,9 @@ func sign_in(username_value: String, password: String) -> Dictionary:
 	)
 	if not result.get("ok", false):
 		return result
-	_apply_auth_payload(result.get("data", {}), username_value.strip_edges())
+	_apply_auth_payload(result.get("data", {}), "")
 	if has_session():
-		await upsert_profile(username_value.strip_edges())
+		await _refresh_profile_username()
 	return result
 
 
@@ -111,12 +112,13 @@ func soft_delete_account() -> Dictionary:
 # Profiles / saves
 # --------------------------------------------------------------------------
 
-func upsert_profile(username_value: String) -> Dictionary:
+func upsert_profile(username_value: String, email_value: String = "") -> Dictionary:
 	if not has_session():
 		return _fail("Not signed in.")
 	var row := {
 		"id": user_id,
 		"username": username_value.strip_edges(),
+		"email": (email_value if not email_value.is_empty() else user_email).strip_edges().to_lower(),
 	}
 	return await _request(
 		HTTPClient.METHOD_POST,
@@ -125,6 +127,25 @@ func upsert_profile(username_value: String) -> Dictionary:
 		true,
 		{"Prefer": "resolution=merge-duplicates,return=minimal"}
 	)
+
+
+func _refresh_profile_username() -> void:
+	var res := await _request(
+		HTTPClient.METHOD_GET,
+		"/rest/v1/profiles?id=eq.%s&select=username,email" % user_id,
+		null,
+		true
+	)
+	if not bool(res.get("ok", false)):
+		return
+	var rows: Variant = res.get("data", [])
+	if typeof(rows) != TYPE_ARRAY or (rows as Array).is_empty():
+		return
+	var row: Dictionary = (rows as Array)[0]
+	var name := str(row.get("username", "")).strip_edges()
+	if not name.is_empty():
+		username = name
+		_save_session()
 
 
 func fetch_save() -> Dictionary:
