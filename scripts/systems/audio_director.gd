@@ -1,21 +1,30 @@
 extends Node
-## Autoload that synthesises the game's ambience and effects at runtime.
+## Autoload that owns ambience, menu music, and synthesised effects.
 ##
-## The project ships no audio files yet, so rather than leave every scene silent
-## this generates the wind bed and the brass bell of the Main Menu, plus short
-## gameplay stingers, into a single AudioStreamGenerator buffer. Replacing this
-## with real recordings later means rewriting the bodies of `play_sfx()` and
-## `set_ambience()` - callers do not change.
+## Procedural wind / brass / stingers still live in an AudioStreamGenerator so
+## gameplay never goes silent without shipped SFX. Menu screens play the real
+## Dreamweaver login track via `play_menu_music()`; leaving those screens fades
+## it out so chapters keep their own ambience.
 
 const MIX_RATE := 22050.0
 const BUFFER_SECONDS := 0.2
 const MAX_VOICES := 24
+
+const MENU_MUSIC_PATH := "res://assets/audio/music/menu_ambient.mp3"
+const MUSIC_FADE_IN := 1.2
+const MUSIC_FADE_OUT := 0.7
+const MUSIC_VOLUME_DB := -9.0
 
 enum Sfx { CHIME, HIT, PICKUP, BELL, SUCCESS, FAIL, PARRY, THUD }
 
 var _player: AudioStreamPlayer
 var _playback: AudioStreamGeneratorPlayback
 var _enabled := true
+
+## Real music bed (login / register / gateway). Separate from the synth player.
+var _music_player: AudioStreamPlayer
+var _music_path := ""
+var _music_tween: Tween
 
 ## Wind bed: a slow gust envelope plus a low-passed noise source.
 var _wind_level := 0.0
@@ -60,6 +69,12 @@ func _ready() -> void:
 		# Headless or no audio device: stay quiet rather than error every frame.
 		_enabled = false
 
+	_music_player = AudioStreamPlayer.new()
+	_music_player.name = "Music"
+	_music_player.bus = "Master"
+	_music_player.volume_db = -80.0
+	add_child(_music_player)
+
 
 ## The playback is a reference handed out by the audio server, so drop it before
 ## the server shuts down.
@@ -68,6 +83,8 @@ func _exit_tree() -> void:
 	_playback = null
 	if _player != null:
 		_player.stop()
+	if _music_player != null:
+		_music_player.stop()
 
 
 func _process(delta: float) -> void:
@@ -83,7 +100,7 @@ func _process(delta: float) -> void:
 # --------------------------------------------------------------------------
 
 ## `level` is 0..1 wind loudness. A positive `bell_interval` (seconds) adds the
-## distant brass toll used on the Main Menu and in the ancestor hall.
+## distant brass toll used under quiet menus and in the ancestor hall.
 func set_ambience(level: float, bell_interval: float = 0.0) -> void:
 	_wind_level = clampf(level, 0.0, 1.0)
 	_bell_interval = maxf(0.0, bell_interval)
@@ -93,6 +110,57 @@ func set_ambience(level: float, bell_interval: float = 0.0) -> void:
 
 func stop_ambience() -> void:
 	set_ambience(0.0, 0.0)
+
+
+## Loop the Dreamweaver login track across Login, Register, and the Gateway.
+## Calling again while the same track is already playing is a no-op so fades
+## between those screens do not restart the song.
+func play_menu_music() -> void:
+	play_music(MENU_MUSIC_PATH, MUSIC_VOLUME_DB)
+
+
+func play_music(path: String, volume_db: float = MUSIC_VOLUME_DB) -> void:
+	if not _enabled or path.is_empty() or _music_player == null:
+		return
+	if _music_path == path and _music_player.playing:
+		return
+
+	var stream := _load_music_stream(path)
+	if stream == null:
+		push_warning("Audio: could not load music at %s" % path)
+		return
+
+	_kill_music_tween()
+	_music_path = path
+	_music_player.stream = stream
+	_music_player.volume_db = -80.0
+	_music_player.play()
+	_music_tween = create_tween()
+	_music_tween.tween_property(_music_player, "volume_db", volume_db, MUSIC_FADE_IN) \
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
+
+
+func stop_music(immediate: bool = false) -> void:
+	if _music_player == null:
+		return
+	_music_path = ""
+	_kill_music_tween()
+	if immediate or not _music_player.playing:
+		_music_player.stop()
+		_music_player.volume_db = -80.0
+		return
+	var player := _music_player
+	_music_tween = create_tween()
+	_music_tween.tween_property(player, "volume_db", -80.0, MUSIC_FADE_OUT) \
+		.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_SINE)
+	_music_tween.tween_callback(func() -> void:
+		if is_instance_valid(player):
+			player.stop()
+	)
+
+
+func is_music_playing() -> bool:
+	return _music_player != null and _music_player.playing and not _music_path.is_empty()
 
 
 func play_sfx(kind: Sfx) -> void:
@@ -125,6 +193,47 @@ func play_sfx(kind: Sfx) -> void:
 		Sfx.FAIL:
 			_add_voice(196.0, 0.24, 5.0)
 			_add_voice(185.0, 0.20, 6.0)
+
+
+# --------------------------------------------------------------------------
+# Music loading
+# --------------------------------------------------------------------------
+
+func _load_music_stream(path: String) -> AudioStream:
+	if ResourceLoader.exists(path):
+		var loaded := load(path)
+		if loaded is AudioStream:
+			_configure_loop(loaded)
+			return loaded as AudioStream
+
+	# Editor import may not have run yet (fresh clone / headless). Fall back to
+	# reading the MP3 bytes so the menu still sings.
+	if not path.ends_with(".mp3"):
+		return null
+	if not FileAccess.file_exists(path):
+		return null
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return null
+	var stream := AudioStreamMP3.new()
+	stream.data = file.get_buffer(file.get_length())
+	stream.loop = true
+	return stream
+
+
+func _configure_loop(stream: AudioStream) -> void:
+	if stream is AudioStreamMP3:
+		(stream as AudioStreamMP3).loop = true
+	elif stream is AudioStreamOggVorbis:
+		(stream as AudioStreamOggVorbis).loop = true
+	elif stream is AudioStreamWAV:
+		(stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
+
+
+func _kill_music_tween() -> void:
+	if _music_tween != null and is_instance_valid(_music_tween):
+		_music_tween.kill()
+	_music_tween = null
 
 
 # --------------------------------------------------------------------------

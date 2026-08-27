@@ -1,9 +1,135 @@
-[gd_scene format=3 uid="uid://b86801jed5rfc"]
+[gd_scene load_steps=13 format=3 uid="uid://b86801jed5rfc"]
 
 [ext_resource type="Script" path="res://scripts/flow/gateway.gd" id="1_gateway"]
-[ext_resource type="Script" path="res://scripts/flow/mountain_silhouette.gd" id="2_silhouette"]
 [ext_resource type="Theme" uid="uid://bwdreamtheme" path="res://assets/themes/dreamweaver.tres" id="3_theme"]
 [ext_resource type="Texture2D" path="res://assets/images/ui/logo_emblem.png" id="4_emblem"]
+[ext_resource type="Texture2D" path="res://assets/images/ui/login_hero_cinematic.png" id="5_bg"]
+[ext_resource type="FontFile" path="res://assets/fonts/Cinzel-Bold.ttf" id="6_cinzel_b"]
+[ext_resource type="FontFile" path="res://assets/fonts/CrimsonPro-Italic.ttf" id="7_crimson_i"]
+[ext_resource type="FontFile" path="res://assets/fonts/CrimsonPro-Regular.ttf" id="8_crimson"]
+[ext_resource type="Script" path="res://scripts/ui/woven_frame.gd" id="9_frame"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cta"]
+bg_color = Color(0.62, 0.157, 0.137, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.886, 0.376, 0.29, 0.55)
+content_margin_left = 20.0
+content_margin_top = 14.0
+content_margin_right = 20.0
+content_margin_bottom = 14.0
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+shadow_color = Color(0.784, 0.208, 0.169, 0.4)
+shadow_size = 16
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cta_hover"]
+bg_color = Color(0.784, 0.208, 0.169, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.973, 0.914, 0.659, 0.7)
+content_margin_left = 20.0
+content_margin_top = 14.0
+content_margin_right = 20.0
+content_margin_bottom = 14.0
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+shadow_color = Color(0.886, 0.376, 0.29, 0.5)
+shadow_size = 20
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cta_pressed"]
+bg_color = Color(0.349, 0.078, 0.059, 1)
+content_margin_left = 20.0
+content_margin_top = 14.0
+content_margin_right = 20.0
+content_margin_bottom = 14.0
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_secondary"]
+bg_color = Color(0.055, 0.075, 0.149, 0.55)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.69, 0.541, 0.18, 0.38)
+content_margin_left = 20.0
+content_margin_top = 12.0
+content_margin_right = 20.0
+content_margin_bottom = 12.0
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+shadow_color = Color(0.969, 0.878, 0.643, 0.08)
+shadow_size = 8
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_secondary_hover"]
+bg_color = Color(0.086, 0.114, 0.227, 0.78)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.929, 0.82, 0.447, 0.85)
+content_margin_left = 20.0
+content_margin_top = 12.0
+content_margin_right = 20.0
+content_margin_bottom = 12.0
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+shadow_color = Color(0.969, 0.878, 0.643, 0.22)
+shadow_size = 16
+anti_aliasing = true
+
+[sub_resource type="Gradient" id="Gradient_wash"]
+offsets = PackedFloat32Array(0, 0.42, 0.72, 1)
+colors = PackedColorArray(0.027, 0.035, 0.071, 0.58, 0.027, 0.035, 0.071, 0.1, 0.055, 0.075, 0.149, 0.26, 0.027, 0.035, 0.071, 0.68)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_wash"]
+gradient = SubResource("Gradient_wash")
+fill_from = Vector2(0, 0.5)
+fill_to = Vector2(1, 0.5)
+width = 256
+height = 64
+
+[sub_resource type="Gradient" id="Gradient_bottom"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(0.027, 0.035, 0.071, 0, 0.027, 0.035, 0.071, 0.32, 0.027, 0.035, 0.071, 0.86)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_bottom"]
+gradient = SubResource("Gradient_bottom")
+fill_from = Vector2(0.5, 0)
+fill_to = Vector2(0.5, 1)
+width = 64
+height = 256
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_embers"]
+emission_shape = 3
+emission_box_extents = Vector3(640, 8, 1)
+direction = Vector3(0, -1, 0)
+spread = 28.0
+initial_velocity_min = 12.0
+initial_velocity_max = 36.0
+gravity = Vector3(0, -6, 0)
+scale_min = 0.4
+scale_max = 1.4
+color = Color(0.969, 0.878, 0.643, 0.85)
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -15,7 +141,8 @@ grow_vertical = 2
 theme = ExtResource("3_theme")
 script = ExtResource("1_gateway")
 
-[node name="Backdrop" type="Control" parent="."]
+[node name="Background" type="TextureRect" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -23,9 +150,11 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-script = ExtResource("2_silhouette")
+texture = ExtResource("5_bg")
+expand_mode = 1
+stretch_mode = 6
 
-[node name="Vignette" type="ColorRect" parent="."]
+[node name="Wash" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -33,9 +162,10 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.027, 0.035, 0.071, 0.28)
+texture = SubResource("GradientTexture2D_wash")
+expand_mode = 1
 
-[node name="Layout" type="MarginContainer" parent="."]
+[node name="BottomFade" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -43,102 +173,191 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/margin_left = 72
-theme_override_constants/margin_top = 40
-theme_override_constants/margin_right = 72
-theme_override_constants/margin_bottom = 36
+texture = SubResource("GradientTexture2D_bottom")
+expand_mode = 1
 
-[node name="Column" type="VBoxContainer" parent="Layout"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 8
+[node name="Embers" type="GPUParticles2D" parent="."]
+unique_name_in_owner = true
+position = Vector2(640, 700)
+amount = 28
+process_material = SubResource("ParticleProcessMaterial_embers")
+lifetime = 4.5
+preprocess = 2.0
+visibility_rect = Rect2(-800, -800, 1600, 900)
 
-[node name="Emblem" type="TextureRect" parent="Layout/Column"]
-custom_minimum_size = Vector2(0, 130)
-layout_mode = 2
+[node name="Brand" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 48.0
+offset_top = -320.0
+offset_right = 760.0
+offset_bottom = -44.0
+grow_vertical = 0
+
+[node name="Emblem" type="TextureRect" parent="Brand"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = -268.0
+offset_right = 96.0
+offset_bottom = -176.0
+grow_vertical = 0
 mouse_filter = 2
 texture = ExtResource("4_emblem")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Title" type="Label" parent="Layout/Column"]
-layout_mode = 2
-theme_type_variation = &"HeaderLabel"
-theme_override_font_sizes/font_size = 54
-text = "DREAMWEAVER"
-horizontal_alignment = 1
-
-[node name="Subtitle" type="Label" parent="Layout/Column"]
-layout_mode = 2
-theme_type_variation = &"TaglineLabel"
-theme_override_font_sizes/font_size = 20
-text = "The Legend of Fun Kdungon"
-horizontal_alignment = 1
-
-[node name="GatewayTag" type="Label" parent="Layout/Column"]
-layout_mode = 2
-theme_type_variation = &"FieldLabel"
+[node name="GatewayTag" type="Label" parent="Brand"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 112.0
+offset_top = -230.0
+offset_right = 420.0
+offset_bottom = -200.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.86, 0.72, 0.42, 0.92)
+theme_override_fonts/font = ExtResource("8_crimson")
+theme_override_font_sizes/font_size = 14
 text = "THE GATEWAY"
-horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="Spacer" type="Control" parent="Layout/Column"]
-custom_minimum_size = Vector2(0, 18)
-layout_mode = 2
-mouse_filter = 2
-
-[node name="Buttons" type="VBoxContainer" parent="Layout/Column"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="NewGameButton" type="Button" parent="Layout/Column/Buttons"]
+[node name="Title" type="Label" parent="Brand"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(320, 50)
-layout_mode = 2
-size_flags_horizontal = 4
-text = "NEW GAME"
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -168.0
+offset_right = 700.0
+offset_bottom = -70.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.98, 0.93, 0.82, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.85)
+theme_override_constants/outline_size = 10
+theme_override_fonts/font = ExtResource("6_cinzel_b")
+theme_override_font_sizes/font_size = 64
+text = "DREAMWEAVER"
+vertical_alignment = 2
 
-[node name="LoadGameButton" type="Button" parent="Layout/Column/Buttons"]
+[node name="Subtitle" type="Label" parent="Brand"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -64.0
+offset_right = 560.0
+offset_bottom = -12.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.9, 0.82, 0.68, 0.92)
+theme_override_fonts/font = ExtResource("7_crimson_i")
+theme_override_font_sizes/font_size = 22
+text = "The Legend of Fun Kdungon"
+vertical_alignment = 1
+
+[node name="MenuHost" type="PanelContainer" parent="."]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(320, 50)
-layout_mode = 2
-size_flags_horizontal = 4
-text = "LOAD GAME"
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -430.0
+offset_top = -440.0
+offset_right = -40.0
+offset_bottom = -40.0
+grow_horizontal = 0
+grow_vertical = 0
+script = ExtResource("9_frame")
+pad = 22
+lit = true
+draw_kleng = true
+fill = Color(0.086, 0.114, 0.227, 0.92)
 
-[node name="CodexButton" type="Button" parent="Layout/Column/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(320, 42)
-layout_mode = 2
-size_flags_horizontal = 4
-theme_type_variation = &"GhostButton"
-text = "LORE CODEX"
-
-[node name="ExitButton" type="Button" parent="Layout/Column/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(320, 42)
-layout_mode = 2
-size_flags_horizontal = 4
-theme_type_variation = &"GhostButton"
-text = "EXIT"
-
-[node name="Spacer2" type="Control" parent="Layout/Column"]
-layout_mode = 2
-size_flags_vertical = 3
-mouse_filter = 2
-
-[node name="ProgressLabel" type="Label" parent="Layout/Column"]
+[node name="Menu" type="VBoxContainer" parent="MenuHost"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_type_variation = &"FieldLabel"
+theme_override_constants/separation = 12
+
+[node name="FormEyebrow" type="Label" parent="MenuHost/Menu"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.72, 0.42, 0.9)
+theme_override_fonts/font = ExtResource("8_crimson")
+theme_override_font_sizes/font_size = 13
+text = "CHOOSE YOUR PATH"
+
+[node name="WelcomeLabel" type="Label" parent="MenuHost/Menu"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.93, 0.82, 1)
+theme_override_fonts/font = ExtResource("8_crimson")
+theme_override_font_sizes/font_size = 20
+text = "Welcome, weaver."
+autowrap_mode = 3
+
+[node name="ProgressLabel" type="Label" parent="MenuHost/Menu"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.72, 0.62, 0.88)
+theme_override_fonts/font = ExtResource("7_crimson_i")
 theme_override_font_sizes/font_size = 14
 text = ""
-horizontal_alignment = 1
+autowrap_mode = 3
 
-[node name="WelcomeLabel" type="Label" parent="Layout/Column"]
-unique_name_in_owner = true
+[node name="Divider" type="ColorRect" parent="MenuHost/Menu"]
+custom_minimum_size = Vector2(0, 1)
 layout_mode = 2
-theme_type_variation = &"TaglineLabel"
-text = "Welcome, weaver."
-horizontal_alignment = 1
+mouse_filter = 2
+color = Color(0.69, 0.541, 0.18, 0.28)
+
+[node name="NewGameButton" type="Button" parent="MenuHost/Menu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("6_cinzel_b")
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_cta")
+theme_override_styles/hover = SubResource("StyleBoxFlat_cta_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_cta_pressed")
+text = "NEW GAME"
+
+[node name="LoadGameButton" type="Button" parent="MenuHost/Menu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("6_cinzel_b")
+theme_override_font_sizes/font_size = 15
+theme_override_styles/normal = SubResource("StyleBoxFlat_secondary")
+theme_override_styles/hover = SubResource("StyleBoxFlat_secondary_hover")
+text = "LOAD GAME"
+
+[node name="CodexButton" type="Button" parent="MenuHost/Menu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+theme_type_variation = &"GhostButton"
+theme_override_colors/font_color = Color(0.86, 0.78, 0.62, 0.9)
+theme_override_font_sizes/font_size = 14
+text = "Lore Codex"
+flat = true
+
+[node name="ExitButton" type="Button" parent="MenuHost/Menu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+theme_type_variation = &"GhostButton"
+theme_override_colors/font_color = Color(0.86, 0.78, 0.62, 0.72)
+theme_override_font_sizes/font_size = 14
+text = "Exit"
+flat = true
 
 [node name="ConfirmDialog" type="ConfirmationDialog" parent="."]
 unique_name_in_owner = true

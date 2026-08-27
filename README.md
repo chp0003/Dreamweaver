@@ -160,7 +160,7 @@ Houses unlock in order. House 5 additionally checks for all three essences *and*
 | `AccountManager` | `scripts/account_manager.gd` | Accounts, session, and per-account progress in `user://accounts.json` |
 | `GameState` | `scripts/systems/game_state.gd` | Live run: lives, chapter, unlocks, essences, items, lore, score. Writes through on every change |
 | `ColorRestoration` | `scripts/systems/color_restoration.gd` | Owns the desaturation shader — global level plus up to 8 local colour zones |
-| `Audio` | `scripts/systems/audio_director.gd` | Procedurally synthesises wind, brass bells and stingers (no audio files shipped yet) |
+| `Audio` | `scripts/systems/audio_director.gd` | Menu music (`menu_ambient.mp3`) plus synthesised wind, brass bells and stingers |
 | `SceneFader` | `scripts/scene_fader.gd` | Fade between scenes |
 | `GameManager` | `scripts/game_manager.gd` | Unchanged from the earlier prototype |
 

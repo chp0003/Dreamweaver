@@ -13,6 +13,8 @@ extends Control
 
 
 func _ready() -> void:
+	Audio.play_menu_music()
+	Audio.set_ambience(0.18, 0.0)
 	error_label.text = ""
 	login_button.pressed.connect(_on_login_pressed)
 	register_button.pressed.connect(_on_register_pressed)

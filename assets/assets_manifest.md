@@ -231,13 +231,13 @@ Each tileset sheet should be an 8×8 grid of 32×32 cells containing: 4 floor va
 
 ## 8. Audio
 
-**Nothing here is a file yet.** `scripts/systems/audio_director.gd` synthesises the wind bed, the brass bell and all stingers at runtime through an `AudioStreamGenerator`, so the game is never silent. Replacing it means writing files to these paths and rewriting the bodies of `set_ambience()` and `play_sfx()` — callers do not change.
+SFX and most music cues are still synthesised at runtime by `scripts/systems/audio_director.gd`. The login / register / Gateway bed is the shipped track below; remaining rows are still placeholders.
 
 ### Music
 
 | Path | Cue | Instrumentation & mood | Tempo |
 | --- | --- | --- | --- |
-| `audio/music/menu_ambient.ogg` | Gateway, login | Low rhythmic hum, wind, a distant brass bell every ~9 s. Almost no melody | ~60 BPM, loop |
+| `audio/music/menu_ambient.mp3` | Login, Register, Gateway | Dreamweaver Login theme — loops across auth and the main menu | loop |
 | `audio/music/golden_era.ogg` | Prologue panel 1 | Hegelung (two-string lute) melody, hand drum, bamboo flute. Warm, pastoral, whole | 84 BPM |
 | `audio/music/covenant.ogg` | Prologue, Fun Kdungon | Swelling strings under a solo bamboo flute, brass bell accents, no percussion. Sacred, vast | 66 BPM, rubato |
 | `audio/music/great_bleaching.ogg` | Prologue, the bleaching | Harsh rising wind, a single struck gong, then **three seconds of true silence**. The silence is the cue | n/a, one-shot |

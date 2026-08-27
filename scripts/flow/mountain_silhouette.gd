@@ -193,14 +193,13 @@ func _draw_ridge(w: float, h: float, ridge: Dictionary) -> void:
 	draw_colored_polygon(points, colour)
 
 
-## A cluster of three Guno Bong, the largest one lit. Deliberately off to one
-## side: the menu's button column runs down the middle of the frame, and a roof
-## peak behind a button label makes both harder to read.
+## A cluster of three Guno Bong, the largest one lit. Anchored mid-left so the
+## Gateway's brand and menu panel keep open sky behind their type.
 func _draw_village(w: float, h: float) -> void:
 	var ground := h * 0.80
-	_draw_guno_bong(Vector2(w * 0.28, ground), h * 0.095, true)
-	_draw_guno_bong(Vector2(w * 0.12, ground + h * 0.014), h * 0.056, false)
-	_draw_guno_bong(Vector2(w * 0.72, ground + h * 0.02), h * 0.05, false)
+	_draw_guno_bong(Vector2(w * 0.36, ground), h * 0.095, true)
+	_draw_guno_bong(Vector2(w * 0.18, ground + h * 0.014), h * 0.056, false)
+	_draw_guno_bong(Vector2(w * 0.52, ground + h * 0.02), h * 0.05, false)
 
 
 ## A T'boli longhouse in silhouette: stilts, a low wall band, and the steep
