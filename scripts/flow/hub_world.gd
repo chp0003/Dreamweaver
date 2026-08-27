@@ -78,6 +78,9 @@ func _build_world() -> void:
 	_dress_living_ridge()
 	_restore_completed_colors()
 	_set_camera_floor(_ridge_floor)
+	# Hub stays evenly lit — no staff glow washing the plaza.
+	if player != null:
+		player.set_light_enabled(false)
 
 
 func _mount_terrain() -> void:
@@ -317,12 +320,13 @@ func _build_door(house: Dictionary) -> void:
 	var to_plaza := _plaza_cell - cell
 	if to_plaza.x > 0.1:
 		prop.set_flip_h(true)
-	prop.add_silhouette_rim(accent if unlocked else Palette.DREAM_MIST)
+	# New House1-5 art already has clean outlines — no extra rim (it read as
+	# black slabs over the sprites).
 
 	if not unlocked:
-		prop.set_tint(Color(0.86, 0.87, 0.92, 0.97))
+		prop.set_tint(Color(0.88, 0.89, 0.93, 0.98))
 	elif completed:
-		prop.set_tint(Color(1.04, 1.02, 0.98, 1.0))
+		prop.set_tint(Color(1.02, 1.01, 0.99, 1.0))
 
 	_attach_nameplate(prop, house_id, unlocked, completed, accent, house_size)
 
@@ -390,8 +394,9 @@ func _restore_completed_colors() -> void:
 			continue
 		ColorRestoration.add_zone("hub_house_%d" % int(house_id),
 			(door as Dictionary)["prop"] as Node2D, 340.0, 0.94)
+	# Soft staff aura only — keep it small so the plaza does not wash out.
 	if player != null:
-		ColorRestoration.add_zone("staff_carried", player, 130.0, 0.85)
+		ColorRestoration.add_zone("staff_carried", player, 70.0, 0.55)
 
 
 func _run_chapter() -> void:
