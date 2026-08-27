@@ -78,9 +78,11 @@ func _build_world() -> void:
 	_dress_living_ridge()
 	_restore_completed_colors()
 	_set_camera_floor(_ridge_floor)
-	# Hub stays evenly lit — no staff glow washing the plaza.
+	# Hub stays evenly lit — no staff glow / lantern wash on the plaza.
+	ColorRestoration.remove_zone("lewet_staff")
 	if player != null:
 		player.set_light_enabled(false)
+		ColorRestoration.add_zone("staff_carried", player, 70.0, 0.55)
 
 
 func _mount_terrain() -> void:
