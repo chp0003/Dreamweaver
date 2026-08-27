@@ -8,10 +8,10 @@ extends RefCounted
 ## 4. Fill URL and ANON_KEY below (leave empty to keep local JSON auth)
 
 ## Example: "https://abcdefghijklmnop.supabase.co"
-const URL := ""
+const URL := "https://dsfxttfwdqswmafzkitd.supabase.co"
 
 ## Example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-const ANON_KEY := ""
+const ANON_KEY := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzZnh0dGZ3ZHFzd21hZnpraXRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3OTIzNDUsImV4cCI6MjEwMzM2ODM0NX0.eTcRiYHnExnumR-eFeURAjXW30yi3mKe5Ak9LEkuI24"
 
 ## Turns usernames into Auth emails without adding an email field to the UI.
 ## Login "slang" becomes "slang@players.dreamweaver.game".
