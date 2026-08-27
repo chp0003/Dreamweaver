@@ -2,5 +2,5 @@
 
 Separated landscape tiles used by `HubTerrain` for the village green.
 
-Source: Kenney.nl — Isometric Tiles Landscape (CC0).
-https://kenney.nl/assets/isometric-tiles-landscape
+Primary pack: `tile_000.png` … `tile_114.png` (project art).
+`HubTerrain` loads only the `tile_*.png` files.

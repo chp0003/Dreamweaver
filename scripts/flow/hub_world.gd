@@ -177,16 +177,13 @@ func _add_house_floor(house_id: int, origin: Vector2) -> void:
 
 
 func _dress_park() -> void:
-	# Fill the four quadrants and path edges so the green is a park, not a void.
+	# Terrain tiles already carry grass / ponds / flowers. Keep a light layer of
+	# canopy + lanterns so the park still reads at camera distance.
 	var trees: Array[Vector2] = [
-		Vector2(-5.2, -3.0), Vector2(-3.4, -5.0), Vector2(3.6, -5.2), Vector2(5.4, -3.2),
-		Vector2(-5.4, 3.4), Vector2(-3.2, 5.4), Vector2(3.4, 5.2), Vector2(5.2, 3.6),
 		Vector2(-10.0, -4.0), Vector2(10.0, -4.0), Vector2(-10.0, 4.0), Vector2(10.0, 4.0),
 		Vector2(-4.0, -10.0), Vector2(4.0, -10.0), Vector2(-4.0, 10.0), Vector2(4.0, 10.0),
 		Vector2(-12.0, 2.0), Vector2(12.0, -2.0), Vector2(2.0, 12.5), Vector2(-2.0, -12.5),
-		Vector2(-11.0, -8.0), Vector2(11.0, -8.0), Vector2(-11.0, 8.0), Vector2(11.0, 8.0),
-		Vector2(-8.0, -11.0), Vector2(8.0, -11.0), Vector2(-8.0, 11.0), Vector2(8.0, 11.0),
-		Vector2(-13.0, -1.0), Vector2(13.0, 1.0), Vector2(-1.0, 13.0), Vector2(1.0, -13.0),
+		Vector2(-11.0, -8.0), Vector2(11.0, 8.0), Vector2(-8.0, 11.0), Vector2(8.0, -11.0),
 	]
 	for i in range(trees.size()):
 		var cell: Vector2 = trees[i]
@@ -203,25 +200,10 @@ func _dress_park() -> void:
 			"collision_feet": Vector2(28.0, 18.0),
 		})
 
-	var rocks: Array[Vector2] = [
-		Vector2(-6.5, -7.5), Vector2(6.8, -7.2), Vector2(-7.2, 6.5), Vector2(7.0, 6.8),
-		Vector2(-1.8, -6.8), Vector2(1.8, 6.8), Vector2(-8.5, -1.5), Vector2(8.5, 1.5),
-	]
-	for i in range(rocks.size()):
-		spawn_prop("HIGHLAND ROCK", rocks[i], {
-			"texture_path": "res://assets/images/environments/highland/highland_rock.png",
-			"prop_size": Vector2(48.0 + float(i % 2) * 10.0, 48.0 + float(i % 3) * 6.0),
-			"body_color": Palette.CURSED_STONE,
-			"accent_color": Palette.CREAM_STONE,
-			"show_label": false,
-			"cast_shadow": true,
-			"blocks_movement": true,
-			"collision_feet": Vector2(24.0, 14.0),
-		})
-
 	var lanterns: Array[Vector2] = [
 		Vector2(-2.4, -2.4), Vector2(2.4, -2.4), Vector2(-2.4, 2.4), Vector2(2.4, 2.4),
 		Vector2(0.0, 5.2), Vector2(5.2, 0.0), Vector2(0.0, -5.2), Vector2(-5.2, 0.0),
+		Vector2(4.6, 4.6), Vector2(-4.6, -4.6),
 	]
 	for cell in lanterns:
 		spawn_prop("BRASS LANTERN", cell, {
@@ -235,7 +217,7 @@ func _dress_park() -> void:
 		})
 
 	var fences: Array[Vector2] = [
-		Vector2(-4.6, -4.6), Vector2(4.6, -4.6), Vector2(-4.6, 4.6), Vector2(4.6, 4.6),
+		Vector2(-4.8, -4.8), Vector2(4.8, -4.8), Vector2(-4.8, 4.8), Vector2(4.8, 4.8),
 	]
 	for cell in fences:
 		spawn_prop("BAMBOO FENCE", cell, {
@@ -244,39 +226,6 @@ func _dress_park() -> void:
 			"body_color": Palette.EARTH_BAMBOO,
 			"accent_color": Palette.EARTH_WOOD,
 			"show_label": false,
-			"blocks_movement": false,
-		})
-
-	for i in range(18):
-		var ang := float(i) * TAU / 18.0
-		var cell := Vector2(cos(ang), sin(ang)) * (3.6 + float(i % 3) * 0.55)
-		if _terrain != null and _terrain.is_path_cell(cell):
-			continue
-		spawn_prop("HIGHLAND GRASS", cell, {
-			"texture_path": "res://assets/images/props/highland_grass.png",
-			"prop_size": Vector2(28.0 + float(i % 3) * 8.0, 34.0 + float(i % 2) * 8.0),
-			"body_color": Palette.LIVING_MOSS,
-			"accent_color": Palette.LIVING_LEAF,
-			"show_label": false,
-			"cast_shadow": false,
-			"sway_degrees": 4.0,
-		})
-
-	# Soft path edge tufts — never on the paved X itself.
-	var edge_spots: Array[Vector2] = [
-		Vector2(-1.6, 3.2), Vector2(1.6, 3.2), Vector2(3.2, -1.6), Vector2(3.2, 1.6),
-		Vector2(-3.2, -1.6), Vector2(-3.2, 1.6), Vector2(-1.6, -3.2), Vector2(1.6, -3.2),
-		Vector2(6.2, 1.4), Vector2(1.4, 6.2), Vector2(-6.2, -1.4), Vector2(-1.4, -6.2),
-	]
-	for i in range(edge_spots.size()):
-		spawn_prop("GRASS TUFT", edge_spots[i], {
-			"texture_path": "res://assets/images/environments/highland/highland_grass_tuft.png",
-			"prop_size": Vector2(36.0, 32.0),
-			"body_color": Palette.LIVING_MOSS,
-			"accent_color": Palette.LIVING_LEAF,
-			"show_label": false,
-			"cast_shadow": false,
-			"sway_degrees": 2.5,
 			"blocks_movement": false,
 		})
 
