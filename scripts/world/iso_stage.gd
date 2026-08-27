@@ -92,8 +92,8 @@ class _FarBackdrop extends Node2D:
 		var origin := Vector2(-w * 0.5, -h * 0.72)
 		match chapter_id:
 			0:
-				_draw_ridges(origin, w, h, Palette.CURSED_DEEP, Palette.CURSED_STONE)
-				_draw_hanging_fiber(origin, w, Palette.CURSED_LINEN)
+				_draw_ridges(origin, w, h, Palette.LIVING_MOSS.darkened(0.35), Palette.LIVING_LEAF.darkened(0.2))
+				_draw_hanging_fiber(origin, w, Palette.LIVING_LEAF)
 			1:
 				_draw_ridges(origin, w, h, Palette.BLACK_PITCH, Palette.BLACK_BARK)
 				_draw_hanging_fiber(origin, w, Palette.CREAM_STONE)

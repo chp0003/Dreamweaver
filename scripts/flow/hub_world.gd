@@ -1,7 +1,7 @@
 extends ChapterBase
-## The open 2.5D ridge — one continuous map, not a per-screen chapter.
+## The village green — one continuous map, not a per-screen chapter.
 ##
-## S'lang walks the highland between the five Guno Bong. Entering a House
+## S'lang walks a wooden X between the five Guno Bong. Entering a House
 ## steps her into that interior on the same map (camera follows). Story still
 ## waits at each door until the previous House is restored.
 
@@ -46,31 +46,48 @@ const HOUSE_EXITS := {
 	5: Vector2(0.0, 7.1),
 }
 
+const FLOOR_ORIGIN := Vector2i(-16, -16)
+const FLOOR_COLS := 32
+const FLOOR_ROWS := 32
+
 var _doors: Dictionary = {}
 var _quests: Dictionary = {}
 var _house_floors: Dictionary = {}
 var _exit_triggers: Dictionary = {}
 var _house_exits: Dictionary = {}
 var _ridge_floor: Node2D
+var _boardwalk: HubBoardwalk
 var _active_house_id := 0
-var _plaza_cell := Vector2(7.4, 7.4)
+var _plaza_cell := Vector2.ZERO
 var _leaving_house := false
 
 
 func _build_world() -> void:
 	_ridge_floor = floor_node
-	add_room_bounds(Vector2i(-16, -13), 34, 30)
+	add_room_bounds(FLOOR_ORIGIN, FLOOR_COLS, FLOOR_ROWS)
 	Audio.set_ambience(0.55, 16.0)
 
+	_mount_boardwalk()
 	for house in Houses.LIST:
 		_build_door(house)
 		_mount_house(house)
 
-	_dress_ridge()
-	_dress_paths()
+	_dress_hedges()
+	_dress_green()
 	_dress_living_ridge()
 	_restore_completed_colors()
 	_set_camera_floor(_ridge_floor)
+
+
+func _mount_boardwalk() -> void:
+	var houses: Array[Vector2] = []
+	for house in Houses.LIST:
+		houses.append(house["hub_cell"] as Vector2)
+	_boardwalk = HubBoardwalk.new()
+	_boardwalk.name = "Boardwalk"
+	add_child(_boardwalk)
+	move_child(_boardwalk, mini(2, get_child_count() - 1))
+	_boardwalk.setup(_plaza_cell, houses)
 
 
 func _mount_house(house: Dictionary) -> void:
@@ -158,22 +175,52 @@ func _add_house_floor(house_id: int, origin: Vector2) -> void:
 	_house_floors[house_id] = floor
 
 
-func _dress_paths() -> void:
-	for house in Houses.LIST:
-		var door: Vector2 = house["hub_cell"]
-		var steps := 5
-		for i in range(1, steps):
-			var t := float(i) / float(steps)
-			var cell := _plaza_cell.lerp(door, t)
-			spawn_prop("HIGHLAND GRASS", cell + Vector2(0.35, -0.2), {
-				"texture_path": "res://assets/images/props/highland_grass.png",
-				"prop_size": Vector2(26.0, 32.0),
-				"body_color": Palette.LIVING_MOSS,
-				"accent_color": Palette.LIVING_LEAF,
-				"show_label": false,
-				"cast_shadow": false,
-				"sway_degrees": 3.0,
-			})
+func _dress_hedges() -> void:
+	if _boardwalk == null:
+		return
+	var i := 0
+	for cell in _boardwalk.hedge_cells:
+		if i % 2 == 1:
+			i += 1
+			continue
+		var jitter := Vector2(float((cell.x * 3 + cell.y) % 3) * 0.12 - 0.12,
+			float((cell.y * 5 + cell.x) % 3) * 0.1 - 0.1)
+		spawn_prop("HEDGE", Vector2(cell) + jitter, {
+			"texture_path": "res://assets/images/environments/highland/highland_grass_tuft.png",
+			"prop_size": Vector2(38.0 + float(i % 3) * 8.0, 34.0 + float(i % 2) * 8.0),
+			"body_color": Palette.LIVING_MOSS,
+			"accent_color": Palette.LIVING_LEAF,
+			"show_label": false,
+			"cast_shadow": false,
+			"sway_degrees": 2.8,
+			"blocks_movement": false,
+		})
+		i += 1
+
+
+func _dress_green() -> void:
+	# Grass tufts on the field, skipping the boardwalk so the X stays readable.
+	var spots: Array[Vector2] = [
+		Vector2(-6.0, 4.0), Vector2(-5.0, -5.0), Vector2(5.0, -6.0),
+		Vector2(6.0, 4.5), Vector2(-8.0, 6.0), Vector2(7.5, -3.0),
+		Vector2(-3.5, 6.5), Vector2(4.0, 6.0), Vector2(-7.0, -7.0),
+		Vector2(8.0, 6.5), Vector2(-4.0, -8.0), Vector2(3.0, -4.5),
+		Vector2(-2.0, 5.0), Vector2(5.5, 2.0), Vector2(-6.5, 1.0),
+		Vector2(2.5, 8.0), Vector2(-8.5, -2.0), Vector2(8.5, -8.0),
+	]
+	for i in range(spots.size()):
+		var cell: Vector2 = spots[i]
+		if _boardwalk != null and _boardwalk.is_path_cell(cell):
+			continue
+		spawn_prop("HIGHLAND GRASS", cell, {
+			"texture_path": "res://assets/images/props/highland_grass.png",
+			"prop_size": Vector2(30.0 + float(i % 3) * 8.0, 36.0 + float(i % 2) * 10.0),
+			"body_color": Palette.LIVING_MOSS,
+			"accent_color": Palette.LIVING_LEAF,
+			"show_label": false,
+			"cast_shadow": false,
+			"sway_degrees": 4.0,
+		})
 
 
 func _dress_living_ridge() -> void:
@@ -181,10 +228,10 @@ func _dress_living_ridge() -> void:
 	if GameState.game_completed:
 		restored = Houses.count()
 
-	# Progress is readable on the ridge itself: more colour, more life, more light.
+	# Progress is readable on the green itself: more colour, more life, more light.
 	if restored >= 1:
-		for i in range(4):
-			spawn_prop("ABACA PLANT", Vector2(-7.0 + float(i) * 1.6, 6.4), {
+		for i in range(3):
+			spawn_prop("ABACA PLANT", Vector2(-1.8, 3.2 + float(i) * 1.5), {
 				"texture_path": "res://assets/images/props/abaca_plant.png",
 				"prop_size": Vector2(36.0, 78.0),
 				"body_color": Palette.BLACK_BARK,
@@ -194,7 +241,7 @@ func _dress_living_ridge() -> void:
 			})
 	if restored >= 2:
 		for i in range(3):
-			spawn_prop("RED FLOWERS", Vector2(3.0 + float(i) * 1.4, 5.6), {
+			spawn_prop("RED FLOWERS", Vector2(3.2 + float(i) * 1.5, -1.6), {
 				"texture_path": "res://assets/images/props/red_flowers.png",
 				"prop_size": Vector2(40.0, 34.0),
 				"body_color": Palette.RED_DEEP,
@@ -204,7 +251,7 @@ func _dress_living_ridge() -> void:
 			})
 	if restored >= 3:
 		for i in range(2):
-			var shaft := spawn_prop("LIGHT SHAFT", Vector2(-2.0 + float(i) * 5.0, -1.0), {
+			var shaft := spawn_prop("LIGHT SHAFT", Vector2(-1.6 + float(i) * 3.2, -1.6 + float(i) * 3.2), {
 				"prop_size": Vector2(18.0, 160.0),
 				"body_color": Palette.alpha(Palette.GOLD_SUN, 0.18),
 				"accent_color": Palette.GOLD_SACRED,
@@ -221,7 +268,7 @@ func _dress_living_ridge() -> void:
 			shaft.add_child(lamp)
 	if restored >= 4:
 		for i in range(3):
-			spawn_prop("ANCESTOR BANNER", Vector2(-8.0 + float(i) * 8.0, -6.5), {
+			spawn_prop("ANCESTOR BANNER", Vector2(-1.4 + float(i) * 1.4, -4.8 - float(i) * 0.8), {
 				"prop_size": Vector2(36.0, 110.0),
 				"body_color": Palette.CREAM_STONE,
 				"accent_color": Palette.GOLD_BRASS,
@@ -230,8 +277,8 @@ func _dress_living_ridge() -> void:
 				"sway_degrees": 2.0,
 			})
 	if restored >= 5:
-		for i in range(6):
-			spawn_prop("HIGHLAND GRASS", Vector2(-4.0 + float(i) * 1.5, 3.2), {
+		for i in range(5):
+			spawn_prop("HIGHLAND GRASS", Vector2(2.0 + float(i) * 1.2, 2.0 + float(i) * 1.2), {
 				"texture_path": "res://assets/images/props/highland_grass.png",
 				"prop_size": Vector2(34.0, 42.0),
 				"body_color": Palette.LIVING_LEAF,
@@ -266,10 +313,11 @@ func _build_door(house: Dictionary) -> void:
 
 	var prop := spawn_prop(str(DOOR_LABELS.get(house_id, "GUNO BONG")), cell, {
 		"texture_path": "res://assets/images/props/guno_bong_%d.png" % house_id,
-		"prop_size": Vector2(188.0, 228.0) if is_great else Vector2(148.0, 180.0),
+		"prop_size": Vector2(210.0, 256.0) if is_great else Vector2(168.0, 204.0),
 		"body_color": Palette.EARTH_LOAM,
 		"accent_color": accent.lightened(0.15),
 		"show_label": false,
+		"collision_feet": Vector2(72.0, 40.0) if is_great else Vector2(58.0, 34.0),
 	})
 
 	if not unlocked:
@@ -277,8 +325,9 @@ func _build_door(house: Dictionary) -> void:
 
 	_attach_nameplate(prop, house_id, unlocked, completed, accent)
 
+	var approach: Vector2 = cell.lerp(_plaza_cell, 0.16)
 	var trigger := add_interactable("Enter %s" % Houses.short_name_for(house_id),
-		cell + Vector2(0.6, 0.6), {"radius": 86.0})
+		approach, {"radius": 100.0})
 	trigger.interacted.connect(_on_door_used.bind(house_id))
 
 	_doors[house_id] = {"prop": prop, "trigger": trigger}
@@ -326,33 +375,7 @@ func _attach_nameplate(prop: PlaceholderProp, house_id: int, unlocked: bool,
 	prop.add_child(plate)
 
 
-func _dress_ridge() -> void:
-	# A row of clumps along the front edge. Holding x + y constant keeps them on
-	# one horizontal screen line instead of running off diagonally.
-	for i in range(9):
-		var offset := -8.0 + float(i) * 2.0
-		spawn_prop("HIGHLAND GRASS", Vector2((14.0 + offset) * 0.5, (14.0 - offset) * 0.5), {
-			"texture_path": "res://assets/images/props/highland_grass.png",
-			"prop_size": Vector2(32.0 + float(i % 3) * 8.0, 36.0 + float(i % 2) * 10.0),
-			"body_color": Palette.LIVING_MOSS,
-			"accent_color": Palette.LIVING_LEAF,
-			"show_label": false,
-			"cast_shadow": false,
-			"sway_degrees": 4.0,
-		})
-	for i in range(5):
-		spawn_prop("HIGHLAND GRASS", Vector2(-6.5 + float(i) * 0.8, 8.2 - float(i) * 0.4), {
-			"texture_path": "res://assets/images/props/highland_grass.png",
-			"prop_size": Vector2(28.0, 34.0),
-			"body_color": Palette.LIVING_MOSS,
-			"accent_color": Palette.LIVING_LEAF,
-			"show_label": false,
-			"cast_shadow": false,
-			"sway_degrees": 3.5,
-		})
-
-
-## Restored Houses keep their colour on the ridge.
+## Restored Houses keep their colour on the green.
 func _restore_completed_colors() -> void:
 	if GameState.game_completed:
 		ColorRestoration.set_global_gray(0.0)
@@ -373,16 +396,16 @@ func _run_chapter() -> void:
 		return
 
 	if GameState.game_completed:
-		banner("The ridge, in full colour", 2.4)
+		banner("The green, in full colour", 2.4)
 		objective("The world is whole. Walk any House, or rest at the Gateway.")
 		return
 
 	var next_house := _next_open_house()
-	objective("Walk the ridge. Enter %s. [E]" % Houses.short_name_for(next_house))
+	objective("Walk the boardwalk. Enter %s. [E]" % Houses.short_name_for(next_house))
 
 	if GameState.completed_houses.is_empty():
 		await say([
-			"Five houses on one ridge, all of them the same gray. The paths between them are worn deep, which means they were walked once, often, by people who are not here now.",
+			"Five houses around one crossing, all of them the same gray. The boardwalk between them is worn deep, which means it was walked once, often, by people who are not here now.",
 			{"speaker": "S'lang", "text": "The first one, then. Whatever a cloth is built on, that is where you start."},
 		])
 		GameState.unlock_lore("guno_bong")
@@ -475,9 +498,9 @@ func _leave_house(house_id: int) -> void:
 		hud.call("set_chapter", chapter_title)
 	set_player_input(true)
 	if GameState.game_completed:
-		objective("The world is whole. Walk the ridge.")
+		objective("The world is whole. Walk the green.")
 	else:
-		objective("Walk the ridge. Enter %s. [E]" % Houses.short_name_for(_next_open_house()))
+		objective("Walk the boardwalk. Enter %s. [E]" % Houses.short_name_for(_next_open_house()))
 	_leaving_house = false
 
 

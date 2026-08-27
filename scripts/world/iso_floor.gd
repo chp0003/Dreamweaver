@@ -32,6 +32,8 @@ func _ready() -> void:
 	_tiles = _load_and_slice_tiles(terrain_texture_path)
 	if not _tiles.is_empty():
 		_bake_floor()
+	else:
+		_bake_procedural()
 	queue_redraw()
 
 
@@ -135,6 +137,41 @@ func _bake_floor() -> void:
 			var tile: Image = _tiles[_tile_index(x, y)]
 			_stamp_tile_into_diamond(canvas, tile, center - Vector2(min_x, min_y))
 
+	_bake_origin = Vector2(min_x, min_y)
+	_baked = ImageTexture.create_from_image(canvas)
+
+
+func _bake_procedural() -> void:
+	var min_x := INF
+	var max_x := -INF
+	var min_y := INF
+	var max_y := -INF
+	for y in range(rows):
+		for x in range(cols):
+			var c := Iso.cell_to_world(Vector2(origin_cell.x + x, origin_cell.y + y))
+			min_x = minf(min_x, c.x - Iso.HALF.x)
+			max_x = maxf(max_x, c.x + Iso.HALF.x)
+			min_y = minf(min_y, c.y - Iso.HALF.y - 8.0)
+			max_y = maxf(max_y, c.y + Iso.HALF.y + 18.0)
+	var pad := 4.0
+	min_x -= pad
+	min_y -= pad
+	max_x += pad
+	max_y += pad
+	var width := int(ceili(max_x - min_x))
+	var height := int(ceili(max_y - min_y))
+	if width < 8 or height < 8:
+		return
+	var canvas := Image.create(width, height, false, Image.FORMAT_RGBA8)
+	canvas.fill(Color(0, 0, 0, 0))
+	for y in range(rows):
+		for x in range(cols):
+			var cell := Vector2(origin_cell.x + x, origin_cell.y + y)
+			var center := Iso.cell_to_world(cell) - Vector2(min_x, min_y)
+			var color := base_color if (x + y) % 2 == 0 else alt_color
+			var noise := float(((x * 17) + (y * 31)) % 7) / 28.0 - 0.12
+			color = color.lightened(noise)
+			_fill_diamond(canvas, center, color)
 	_bake_origin = Vector2(min_x, min_y)
 	_baked = ImageTexture.create_from_image(canvas)
 

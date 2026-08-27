@@ -19,7 +19,7 @@ const LIST: Array[Dictionary] = [
 		"essence_name": "Black Dye Essence",
 		"reward_item": "",
 		"accent": Color(0.16, 0.15, 0.15),
-		"hub_cell": Vector2(-5.3, 6.6),
+		"hub_cell": Vector2(0.0, 9.0),
 		"blurb": "Abaca stripped, dried and remembered. Every cloth begins here.",
 		"locked_hint": "Open from the first step of the journey.",
 	},
@@ -32,7 +32,7 @@ const LIST: Array[Dictionary] = [
 		"essence_name": "Red Dye Essence",
 		"reward_item": "",
 		"accent": Color(0.62, 0.14, 0.13),
-		"hub_cell": Vector2(-4.9, 1.2),
+		"hub_cell": Vector2(9.0, 0.0),
 		"blurb": "Hulo root, mortar and fire. The colour of blood kept warm.",
 		"locked_hint": "Restore the Black Foundation first.",
 	},
@@ -45,7 +45,7 @@ const LIST: Array[Dictionary] = [
 		"essence_name": "Gold Essence",
 		"reward_item": "",
 		"accent": Color(0.86, 0.68, 0.24),
-		"hub_cell": Vector2(-3.0, -3.0),
+		"hub_cell": Vector2(-9.0, 0.0),
 		"blurb": "Brass, light and the turning spindle. The sun-thread of the sky.",
 		"locked_hint": "Restore Red Courage first.",
 	},
@@ -58,7 +58,7 @@ const LIST: Array[Dictionary] = [
 		"essence_name": "",
 		"reward_item": "master_pattern",
 		"accent": Color(0.84, 0.78, 0.63),
-		"hub_cell": Vector2(1.2, -4.9),
+		"hub_cell": Vector2(0.0, -9.0),
 		"blurb": "Statues, riddles and the great Ablun loom. Knowledge before craft.",
 		"locked_hint": "Restore the Golden Sun first.",
 	},
@@ -71,17 +71,15 @@ const LIST: Array[Dictionary] = [
 		"essence_name": "",
 		"reward_item": "",
 		"accent": Color(0.93, 0.86, 0.55),
-		"hub_cell": Vector2(3.6, 3.6),
+		"hub_cell": Vector2(11.0, 11.0),
 		"blurb": "The great Guno Bong at the centre. Where the Shadow Weaver waits.",
 		"locked_hint": "Bring Black, Red, Gold and the Sacred Master Pattern.",
 	},
 ]
 
-## `hub_cell` values are fractional on purpose. They place the five doors on an
-## even arc in the Hub's *screen* space, which whole grid cells cannot do on a
-## 2:1 diamond without bunching two houses into the same column. Read them as
-## screen positions: houses 1-4 sweep left to right across the upper ridge, and
-## house 5 sits lower and centred, nearest the camera.
+## `hub_cell` values sit on an X of boardwalk in grid space, which is also an X
+## on screen: +x runs down-right, +y runs down-left. Houses 1-4 hold the four
+## arms; house 5 sits on a fifth path due south, nearest the camera.
 
 const ESSENCE_NAMES := {
 	"black": "Black Dye Essence",

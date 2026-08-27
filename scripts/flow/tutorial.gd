@@ -177,7 +177,7 @@ func _run_chapter() -> void:
 		{"speaker": "S'lang", "text": "Then I start at the first."},
 	])
 
-	objective("Walk the ridge and enter the House of the Black Foundation.")
+	objective("Walk the boardwalk and enter the House of the Black Foundation.")
 	SceneFader.fade_to_scene(AccountManager.HUB_SCENE)
 
 

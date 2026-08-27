@@ -9,33 +9,34 @@
 [node name="HubWorld" type="Node2D"]
 script = ExtResource("1_hub")
 chapter_id = 0
-chapter_title = "The Ridge of the Five Houses"
+chapter_title = "The Crossroads of the Five Houses"
 register_as_current_chapter = false
-player_spawn_cell = Vector2(7.4, 7.4)
-camera_zoom = Vector2(0.88, 0.88)
+player_spawn_cell = Vector2(0.4, 0.4)
+camera_zoom = Vector2(0.7, 0.7)
 camera_follows_player = true
-camera_anchor_cell = Vector2(0, 4)
+camera_anchor_cell = Vector2(0, 0)
 starting_gray = 1.0
 lock_input_when_finished = false
 
 [node name="Floor" type="Node2D" parent="."]
 script = ExtResource("2_floor")
-cols = 34
-rows = 30
-origin_cell = Vector2i(-16, -13)
-base_color = Color(0.36, 0.33, 0.29, 1)
-alt_color = Color(0.41, 0.38, 0.33, 1)
-grout_color = Color(0.2, 0.17, 0.14, 0.45)
-weave_accent = Color(0.5, 0.42, 0.3, 0.12)
-border_color = Color(0.5, 0.44, 0.36, 0.4)
-terrain_texture_path = "res://assets/images/environments/hub/tileset_ridge.png"
-scatter_detail = false
+cols = 32
+rows = 32
+origin_cell = Vector2i(-16, -16)
+base_color = Color(0.42, 0.62, 0.22, 1)
+alt_color = Color(0.36, 0.56, 0.18, 1)
+grout_color = Color(0.22, 0.38, 0.12, 0.35)
+weave_accent = Color(0.5, 0.42, 0.3, 0)
+border_color = Color(0.28, 0.44, 0.16, 0.35)
+terrain_texture_path = ""
+scatter_detail = true
+draw_border = false
 
 [node name="World" type="Node2D" parent="."]
 y_sort_enabled = true
 
 [node name="Camera" type="Camera2D" parent="."]
-zoom = Vector2(0.88, 0.88)
+zoom = Vector2(0.7, 0.7)
 
 [node name="UiLayer" type="CanvasLayer" parent="."]
 layer = 120
