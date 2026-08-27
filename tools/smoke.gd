@@ -41,7 +41,7 @@ const MINI_GAMES := [
 
 
 func _ready() -> void:
-	_sign_in()
+	await _sign_in()
 	_seed_progress()
 
 	print("\n===== SMOKE TEST =====")
@@ -60,9 +60,9 @@ func _ready() -> void:
 
 ## A throwaway account so AccountManager has a session to save progress into.
 func _sign_in() -> void:
-	var error := AccountManager.try_register("smoketest", "abaca123", "abaca123")
+	var error := await AccountManager.try_register("smoketest", "abaca123", "abaca123")
 	if not error.is_empty():
-		error = AccountManager.try_login("smoketest", "abaca123")
+		error = await AccountManager.try_login("smoketest", "abaca123")
 	if not error.is_empty():
 		print("SMOKE: could not sign in (%s)" % error)
 

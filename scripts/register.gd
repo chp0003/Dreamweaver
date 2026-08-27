@@ -64,11 +64,13 @@ func _play_entrance() -> void:
 func _on_register_pressed() -> void:
 	if SceneFader.is_busy():
 		return
-	var message := AccountManager.try_register(
+	register_button.disabled = true
+	var message := await AccountManager.try_register(
 		username_field.text,
 		password_field.text,
 		confirm_field.text
 	)
+	register_button.disabled = false
 	error_label.text = message
 	if not message.is_empty():
 		UiMotion.refuse(form_host)

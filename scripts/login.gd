@@ -62,7 +62,9 @@ func _play_entrance() -> void:
 func _on_login_pressed() -> void:
 	if SceneFader.is_busy():
 		return
-	var message := AccountManager.try_login(username_field.text, password_field.text)
+	login_button.disabled = true
+	var message := await AccountManager.try_login(username_field.text, password_field.text)
+	login_button.disabled = false
 	error_label.text = message
 	if not message.is_empty():
 		UiMotion.refuse(form_host)

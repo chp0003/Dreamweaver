@@ -308,7 +308,7 @@ func _build_display_block() -> VBoxContainer:
 
 
 func _on_change_password() -> void:
-	var message := AccountManager.change_password(
+	var message := await AccountManager.change_password(
 		_current_password.text, _new_password.text, _confirm_password.text)
 	if message.is_empty():
 		_current_password.text = ""
@@ -331,14 +331,14 @@ func _on_clear_save() -> void:
 
 
 func _on_logout() -> void:
-	AccountManager.logout()
+	await AccountManager.logout()
 	close()
 	if not SceneFader.is_busy():
 		SceneFader.fade_to_scene(AccountManager.LOGIN_SCENE)
 
 
 func _on_delete_account() -> void:
-	var message := AccountManager.delete_account(_delete_password.text)
+	var message := await AccountManager.delete_account(_delete_password.text)
 	if message.is_empty():
 		_delete_password.text = ""
 		close()

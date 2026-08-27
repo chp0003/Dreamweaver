@@ -24,7 +24,7 @@ const TARGETS := [
 
 func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(OUT_DIR)
-	_sign_in()
+	await _sign_in()
 	# The root is still building its own children during our _ready().
 	await get_tree().process_frame
 
@@ -36,8 +36,8 @@ func _ready() -> void:
 
 
 func _sign_in() -> void:
-	if AccountManager.try_register("shotcheck", "abaca123", "abaca123") != "":
-		AccountManager.try_login("shotcheck", "abaca123")
+	if await AccountManager.try_register("shotcheck", "abaca123", "abaca123") != "":
+		await AccountManager.try_login("shotcheck", "abaca123")
 	GameState.new_game()
 	GameState.add_item("lewet_staff")
 

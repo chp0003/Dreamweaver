@@ -148,7 +148,7 @@ func _on_settings_pressed() -> void:
 func _on_logout_pressed() -> void:
 	if SceneFader.is_busy():
 		return
-	AccountManager.logout()
+	await AccountManager.logout()
 	SceneFader.fade_to_scene(AccountManager.LOGIN_SCENE)
 
 
