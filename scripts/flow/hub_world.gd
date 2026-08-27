@@ -324,8 +324,8 @@ func _build_door(house: Dictionary) -> void:
 	var completed: bool = GameState.is_house_completed(house_id)
 	var accent: Color = house["accent"]
 	var is_great := house_id == Houses.count()
-	# Landmark scale under hub zoom — readable destinations without eating the plaza.
-	var house_size := Vector2(252.0, 308.0) if is_great else Vector2(216.0, 264.0)
+	# Landmark scale — readable at hub zoom, Sacred Loom only a step larger.
+	var house_size := Vector2(236.0, 286.0) if is_great else Vector2(208.0, 252.0)
 
 	var prop := spawn_prop(str(DOOR_LABELS.get(house_id, "GUNO BONG")), cell, {
 		"texture_path": "res://assets/images/props/guno_bong_%d.png" % house_id,
@@ -360,8 +360,9 @@ func _attach_nameplate(prop: PlaceholderProp, house_id: int, unlocked: bool,
 	plate.alignment = BoxContainer.ALIGNMENT_CENTER
 	plate.custom_minimum_size = Vector2(240.0, 0.0)
 	plate.size = Vector2(240.0, 56.0)
-	# Float above the roof so names don't sink into yards / boardwalk.
-	plate.position = Vector2(-120.0, -house_size.y - 8.0)
+	# Float just above the roof peak (not a full prop-height above, which
+	# slides south-facing nameplates back over the plaza on iso).
+	plate.position = Vector2(-120.0, -house_size.y * 0.72)
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.z_index = 30
 	plate.add_to_group("world_chrome")
@@ -425,7 +426,7 @@ func _run_chapter() -> void:
 	var next_house := _next_open_house()
 	objective("Walk the boardwalk. Enter %s. [E]" % Houses.short_name_for(next_house))
 
-	if GameState.completed_houses.is_empty() and not GameState.has_lore("guno_bong"):
+	if GameState.completed_houses.is_empty() and not GameState.lore.has("guno_bong"):
 		await say([
 			"Five houses around one crossing, all of them the same gray. The boardwalk between them is worn deep, which means it was walked once, often, by people who are not here now.",
 			{"speaker": "S'lang", "text": "The first one, then. Whatever a cloth is built on, that is where you start."},
@@ -477,6 +478,9 @@ func _enter_house(house_id: int, _from_retry: bool) -> void:
 	if camera != null:
 		camera.global_position = player.global_position
 	_set_house_darkness(quest, true)
+	var gate: HouseExit = _house_exits.get(house_id) as HouseExit
+	if gate != null:
+		gate.set_plate_visible(true)
 	if hud != null and hud.has_method("set_chapter"):
 		hud.call("set_chapter", Houses.name_for(house_id))
 	var exit: Interactable = _exit_triggers.get(house_id) as Interactable
@@ -504,6 +508,9 @@ func _leave_house(house_id: int) -> void:
 	_active_house_id = 0
 	GameState.set_current_chapter(0)
 	_set_house_darkness(quest, false)
+	var gate: HouseExit = _house_exits.get(house_id) as HouseExit
+	if gate != null:
+		gate.set_plate_visible(false)
 	var door: Dictionary = _doors.get(house_id, {}) as Dictionary
 	var cell: Vector2 = Houses.get_house(house_id).get("hub_cell", _plaza_cell)
 	if door.has("trigger") and door["trigger"] is Node2D:

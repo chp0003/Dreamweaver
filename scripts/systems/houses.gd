@@ -71,15 +71,14 @@ const LIST: Array[Dictionary] = [
 		"essence_name": "",
 		"reward_item": "",
 		"accent": Color(0.93, 0.86, 0.55),
-		"hub_cell": Vector2(9.0, 9.0),
+		"hub_cell": Vector2(12.0, 12.0),
 		"blurb": "The great Guno Bong at the centre. Where the Shadow Weaver waits.",
 		"locked_hint": "Bring Black, Red, Gold and the Sacred Master Pattern.",
 	},
 ]
 
-## `hub_cell` values sit on an X of paved paths in grid space, which is also an X
-## on screen: +x runs down-right, +y runs down-left. Houses 1-4 hold the four
-## arms; house 5 sits due south on a short fifth path, nearest the camera.
+## Hub X: houses 1-4 at the four arm ends; Sacred Loom due south on a fifth
+## path, far enough that its roof does not cover the plaza.
 
 const ESSENCE_NAMES := {
 	"black": "Black Dye Essence",

@@ -58,6 +58,11 @@ func set_open(value: bool, _instant := false) -> void:
 	queue_redraw()
 
 
+func set_plate_visible(value: bool) -> void:
+	if _plate != null:
+		_plate.visible = value
+
+
 func _build_art() -> void:
 	_sprite = Sprite2D.new()
 	_sprite.name = "GateArt"
@@ -128,6 +133,7 @@ func _build_plate() -> void:
 	_plate.position = Vector2(-110.0, -172.0)
 	_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_plate.z_index = 26
+	_plate.visible = false
 	_plate.add_to_group("world_chrome")
 	_plate.add_theme_constant_override("separation", 0)
 
