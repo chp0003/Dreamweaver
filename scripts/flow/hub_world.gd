@@ -191,7 +191,7 @@ func _dress_park() -> void:
 			continue
 		spawn_prop("HIGHLAND TREE", cell, {
 			"texture_path": "res://assets/images/environments/highland/highland_tree.png",
-			"prop_size": Vector2(72.0 + float(i % 3) * 12.0, 110.0 + float(i % 2) * 18.0),
+			"prop_size": Vector2(88.0 + float(i % 3) * 14.0, 132.0 + float(i % 2) * 20.0),
 			"body_color": Palette.EARTH_WOOD,
 			"accent_color": Palette.LIVING_LEAF,
 			"show_label": false,
@@ -207,7 +207,7 @@ func _dress_park() -> void:
 	for i in range(rocks.size()):
 		spawn_prop("HIGHLAND ROCK", rocks[i], {
 			"texture_path": "res://assets/images/environments/highland/highland_rock.png",
-			"prop_size": Vector2(42.0 + float(i % 2) * 10.0, 34.0 + float(i % 3) * 6.0),
+			"prop_size": Vector2(48.0 + float(i % 2) * 10.0, 48.0 + float(i % 3) * 6.0),
 			"body_color": Palette.CURSED_STONE,
 			"accent_color": Palette.CREAM_STONE,
 			"show_label": false,
@@ -223,7 +223,7 @@ func _dress_park() -> void:
 	for cell in lanterns:
 		spawn_prop("BRASS LANTERN", cell, {
 			"texture_path": "res://assets/images/environments/highland/brass_lantern.png",
-			"prop_size": Vector2(28.0, 56.0),
+			"prop_size": Vector2(36.0, 68.0),
 			"body_color": Palette.GOLD_DEEP,
 			"accent_color": Palette.GOLD_SUN,
 			"show_label": false,
@@ -237,7 +237,7 @@ func _dress_park() -> void:
 	for cell in fences:
 		spawn_prop("BAMBOO FENCE", cell, {
 			"texture_path": "res://assets/images/environments/highland/bamboo_fence.png",
-			"prop_size": Vector2(64.0, 48.0),
+			"prop_size": Vector2(78.0, 52.0),
 			"body_color": Palette.EARTH_BAMBOO,
 			"accent_color": Palette.EARTH_WOOD,
 			"show_label": false,
