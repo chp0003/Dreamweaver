@@ -184,6 +184,9 @@ func _dress_park() -> void:
 		Vector2(-10.0, -4.0), Vector2(10.0, -4.0), Vector2(-10.0, 4.0), Vector2(10.0, 4.0),
 		Vector2(-4.0, -10.0), Vector2(4.0, -10.0), Vector2(-4.0, 10.0), Vector2(4.0, 10.0),
 		Vector2(-12.0, 2.0), Vector2(12.0, -2.0), Vector2(2.0, 12.5), Vector2(-2.0, -12.5),
+		Vector2(-11.0, -8.0), Vector2(11.0, -8.0), Vector2(-11.0, 8.0), Vector2(11.0, 8.0),
+		Vector2(-8.0, -11.0), Vector2(8.0, -11.0), Vector2(-8.0, 11.0), Vector2(8.0, 11.0),
+		Vector2(-13.0, -1.0), Vector2(13.0, 1.0), Vector2(-1.0, 13.0), Vector2(1.0, -13.0),
 	]
 	for i in range(trees.size()):
 		var cell: Vector2 = trees[i]
