@@ -275,11 +275,13 @@ func _paint_quadrant_features() -> void:
 
 
 func _scatter_decor() -> void:
-	# Fill remaining wedges with sparse bushes / rocks — skip paths and water.
+	# Fill remaining wedges with sparse bushes / rocks — skip paths, water, porches.
 	for y in range(rows):
 		for x in range(cols):
 			var cell := Vector2i(origin_cell.x + x, origin_cell.y + y)
 			if _decor.has(cell):
+				continue
+			if _near_any_house(cell, 3):
 				continue
 			var floor_name := str(_map.get(cell, ""))
 			if _is_hard_floor(floor_name) or _is_water(floor_name):
@@ -296,6 +298,13 @@ func _scatter_decor() -> void:
 			elif n % 47 == 0:
 				_set_decor(cell, _pick(DECOR_LOG, cell))
 
+
+func _near_any_house(cell: Vector2i, radius: int) -> bool:
+	for house in house_cells:
+		var h := Vector2i(roundi(house.x), roundi(house.y))
+		if maxi(absi(cell.x - h.x), absi(cell.y - h.y)) <= radius:
+			return true
+	return false
 
 func _is_hard_floor(name: String) -> bool:
 	return name in [PATH_WOOD_A, PATH_WOOD_B, PATH_STONE, PATH_BRICK, PATH_FLAG]

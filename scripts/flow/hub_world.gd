@@ -324,8 +324,8 @@ func _build_door(house: Dictionary) -> void:
 	var completed: bool = GameState.is_house_completed(house_id)
 	var accent: Color = house["accent"]
 	var is_great := house_id == Houses.count()
-	# Landmark scale under hub zoom — big enough to read as destinations, not props.
-	var house_size := Vector2(340.0, 420.0) if is_great else Vector2(280.0, 340.0)
+	# Landmark scale under hub zoom — readable destinations without eating the plaza.
+	var house_size := Vector2(252.0, 308.0) if is_great else Vector2(216.0, 264.0)
 
 	var prop := spawn_prop(str(DOOR_LABELS.get(house_id, "GUNO BONG")), cell, {
 		"texture_path": "res://assets/images/props/guno_bong_%d.png" % house_id,
@@ -335,7 +335,7 @@ func _build_door(house: Dictionary) -> void:
 		"show_label": false,
 		"nearest_filter": true,
 		"cast_shadow": true,
-		"collision_feet": Vector2(96.0, 52.0) if is_great else Vector2(78.0, 44.0),
+		"collision_feet": Vector2(84.0, 46.0) if is_great else Vector2(70.0, 40.0),
 	})
 	prop.z_index = 2
 
