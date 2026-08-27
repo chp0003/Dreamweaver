@@ -14,6 +14,7 @@ const MENU_MUSIC_PATH := "res://assets/audio/music/menu_ambient.mp3"
 const MUSIC_FADE_IN := 1.2
 const MUSIC_FADE_OUT := 0.7
 const MUSIC_VOLUME_DB := -9.0
+const SFX_VOLUME_DB := -8.0
 
 enum Sfx { CHIME, HIT, PICKUP, BELL, SUCCESS, FAIL, PARRY, THUD }
 
@@ -25,6 +26,13 @@ var _enabled := true
 var _music_player: AudioStreamPlayer
 var _music_path := ""
 var _music_tween: Tween
+var _music_target_db := MUSIC_VOLUME_DB
+
+## Linear 0..1 gains, applied on top of the authored dB targets.
+var _master_linear := 1.0
+var _music_linear := 0.85
+var _sfx_linear := 1.0
+var _muted := false
 
 ## Wind bed: a slow gust envelope plus a low-passed noise source.
 var _wind_level := 0.0
@@ -119,10 +127,21 @@ func play_menu_music() -> void:
 	play_music(MENU_MUSIC_PATH, MUSIC_VOLUME_DB)
 
 
+## Push player prefs from the Settings autoload onto the live buses.
+func apply_volumes(master: float, music: float, sfx: float, muted: bool) -> void:
+	_master_linear = clampf(master, 0.0, 1.0)
+	_music_linear = clampf(music, 0.0, 1.0)
+	_sfx_linear = clampf(sfx, 0.0, 1.0)
+	_muted = muted
+	_apply_live_volumes()
+
+
 func play_music(path: String, volume_db: float = MUSIC_VOLUME_DB) -> void:
 	if not _enabled or path.is_empty() or _music_player == null:
 		return
 	if _music_path == path and _music_player.playing:
+		_music_target_db = volume_db
+		_apply_live_volumes()
 		return
 
 	var stream := _load_music_stream(path)
@@ -132,11 +151,13 @@ func play_music(path: String, volume_db: float = MUSIC_VOLUME_DB) -> void:
 
 	_kill_music_tween()
 	_music_path = path
+	_music_target_db = volume_db
 	_music_player.stream = stream
 	_music_player.volume_db = -80.0
 	_music_player.play()
+	var target := _effective_music_db()
 	_music_tween = create_tween()
-	_music_tween.tween_property(_music_player, "volume_db", volume_db, MUSIC_FADE_IN) \
+	_music_tween.tween_property(_music_player, "volume_db", target, MUSIC_FADE_IN) \
 		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
 
 
@@ -234,6 +255,30 @@ func _kill_music_tween() -> void:
 	if _music_tween != null and is_instance_valid(_music_tween):
 		_music_tween.kill()
 	_music_tween = null
+
+
+func _effective_music_db() -> float:
+	if _muted or _master_linear <= 0.001 or _music_linear <= 0.001:
+		return -80.0
+	return _music_target_db + linear_to_db(_master_linear * _music_linear)
+
+
+func _effective_sfx_db() -> float:
+	if _muted or _master_linear <= 0.001 or _sfx_linear <= 0.001:
+		return -80.0
+	return SFX_VOLUME_DB + linear_to_db(_master_linear * _sfx_linear)
+
+
+func _apply_live_volumes() -> void:
+	if _player != null:
+		_player.volume_db = _effective_sfx_db()
+	if _music_player == null:
+		return
+	# Don't fight an in-progress fade-in/out.
+	if _music_tween != null and is_instance_valid(_music_tween) and _music_tween.is_running():
+		return
+	if _music_player.playing and not _music_path.is_empty():
+		_music_player.volume_db = _effective_music_db()
 
 
 # --------------------------------------------------------------------------

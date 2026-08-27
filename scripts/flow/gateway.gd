@@ -1,15 +1,21 @@
 extends Control
-## "The Gateway" - the main menu, reached after signing in.
+## "The Gateway" — modern game main menu after sign-in.
 ##
-## New Game wipes this account's run and starts the prologue. Load Game resumes
-## wherever the weaver left off, which the MainGame router works out.
+## Continue / New Game, Load, Lore Codex, Settings (audio · account · display),
+## Log Out, and Quit. Settings opens a shared overlay used across auth screens.
 
+const SETTINGS_SCENE := "res://scenes/ui/SettingsOverlay.tscn"
+
+@onready var continue_button: Button = %ContinueButton
 @onready var new_game_button: Button = %NewGameButton
 @onready var load_game_button: Button = %LoadGameButton
 @onready var codex_button: Button = %CodexButton
-@onready var exit_button: Button = %ExitButton
+@onready var settings_button: Button = %SettingsButton
+@onready var logout_button: Button = %LogoutButton
+@onready var quit_button: Button = %QuitButton
 @onready var welcome_label: Label = %WelcomeLabel
 @onready var progress_label: Label = %ProgressLabel
+@onready var user_chip: Label = %UserChip
 @onready var confirm_dialog: ConfirmationDialog = %ConfirmDialog
 @onready var brand: Control = %Brand
 @onready var emblem: TextureRect = %Emblem
@@ -19,29 +25,41 @@ extends Control
 @onready var embers: GPUParticles2D = %Embers
 @onready var background: TextureRect = %Background
 
+var _settings: CanvasLayer
+
 
 func _ready() -> void:
-	# Dreamweaver login track carries through from auth; soft wind underneath.
 	Audio.play_menu_music()
 	Audio.set_ambience(0.18, 0.0)
 
+	_settings = load(SETTINGS_SCENE).instantiate()
+	add_child(_settings)
+
+	continue_button.pressed.connect(_on_continue_pressed)
 	new_game_button.pressed.connect(_on_new_game_pressed)
 	load_game_button.pressed.connect(_on_load_game_pressed)
 	codex_button.pressed.connect(_on_codex_pressed)
-	exit_button.pressed.connect(_on_exit_pressed)
+	settings_button.pressed.connect(_on_settings_pressed)
+	logout_button.pressed.connect(_on_logout_pressed)
+	quit_button.pressed.connect(_on_quit_pressed)
 	confirm_dialog.confirmed.connect(_start_new_game)
 	get_viewport().size_changed.connect(_fit_embers)
 	_fit_embers()
 
 	var weaver := AccountManager.current_username()
-	welcome_label.text = "Welcome, %s." % weaver if not weaver.is_empty() \
+	welcome_label.text = "Welcome back, %s." % weaver if not weaver.is_empty() \
 		else "Welcome, weaver."
+	user_chip.text = weaver if not weaver.is_empty() else "Weaver"
 
 	var can_load := GameState.has_save()
+	continue_button.visible = can_load
 	load_game_button.disabled = not can_load
 	progress_label.text = _progress_summary(can_load)
 
-	(load_game_button if can_load else new_game_button).grab_focus()
+	if can_load:
+		continue_button.grab_focus()
+	else:
+		new_game_button.grab_focus()
 
 	UiStyle.glow_label(title_label, Palette.DREAM_LANTERN, 18)
 	var motes := LightMotes.new()
@@ -76,23 +94,27 @@ func _play_entrance() -> void:
 
 func _progress_summary(can_load: bool) -> String:
 	if not can_load:
-		return "No cloth on the loom yet. Begin a new dream."
+		return "No save yet — start a new dream when you are ready."
 	if GameState.game_completed:
-		return "The world is whole.  Rank: %s   Score: %d   Lore: %d / %d" % [
+		return "World restored · Rank %s · Score %d · Lore %d / %d" % [
 			GameState.rank(), GameState.score,
 			GameState.lore.size(), CultureData.total_lore()]
-	var place := "The first step"
+	var place := "Prologue"
 	if GameState.current_chapter > 0:
 		place = Houses.name_for(GameState.current_chapter)
-	return "%s  ·  Houses restored %d / %d  ·  Lives %d" % [
+	return "%s · Houses %d / %d · Lives %d" % [
 		place, GameState.completed_houses.size(), Houses.count(), GameState.lives]
+
+
+func _on_continue_pressed() -> void:
+	_on_load_game_pressed()
 
 
 func _on_new_game_pressed() -> void:
 	if SceneFader.is_busy():
 		return
 	if GameState.has_save():
-		confirm_dialog.dialog_text = "A run is already on the loom for this weaver.\n\nStarting a new dream unpicks it. Continue?"
+		confirm_dialog.dialog_text = "A save already exists for this account.\n\nStarting a new game will overwrite it. Continue?"
 		confirm_dialog.popup_centered()
 		return
 	_start_new_game()
@@ -118,5 +140,17 @@ func _on_codex_pressed() -> void:
 	SceneFader.fade_to_scene(AccountManager.CODEX_SCENE)
 
 
-func _on_exit_pressed() -> void:
+func _on_settings_pressed() -> void:
+	if _settings != null and _settings.has_method("open"):
+		_settings.open(true)
+
+
+func _on_logout_pressed() -> void:
+	if SceneFader.is_busy():
+		return
+	AccountManager.logout()
+	SceneFader.fade_to_scene(AccountManager.LOGIN_SCENE)
+
+
+func _on_quit_pressed() -> void:
 	get_tree().quit()

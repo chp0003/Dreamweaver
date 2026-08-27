@@ -255,7 +255,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.86, 0.72, 0.42, 0.9)
 theme_override_fonts/font = ExtResource("6_crimson")
 theme_override_font_sizes/font_size = 13
-text = "CONTINUE YOUR WEAVING"
+text = "SIGN IN"
 
 [node name="UsernameLabel" type="Label" parent="FormHost/Form"]
 layout_mode = 2
@@ -309,7 +309,7 @@ theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("StyleBoxFlat_cta")
 theme_override_styles/hover = SubResource("StyleBoxFlat_cta_hover")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_cta_pressed")
-text = "ENTER"
+text = "SIGN IN"
 
 [node name="RegisterButton" type="Button" parent="FormHost/Form"]
 unique_name_in_owner = true
@@ -317,5 +317,14 @@ layout_mode = 2
 theme_type_variation = &"GhostButton"
 theme_override_colors/font_color = Color(0.86, 0.78, 0.62, 0.9)
 theme_override_font_sizes/font_size = 14
-text = "New weaver? Create an account"
+text = "Create an account"
+flat = true
+
+[node name="SettingsButton" type="Button" parent="FormHost/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"GhostButton"
+theme_override_colors/font_color = Color(0.78, 0.72, 0.62, 0.75)
+theme_override_font_sizes/font_size = 13
+text = "Settings"
 flat = true

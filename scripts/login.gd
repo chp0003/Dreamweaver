@@ -1,23 +1,31 @@
 extends Control
 ## First screen — cinematic entrance into Dreamweaver.
 
+const SETTINGS_SCENE := "res://scenes/ui/SettingsOverlay.tscn"
+
 @onready var username_field: LineEdit = %UsernameField
 @onready var password_field: LineEdit = %PasswordField
 @onready var error_label: Label = %ErrorLabel
 @onready var login_button: Button = %LoginButton
 @onready var register_button: Button = %RegisterButton
+@onready var settings_button: Button = %SettingsButton
 @onready var background: TextureRect = %Background
 @onready var brand: Control = %Brand
 @onready var form_host: Control = %FormHost
 @onready var embers: GPUParticles2D = %Embers
+
+var _settings: CanvasLayer
 
 
 func _ready() -> void:
 	Audio.play_menu_music()
 	Audio.set_ambience(0.18, 0.0)
 	error_label.text = ""
+	_settings = load(SETTINGS_SCENE).instantiate()
+	add_child(_settings)
 	login_button.pressed.connect(_on_login_pressed)
 	register_button.pressed.connect(_on_register_pressed)
+	settings_button.pressed.connect(_on_settings_pressed)
 	username_field.text_submitted.connect(func(_t: String) -> void: password_field.grab_focus())
 	password_field.text_submitted.connect(func(_t: String) -> void: _on_login_pressed())
 	get_viewport().size_changed.connect(_fit_embers)
@@ -66,3 +74,8 @@ func _on_register_pressed() -> void:
 	if SceneFader.is_busy():
 		return
 	SceneFader.fade_to_scene(AccountManager.REGISTER_SCENE)
+
+
+func _on_settings_pressed() -> void:
+	if _settings != null and _settings.has_method("open"):
+		_settings.open(false)

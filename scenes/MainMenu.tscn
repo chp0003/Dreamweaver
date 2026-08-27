@@ -262,6 +262,47 @@ theme_override_font_sizes/font_size = 22
 text = "The Legend of Fun Kdungon"
 vertical_alignment = 1
 
+[node name="TopBar" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 40.0
+offset_top = 24.0
+offset_right = -40.0
+offset_bottom = 64.0
+grow_horizontal = 2
+theme_override_constants/separation = 12
+
+[node name="Spacer" type="Control" parent="TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="UserChip" type="Label" parent="TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.82, 0.68, 0.92)
+theme_override_fonts/font = ExtResource("8_crimson")
+theme_override_font_sizes/font_size = 15
+text = "Weaver"
+vertical_alignment = 1
+
+[node name="SettingsButton" type="Button" parent="TopBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 36)
+layout_mode = 2
+theme_type_variation = &"GhostButton"
+theme_override_font_sizes/font_size = 13
+text = "SETTINGS"
+
+[node name="LogoutButton" type="Button" parent="TopBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 36)
+layout_mode = 2
+theme_type_variation = &"GhostButton"
+theme_override_font_sizes/font_size = 13
+text = "LOG OUT"
+
 [node name="MenuHost" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 layout_mode = 1
@@ -271,7 +312,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -430.0
-offset_top = -440.0
+offset_top = -560.0
 offset_right = -40.0
 offset_bottom = -40.0
 grow_horizontal = 0
@@ -285,14 +326,14 @@ fill = Color(0.086, 0.114, 0.227, 0.92)
 [node name="Menu" type="VBoxContainer" parent="MenuHost"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 10
 
 [node name="FormEyebrow" type="Label" parent="MenuHost/Menu"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.86, 0.72, 0.42, 0.9)
 theme_override_fonts/font = ExtResource("8_crimson")
 theme_override_font_sizes/font_size = 13
-text = "CHOOSE YOUR PATH"
+text = "MAIN MENU"
 
 [node name="WelcomeLabel" type="Label" parent="MenuHost/Menu"]
 unique_name_in_owner = true
@@ -318,7 +359,7 @@ layout_mode = 2
 mouse_filter = 2
 color = Color(0.69, 0.541, 0.18, 0.28)
 
-[node name="NewGameButton" type="Button" parent="MenuHost/Menu"]
+[node name="ContinueButton" type="Button" parent="MenuHost/Menu"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
@@ -327,6 +368,16 @@ theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("StyleBoxFlat_cta")
 theme_override_styles/hover = SubResource("StyleBoxFlat_cta_hover")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_cta_pressed")
+text = "CONTINUE"
+
+[node name="NewGameButton" type="Button" parent="MenuHost/Menu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("6_cinzel_b")
+theme_override_font_sizes/font_size = 15
+theme_override_styles/normal = SubResource("StyleBoxFlat_secondary")
+theme_override_styles/hover = SubResource("StyleBoxFlat_secondary_hover")
 text = "NEW GAME"
 
 [node name="LoadGameButton" type="Button" parent="MenuHost/Menu"]
@@ -349,21 +400,21 @@ theme_override_font_sizes/font_size = 14
 text = "Lore Codex"
 flat = true
 
-[node name="ExitButton" type="Button" parent="MenuHost/Menu"]
+[node name="QuitButton" type="Button" parent="MenuHost/Menu"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
 theme_type_variation = &"GhostButton"
 theme_override_colors/font_color = Color(0.86, 0.78, 0.62, 0.72)
 theme_override_font_sizes/font_size = 14
-text = "Exit"
+text = "Quit Game"
 flat = true
 
 [node name="ConfirmDialog" type="ConfirmationDialog" parent="."]
 unique_name_in_owner = true
-title = "Unpick the current dream?"
+title = "Start a new game?"
 initial_position = 2
 size = Vector2i(460, 160)
-ok_button_text = "Begin anew"
+ok_button_text = "Start new game"
 dialog_text = ""
 dialog_autowrap = true

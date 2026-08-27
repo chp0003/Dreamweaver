@@ -58,6 +58,42 @@ func logout() -> void:
 	_current_key = ""
 
 
+## Returns "" on success, or a player-facing error.
+func change_password(current_password: String, new_password: String, confirm: String) -> String:
+	if not has_session():
+		return "Sign in before changing your password."
+	if current_password.is_empty() or new_password.is_empty() or confirm.is_empty():
+		return "Every field must be filled."
+	var stored := str(_accounts[_current_key].get("password_hash", ""))
+	if stored != _hash_password(current_password):
+		return "Current password is wrong."
+	if new_password.length() < MIN_PASSWORD_LENGTH:
+		return "A password must be at least %d characters." % MIN_PASSWORD_LENGTH
+	if new_password != confirm:
+		return "The two new passwords do not match."
+	if new_password == current_password:
+		return "Pick a password different from the current one."
+	_accounts[_current_key]["password_hash"] = _hash_password(new_password)
+	_save_to_disk()
+	return ""
+
+
+## Permanently removes the signed-in account and its save. Returns "" on success.
+func delete_account(password: String) -> String:
+	if not has_session():
+		return "No weaver is signed in."
+	if password.is_empty():
+		return "Enter your password to confirm."
+	var stored := str(_accounts[_current_key].get("password_hash", ""))
+	if stored != _hash_password(password):
+		return "Password does not match."
+	var key := _current_key
+	_accounts.erase(key)
+	_current_key = ""
+	_save_to_disk()
+	return ""
+
+
 # --------------------------------------------------------------------------
 # Gameplay progress, stored per account alongside the credentials.
 # GameState owns the shape of this dictionary; AccountManager only persists it.

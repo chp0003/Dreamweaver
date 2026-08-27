@@ -8,6 +8,7 @@ signal resumed
 
 @onready var panel: Control = %Panel
 @onready var resume_button: Button = %ResumeButton
+@onready var settings_button: Button = %SettingsButton
 @onready var codex_button: Button = %CodexButton
 @onready var hub_button: Button = %HubButton
 @onready var menu_button: Button = %MenuButton
@@ -16,13 +17,20 @@ signal resumed
 ## Hidden in the Hub (there is nowhere to retreat to) and in the tutorial.
 @export var allow_return_to_hub := true
 
+const SETTINGS_SCENE := "res://scenes/ui/SettingsOverlay.tscn"
+var _settings: CanvasLayer
+
 
 func _ready() -> void:
 	layer = 130
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	visible = false
 
+	_settings = load(SETTINGS_SCENE).instantiate()
+	add_child(_settings)
+
 	resume_button.pressed.connect(close)
+	settings_button.pressed.connect(_on_settings_pressed)
 	codex_button.pressed.connect(_on_codex_pressed)
 	hub_button.pressed.connect(_on_hub_pressed)
 	menu_button.pressed.connect(_on_menu_pressed)
@@ -65,6 +73,11 @@ func close() -> void:
 	visible = false
 	get_tree().paused = false
 	resumed.emit()
+
+
+func _on_settings_pressed() -> void:
+	if _settings != null and _settings.has_method("open"):
+		_settings.open(true)
 
 
 func _on_codex_pressed() -> void:

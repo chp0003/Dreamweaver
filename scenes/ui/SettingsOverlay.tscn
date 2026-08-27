@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://bwsettings001"]
+
+[ext_resource type="Script" path="res://scripts/ui/settings_overlay.gd" id="1_settings"]
+
+[node name="SettingsOverlay" type="CanvasLayer"]
+layer = 150
+script = ExtResource("1_settings")

@@ -77,6 +77,13 @@ custom_minimum_size = Vector2(280, 44)
 layout_mode = 2
 text = "Resume"
 
+[node name="SettingsButton" type="Button" parent="Center/Panel/Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 40)
+layout_mode = 2
+theme_type_variation = &"GhostButton"
+text = "Settings"
+
 [node name="CodexButton" type="Button" parent="Center/Panel/Column"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(280, 40)
