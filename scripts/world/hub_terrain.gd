@@ -181,6 +181,22 @@ func _paint_house_foundations() -> void:
 				elif d == 2 and (ox == 0 or oy == 0):
 					_mark_path(c, PATH_FLAG)
 				_decor.erase(c)
+		# Stoop toward the plaza so the staircase foot sits on brick, not grass.
+		var toward := Vector2(plaza_cell) - Vector2(h)
+		var sx := 0 if absf(toward.x) < 0.1 else (1 if toward.x > 0.0 else -1)
+		var sy := 0 if absf(toward.y) < 0.1 else (1 if toward.y > 0.0 else -1)
+		for step_i in range(1, 3):
+			var stoop := h + Vector2i(sx * step_i, sy * step_i)
+			_mark_path(stoop, PATH_BRICK)
+			if sx != 0 and sy == 0:
+				_mark_path(stoop + Vector2i(0, 1), PATH_STONE)
+				_mark_path(stoop + Vector2i(0, -1), PATH_STONE)
+			elif sy != 0 and sx == 0:
+				_mark_path(stoop + Vector2i(1, 0), PATH_STONE)
+				_mark_path(stoop + Vector2i(-1, 0), PATH_STONE)
+			else:
+				_mark_path(stoop + Vector2i(sx, 0), PATH_STONE)
+				_mark_path(stoop + Vector2i(0, sy), PATH_STONE)
 		# Dirt apron just outside the porch so the foundation reads against grass.
 		for oy in range(-3, 4):
 			for ox in range(-3, 4):

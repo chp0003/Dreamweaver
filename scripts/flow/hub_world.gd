@@ -343,6 +343,8 @@ func _build_door(house: Dictionary) -> void:
 		"cast_shadow": true,
 		"collision_feet": Vector2(88.0, 48.0) if is_great else Vector2(74.0, 42.0),
 	})
+	# Nudge slightly toward the plaza so stilts/stairs sit on the brick stoop.
+	prop.position = Iso.cell_to_world(cell.lerp(_plaza_cell, 0.06))
 	prop.z_index = 2
 	# Face the staircase toward the plaza along the approaching road.
 	var to_plaza := _plaza_cell - cell
