@@ -132,19 +132,21 @@ func _paint_roads() -> void:
 		var along_x := absi(delta.x) >= absi(delta.y)
 		var wood := PATH_WOOD_A if along_x else PATH_WOOD_B
 		_paint_run(a, b, wood, wood)
-		# Twin-plank width + moss shoulders so the X reads as a real boardwalk.
+		# Twin-plank width centered on the arm so houses sit on the path, not beside it.
 		var steps := maxi(absi(delta.x), absi(delta.y))
 		for i in range(steps + 1):
 			var t := 0.0 if steps == 0 else float(i) / float(steps)
 			var c := Vector2i(roundi(lerpf(a.x, b.x, t)), roundi(lerpf(a.y, b.y, t)))
 			if along_x:
 				_set_tile(c + Vector2i(0, 1), wood)
+				_set_tile(c + Vector2i(0, -1), wood)
 				_set_tile_soft(c + Vector2i(0, 2), _pick(DIRT_MOSS, c))
-				_set_tile_soft(c + Vector2i(0, -1), _pick(DIRT_MOSS, c + Vector2i(1, 0)))
+				_set_tile_soft(c + Vector2i(0, -2), _pick(DIRT_MOSS, c + Vector2i(1, 0)))
 			else:
 				_set_tile(c + Vector2i(1, 0), wood)
+				_set_tile(c + Vector2i(-1, 0), wood)
 				_set_tile_soft(c + Vector2i(2, 0), _pick(DIRT_MOSS, c))
-				_set_tile_soft(c + Vector2i(-1, 0), _pick(DIRT_MOSS, c + Vector2i(0, 1)))
+				_set_tile_soft(c + Vector2i(-2, 0), _pick(DIRT_MOSS, c + Vector2i(0, 1)))
 
 
 func _paint_plaza() -> void:

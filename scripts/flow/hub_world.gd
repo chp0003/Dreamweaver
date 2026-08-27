@@ -425,7 +425,7 @@ func _run_chapter() -> void:
 	var next_house := _next_open_house()
 	objective("Walk the boardwalk. Enter %s. [E]" % Houses.short_name_for(next_house))
 
-	if GameState.completed_houses.is_empty():
+	if GameState.completed_houses.is_empty() and not GameState.has_lore("guno_bong"):
 		await say([
 			"Five houses around one crossing, all of them the same gray. The boardwalk between them is worn deep, which means it was walked once, often, by people who are not here now.",
 			{"speaker": "S'lang", "text": "The first one, then. Whatever a cloth is built on, that is where you start."},

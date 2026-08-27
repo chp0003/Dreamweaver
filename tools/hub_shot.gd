@@ -12,6 +12,8 @@ func _ready() -> void:
 		await AccountManager.try_login("hubshot@example.com", "abaca123")
 	GameState.new_game()
 	GameState.add_item("lewet_staff")
+	# Skip the opening narrator so house nameplates stay visible.
+	GameState.unlock_lore("guno_bong")
 	await get_tree().process_frame
 
 	var packed := load("res://scenes/HubWorld.tscn") as PackedScene
@@ -20,7 +22,16 @@ func _ready() -> void:
 	for _i in range(90):
 		await get_tree().process_frame
 	ColorRestoration.set_global_gray(0.0)
-	for _i in range(10):
+	# Close any dialogue that still opened so world chrome (nameplates) shows.
+	var dialogue := instance.get_node_or_null("UiLayer/DialogueView")
+	if dialogue != null and dialogue.has_method("hide_view"):
+		dialogue.call("hide_view")
+	elif dialogue != null:
+		dialogue.visible = false
+	for node in get_tree().get_nodes_in_group("world_chrome"):
+		if node is CanvasItem:
+			(node as CanvasItem).visible = true
+	for _i in range(12):
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 
