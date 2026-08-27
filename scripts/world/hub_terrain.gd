@@ -104,8 +104,8 @@ func _paint_roads() -> void:
 	var plaza := Vector2i(roundi(plaza_cell.x), roundi(plaza_cell.y))
 	for house in house_cells:
 		var stop := _approach(house)
-		_paint_run(plaza, Vector2i(roundi(stop.x), roundi(stop.y)), ROAD, ROAD_EDGE)
-	# Widen the arms one cell so the boardwalk reads as a real walkway.
+		_paint_run(plaza, Vector2i(roundi(stop.x), roundi(stop.y)), ROAD, ROAD)
+	# Widen the arms so the paths read as real walkways against the grass.
 	for house in house_cells:
 		var stop := _approach(house)
 		var a := plaza
@@ -116,11 +116,11 @@ func _paint_roads() -> void:
 			var t := 0.0 if steps == 0 else float(i) / float(steps)
 			var c := Vector2i(roundi(lerpf(a.x, b.x, t)), roundi(lerpf(a.y, b.y, t)))
 			if absi(delta.x) >= absi(delta.y):
-				_set_tile_soft(c + Vector2i(0, 1), ROAD_EDGE)
-				_set_tile_soft(c + Vector2i(0, -1), ROAD_EDGE)
+				_set_tile(c + Vector2i(0, 1), ROAD_EDGE)
+				_set_tile(c + Vector2i(0, -1), ROAD_EDGE)
 			else:
-				_set_tile_soft(c + Vector2i(1, 0), ROAD_EDGE)
-				_set_tile_soft(c + Vector2i(-1, 0), ROAD_EDGE)
+				_set_tile(c + Vector2i(1, 0), ROAD_EDGE)
+				_set_tile(c + Vector2i(-1, 0), ROAD_EDGE)
 
 
 func _paint_plaza() -> void:
@@ -256,6 +256,10 @@ func _draw() -> void:
 			continue
 		var center := Iso.cell_to_world(Vector2(cell))
 		var size := tex.get_size() * _scale
-		# Anchor so the top-face diamond sits on the cell; brown thickness hangs below.
-		var top := Vector2(center.x - size.x * 0.5, center.y - size.y + Iso.HALF.y + size.y * 0.33)
-		draw_texture_rect(tex, Rect2(top, size), false)
+		# Kenney landscape tiles: top diamond sits in the upper half; hang the
+		# brown thickness below the cell centre so neighbours knit cleanly.
+		var origin := Vector2(
+			center.x - size.x * 0.5,
+			center.y - size.y * 0.55
+		)
+		draw_texture_rect(tex, Rect2(origin, size), false)
