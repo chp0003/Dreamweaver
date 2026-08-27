@@ -275,6 +275,60 @@ func set_tint(tint: Color) -> void:
 	queue_redraw()
 
 
+func get_sprite() -> Sprite2D:
+	return _sprite
+
+
+## Dark pixel rim + warm accent edge so the silhouette separates from grass.
+func add_silhouette_rim(accent: Color = Color(1.0, 0.9, 0.7)) -> void:
+	if _sprite == null or _sprite.texture == null:
+		return
+	if has_node("SilhouetteRim"):
+		return
+	var host := Node2D.new()
+	host.name = "SilhouetteRim"
+	host.z_as_relative = true
+	host.z_index = -1
+	add_child(host)
+	move_child(host, 0)
+	var dark := Color(0.04, 0.03, 0.02, 0.92)
+	var warm := Color(accent.r, accent.g, accent.b, 0.55).lightened(0.35)
+	for dir in [
+		Vector2(-2, 0), Vector2(2, 0), Vector2(0, -2), Vector2(0, 2),
+		Vector2(-2, -2), Vector2(2, -2), Vector2(-2, 2), Vector2(2, 2),
+	]:
+		var outline := Sprite2D.new()
+		outline.texture = _sprite.texture
+		outline.centered = _sprite.centered
+		outline.offset = _sprite.offset + dir
+		outline.scale = _sprite.scale
+		outline.flip_h = _sprite.flip_h
+		outline.texture_filter = _sprite.texture_filter
+		outline.modulate = dark
+		host.add_child(outline)
+	# Soft warm rim toward the plaza light (upper-left bias).
+	for dir in [Vector2(-1, -1), Vector2(0, -1), Vector2(-1, 0)]:
+		var glow := Sprite2D.new()
+		glow.texture = _sprite.texture
+		glow.centered = _sprite.centered
+		glow.offset = _sprite.offset + dir
+		glow.scale = _sprite.scale
+		glow.flip_h = _sprite.flip_h
+		glow.texture_filter = _sprite.texture_filter
+		glow.modulate = warm
+		host.add_child(glow)
+
+
+func set_flip_h(value: bool) -> void:
+	if _sprite != null:
+		_sprite.flip_h = value
+	var rim := get_node_or_null("SilhouetteRim")
+	if rim != null:
+		for child in rim.get_children():
+			if child is Sprite2D:
+				(child as Sprite2D).flip_h = value
+
+
 func set_texture_path(path: String) -> void:
 	texture_path = path
 	if _sprite != null:

@@ -1,6 +1,5 @@
 extends Node
 ## One-shot hub capture for design review. Colour forced on so tiles read clearly.
-##   /tmp/godot/Godot_v4.4.1-stable_linux.x86_64 --path . res://tools/HubShot.tscn
 
 const OUT_PATH := "res://tools/shots/05_hub.png"
 
@@ -12,7 +11,6 @@ func _ready() -> void:
 		await AccountManager.try_login("hubshot@example.com", "abaca123")
 	GameState.new_game()
 	GameState.add_item("lewet_staff")
-	# Skip opening narrator so house nameplates stay visible in the shot.
 	GameState.unlock_lore("guno_bong")
 	await get_tree().process_frame
 
@@ -22,9 +20,16 @@ func _ready() -> void:
 	for _i in range(100):
 		await get_tree().process_frame
 	ColorRestoration.set_global_gray(0.0)
+	# Show house nameplates only — not every interactable E prompt.
 	for node in get_tree().get_nodes_in_group("world_chrome"):
 		if node is CanvasItem:
-			(node as CanvasItem).visible = true
+			var item := node as CanvasItem
+			if node is InteractionPrompt:
+				item.visible = false
+			elif str(node.name).begins_with("Interaction") or item is Label and (item as Label).text.begins_with("E"):
+				item.visible = false
+			elif node.get_parent() != null and node.get_parent().get_parent() is PlaceholderProp:
+				item.visible = true
 	for _i in range(12):
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw

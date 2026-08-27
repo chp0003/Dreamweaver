@@ -177,58 +177,64 @@ func _add_house_floor(house_id: int, origin: Vector2) -> void:
 
 
 func _dress_park() -> void:
-	# Terrain tiles already carry grass / ponds / flowers. Keep a light layer of
-	# canopy + lanterns so the park still reads at camera distance.
+	# Trees frame the green from the outer wedges — never on roads or rooflines.
 	var trees: Array[Vector2] = [
-		Vector2(-12.0, -4.0), Vector2(12.0, -4.0), Vector2(-12.0, 4.0), Vector2(12.0, 4.0),
-		Vector2(-4.0, -12.0), Vector2(4.0, -12.0), Vector2(-4.0, 12.0), Vector2(4.0, 12.0),
-		Vector2(-13.0, 1.0), Vector2(13.0, -1.0), Vector2(1.0, 13.0), Vector2(-1.0, -13.0),
-		Vector2(-11.0, -11.0), Vector2(11.0, -11.0), Vector2(-11.0, 11.0),
+		Vector2(-13.0, -5.0), Vector2(13.0, -5.0), Vector2(-13.0, 5.0), Vector2(13.0, 5.0),
+		Vector2(-5.0, -13.0), Vector2(5.0, -13.0), Vector2(-5.0, 13.0), Vector2(5.0, 13.0),
+		Vector2(-14.0, 0.0), Vector2(14.0, 0.0), Vector2(0.0, 14.0), Vector2(0.0, -14.0),
+		Vector2(-12.0, -12.0), Vector2(12.0, -12.0), Vector2(-12.0, 12.0),
 	]
 	for i in range(trees.size()):
 		var cell: Vector2 = trees[i]
-		if _near_house(cell, 3.5):
+		if _near_house(cell, 5.0):
 			continue
-		if _terrain != null and _terrain.is_path_cell(cell):
+		if _terrain != null and (_terrain.is_path_cell(cell) or _terrain.is_near_path(cell, 2)):
 			continue
 		spawn_prop("HIGHLAND TREE", cell, {
 			"texture_path": "res://assets/images/environments/highland/highland_tree.png",
-			"prop_size": Vector2(88.0 + float(i % 3) * 14.0, 132.0 + float(i % 2) * 20.0),
+			"prop_size": Vector2(80.0 + float(i % 3) * 10.0, 120.0 + float(i % 2) * 16.0),
 			"body_color": Palette.EARTH_WOOD,
 			"accent_color": Palette.LIVING_LEAF,
 			"show_label": false,
-			"sway_degrees": 1.6,
+			"nearest_filter": true,
+			"sway_degrees": 1.2,
 			"blocks_movement": true,
-			"collision_feet": Vector2(28.0, 18.0),
+			"collision_feet": Vector2(24.0, 16.0),
 		})
 
+	# Warm plaza lanterns — road-edge posts that cast the hub key light.
 	var lanterns: Array[Vector2] = [
-		Vector2(-2.4, -2.4), Vector2(2.4, -2.4), Vector2(-2.4, 2.4), Vector2(2.4, 2.4),
-		Vector2(0.0, 5.2), Vector2(5.2, 0.0), Vector2(0.0, -5.2), Vector2(-5.2, 0.0),
+		Vector2(-2.0, -2.0), Vector2(2.0, -2.0), Vector2(-2.0, 2.0), Vector2(2.0, 2.0),
+		Vector2(0.0, 4.0), Vector2(4.0, 0.0), Vector2(0.0, -4.0), Vector2(-4.0, 0.0),
 	]
 	for cell in lanterns:
-		spawn_prop("BRASS LANTERN", cell, {
+		var lamp_prop := spawn_prop("BRASS LANTERN", cell, {
 			"texture_path": "res://assets/images/environments/highland/brass_lantern.png",
-			"prop_size": Vector2(36.0, 68.0),
+			"prop_size": Vector2(34.0, 64.0),
 			"body_color": Palette.GOLD_DEEP,
 			"accent_color": Palette.GOLD_SUN,
 			"show_label": false,
+			"nearest_filter": true,
 			"cast_shadow": false,
 			"blocks_movement": false,
 		})
+		var lamp := PointLight2D.new()
+		lamp.texture = _hub_light_tex()
+		lamp.color = Color(1.0, 0.82, 0.52)
+		lamp.energy = 0.85
+		lamp.texture_scale = 1.6
+		lamp.position = Vector2(0.0, -36.0)
+		lamp_prop.add_child(lamp)
 
-	var fences: Array[Vector2] = [
-		Vector2(-4.8, -4.8), Vector2(4.8, -4.8), Vector2(-4.8, 4.8), Vector2(4.8, 4.8),
-	]
-	for cell in fences:
-		spawn_prop("BAMBOO FENCE", cell, {
-			"texture_path": "res://assets/images/environments/highland/bamboo_fence.png",
-			"prop_size": Vector2(78.0, 52.0),
-			"body_color": Palette.EARTH_BAMBOO,
-			"accent_color": Palette.EARTH_WOOD,
-			"show_label": false,
-			"blocks_movement": false,
-		})
+	# Key light at the crossing so shadows read off the grid.
+	var plaza_light := PointLight2D.new()
+	plaza_light.name = "PlazaKeyLight"
+	plaza_light.texture = _hub_light_tex()
+	plaza_light.color = Color(1.0, 0.86, 0.58)
+	plaza_light.energy = 0.95
+	plaza_light.texture_scale = 2.6
+	plaza_light.position = Iso.cell_to_world(_plaza_cell) + Vector2(0.0, -8.0)
+	world.add_child(plaza_light)
 
 
 func _near_house(cell: Vector2, radius: float) -> bool:
@@ -324,31 +330,39 @@ func _build_door(house: Dictionary) -> void:
 	var completed: bool = GameState.is_house_completed(house_id)
 	var accent: Color = house["accent"]
 	var is_great := house_id == Houses.count()
-	# Landmark scale — readable at hub zoom, Sacred Loom only a step larger.
-	var house_size := Vector2(236.0, 286.0) if is_great else Vector2(208.0, 252.0)
+	# Landmark scale — readable silhouettes with door/stair facing the road.
+	var house_size := Vector2(244.0, 296.0) if is_great else Vector2(220.0, 268.0)
 
 	var prop := spawn_prop(str(DOOR_LABELS.get(house_id, "GUNO BONG")), cell, {
 		"texture_path": "res://assets/images/props/guno_bong_%d.png" % house_id,
 		"prop_size": house_size,
 		"body_color": Palette.EARTH_LOAM,
-		"accent_color": accent.lightened(0.15),
+		"accent_color": accent.lightened(0.2),
 		"show_label": false,
 		"nearest_filter": true,
 		"cast_shadow": true,
-		"collision_feet": Vector2(84.0, 46.0) if is_great else Vector2(70.0, 40.0),
+		"collision_feet": Vector2(88.0, 48.0) if is_great else Vector2(74.0, 42.0),
 	})
+	# Nudge slightly toward the plaza so stilts/stairs sit on the brick stoop.
+	prop.position = Iso.cell_to_world(cell.lerp(_plaza_cell, 0.06))
 	prop.z_index = 2
+	# Face the staircase toward the plaza along the approaching road.
+	var to_plaza := _plaza_cell - cell
+	if to_plaza.x > 0.1:
+		prop.set_flip_h(true)
+	prop.add_silhouette_rim(accent if unlocked else Palette.DREAM_MIST)
 
 	if not unlocked:
-		# Keep form readable — mild cool wash, not a muddy silhouette.
-		prop.set_tint(Color(0.82, 0.84, 0.90, 0.96))
+		prop.set_tint(Color(0.86, 0.87, 0.92, 0.97))
+	elif completed:
+		prop.set_tint(Color(1.04, 1.02, 0.98, 1.0))
 
 	_attach_nameplate(prop, house_id, unlocked, completed, accent, house_size)
 
-	# Stand on the porch stones in front of the door, not inside the footprint.
-	var approach: Vector2 = cell.lerp(_plaza_cell, 0.28)
+	# Interact on the porch brick where the road meets the stairs.
+	var approach: Vector2 = cell.lerp(_plaza_cell, 0.22)
 	var trigger := add_interactable("Enter %s" % Houses.short_name_for(house_id),
-		approach, {"radius": 120.0})
+		approach, {"radius": 110.0})
 	trigger.interacted.connect(_on_door_used.bind(house_id))
 
 	_doors[house_id] = {"prop": prop, "trigger": trigger}
