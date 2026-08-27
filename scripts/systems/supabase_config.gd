@@ -15,7 +15,7 @@ const ANON_KEY := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
 
 ## Turns usernames into Auth emails without adding an email field to the UI.
 ## Login "slang" becomes "slang@players.dreamweaver.game".
-const EMAIL_DOMAIN := "players.dreamweaver.game"
+const EMAIL_DOMAIN := "gmail.com"
 
 
 static func is_configured() -> bool:
