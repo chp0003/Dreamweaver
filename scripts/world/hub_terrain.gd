@@ -149,31 +149,40 @@ func _paint_roads() -> void:
 
 func _paint_plaza() -> void:
 	var plaza := Vector2i(roundi(plaza_cell.x), roundi(plaza_cell.y))
-	for oy in range(-2, 3):
-		for ox in range(-2, 3):
+	for oy in range(-3, 4):
+		for ox in range(-3, 4):
 			var c := plaza + Vector2i(ox, oy)
 			var d := maxi(absi(ox), absi(oy))
 			if d == 0:
 				_set_tile(c, PATH_BRICK)
-			elif d == 1:
+			elif d <= 1:
 				_set_tile(c, PATH_STONE)
-			else:
+			elif d == 2:
+				_set_tile(c, PATH_FLAG)
+			elif d == 3 and (ox == 0 or oy == 0 or absi(ox) == absi(oy)):
 				_set_tile_soft(c, PATH_FLAG)
 
 
 func _paint_house_yards() -> void:
 	for house in house_cells:
 		var h := Vector2i(roundi(house.x), roundi(house.y))
-		for oy in range(-2, 3):
-			for ox in range(-2, 3):
+		# Clear stone porch under each Guno Bong so the house reads as a landmark.
+		for oy in range(-3, 4):
+			for ox in range(-3, 4):
 				var c := h + Vector2i(ox, oy)
 				var d := maxi(absi(ox), absi(oy))
 				if d == 0:
-					continue
-				if d == 1:
+					_set_tile(c, PATH_STONE)
+					_decor.erase(c)
+				elif d == 1:
+					_set_tile(c, PATH_FLAG)
+					_decor.erase(c)
+				elif d == 2 and (ox == 0 or oy == 0 or absi(ox) == absi(oy)):
 					_set_tile_soft(c, PATH_FLAG)
-				elif d == 2 and (ox == 0 or oy == 0):
-					_set_tile_soft(c, _pick(DIRT, c))
+					_decor.erase(c)
+				elif d == 3 and (ox == 0 or oy == 0):
+					_set_tile_soft(c, _pick(DIRT_MOSS, c))
+					_decor.erase(c)
 
 
 func _paint_ring() -> void:
@@ -225,15 +234,15 @@ func _paint_quadrant_features() -> void:
 	_set_decor(Vector2i(-5, 7), _pick(DECOR_TALL, Vector2i(-5, 7)))
 	_set_decor(Vector2i(-9, 5), _pick(DECOR_BUSH, Vector2i(-9, 5)))
 
-	# SE shallow water garden
-	_paint_blob(Vector2i(7, 6), 3, _pick(WATER_SHALLOW, Vector2i(7, 6)))
-	_set_tile(Vector2i(7, 6), WATER_SHINE)
-	_set_tile(Vector2i(8, 7), _pick(WATER_ROCK, Vector2i(8, 7)))
-	_set_tile(Vector2i(6, 5), _pick(WATER_RIPPLE, Vector2i(6, 5)))
-	_set_tile(Vector2i(9, 5), _pick(WATER_ROCK, Vector2i(9, 5)))
-	_paint_blob(Vector2i(10, 8), 2, _pick(DIRT_MOSS, Vector2i(10, 8)))
-	_set_decor(Vector2i(10, 7), _pick(DECOR_FLOWER, Vector2i(10, 7)))
-	_set_decor(Vector2i(5, 8), _pick(DECOR_BUSH, Vector2i(5, 8)))
+	# SE shallow water garden — kept off the Sacred Loom porch at (7,7)
+	_paint_blob(Vector2i(11, 3), 3, _pick(WATER_SHALLOW, Vector2i(11, 3)))
+	_set_tile(Vector2i(11, 3), WATER_SHINE)
+	_set_tile(Vector2i(12, 4), _pick(WATER_ROCK, Vector2i(12, 4)))
+	_set_tile(Vector2i(10, 2), _pick(WATER_RIPPLE, Vector2i(10, 2)))
+	_set_tile(Vector2i(12, 2), _pick(WATER_ROCK, Vector2i(12, 2)))
+	_paint_blob(Vector2i(13, 5), 2, _pick(DIRT_MOSS, Vector2i(13, 5)))
+	_set_decor(Vector2i(13, 4), _pick(DECOR_FLOWER, Vector2i(13, 4)))
+	_set_decor(Vector2i(9, 4), _pick(DECOR_BUSH, Vector2i(9, 4)))
 
 	# Outer diamond-edge pockets so the rim is not empty grass
 	_paint_blob(Vector2i(0, -13), 3, _pick(DIRT, Vector2i(0, -13)))
@@ -323,7 +332,8 @@ func _approach(house: Vector2) -> Vector2:
 	var delta := plaza_cell - house
 	if delta.length() < 0.01:
 		return house
-	return house + delta.normalized() * 1.4
+	# Stop just short of the door cell so the boardwalk meets the porch.
+	return house + delta.normalized() * 0.55
 
 
 func _set_tile(cell: Vector2i, tile: String) -> void:

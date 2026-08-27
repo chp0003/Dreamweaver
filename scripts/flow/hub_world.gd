@@ -180,13 +180,15 @@ func _dress_park() -> void:
 	# Terrain tiles already carry grass / ponds / flowers. Keep a light layer of
 	# canopy + lanterns so the park still reads at camera distance.
 	var trees: Array[Vector2] = [
-		Vector2(-10.0, -4.0), Vector2(10.0, -4.0), Vector2(-10.0, 4.0), Vector2(10.0, 4.0),
-		Vector2(-4.0, -10.0), Vector2(4.0, -10.0), Vector2(-4.0, 10.0), Vector2(4.0, 10.0),
-		Vector2(-12.0, 2.0), Vector2(12.0, -2.0), Vector2(2.0, 12.5), Vector2(-2.0, -12.5),
-		Vector2(-11.0, -8.0), Vector2(11.0, 8.0), Vector2(-8.0, 11.0), Vector2(8.0, -11.0),
+		Vector2(-12.0, -4.0), Vector2(12.0, -4.0), Vector2(-12.0, 4.0), Vector2(12.0, 4.0),
+		Vector2(-4.0, -12.0), Vector2(4.0, -12.0), Vector2(-4.0, 12.0), Vector2(4.0, 12.0),
+		Vector2(-13.0, 1.0), Vector2(13.0, -1.0), Vector2(1.0, 13.0), Vector2(-1.0, -13.0),
+		Vector2(-11.0, -11.0), Vector2(11.0, -11.0), Vector2(-11.0, 11.0),
 	]
 	for i in range(trees.size()):
 		var cell: Vector2 = trees[i]
+		if _near_house(cell, 3.5):
+			continue
 		if _terrain != null and _terrain.is_path_cell(cell):
 			continue
 		spawn_prop("HIGHLAND TREE", cell, {
@@ -203,7 +205,6 @@ func _dress_park() -> void:
 	var lanterns: Array[Vector2] = [
 		Vector2(-2.4, -2.4), Vector2(2.4, -2.4), Vector2(-2.4, 2.4), Vector2(2.4, 2.4),
 		Vector2(0.0, 5.2), Vector2(5.2, 0.0), Vector2(0.0, -5.2), Vector2(-5.2, 0.0),
-		Vector2(4.6, 4.6), Vector2(-4.6, -4.6),
 	]
 	for cell in lanterns:
 		spawn_prop("BRASS LANTERN", cell, {
@@ -229,6 +230,12 @@ func _dress_park() -> void:
 			"blocks_movement": false,
 		})
 
+
+func _near_house(cell: Vector2, radius: float) -> bool:
+	for house in Houses.LIST:
+		if cell.distance_to(house["hub_cell"] as Vector2) <= radius:
+			return true
+	return false
 
 func _dress_living_ridge() -> void:
 	var restored := GameState.completed_houses.size()
@@ -317,51 +324,59 @@ func _build_door(house: Dictionary) -> void:
 	var completed: bool = GameState.is_house_completed(house_id)
 	var accent: Color = house["accent"]
 	var is_great := house_id == Houses.count()
+	# Landmark scale under hub zoom — big enough to read as destinations, not props.
+	var house_size := Vector2(340.0, 420.0) if is_great else Vector2(280.0, 340.0)
 
 	var prop := spawn_prop(str(DOOR_LABELS.get(house_id, "GUNO BONG")), cell, {
 		"texture_path": "res://assets/images/props/guno_bong_%d.png" % house_id,
-		"prop_size": Vector2(210.0, 256.0) if is_great else Vector2(168.0, 204.0),
+		"prop_size": house_size,
 		"body_color": Palette.EARTH_LOAM,
 		"accent_color": accent.lightened(0.15),
 		"show_label": false,
-		"collision_feet": Vector2(72.0, 40.0) if is_great else Vector2(58.0, 34.0),
+		"nearest_filter": true,
+		"cast_shadow": true,
+		"collision_feet": Vector2(96.0, 52.0) if is_great else Vector2(78.0, 44.0),
 	})
+	prop.z_index = 2
 
 	if not unlocked:
-		prop.set_tint(Color(0.62, 0.64, 0.72, 0.88))
+		# Keep form readable — mild cool wash, not a muddy silhouette.
+		prop.set_tint(Color(0.82, 0.84, 0.90, 0.96))
 
-	_attach_nameplate(prop, house_id, unlocked, completed, accent)
+	_attach_nameplate(prop, house_id, unlocked, completed, accent, house_size)
 
-	var approach: Vector2 = cell.lerp(_plaza_cell, 0.16)
+	# Stand on the porch stones in front of the door, not inside the footprint.
+	var approach: Vector2 = cell.lerp(_plaza_cell, 0.28)
 	var trigger := add_interactable("Enter %s" % Houses.short_name_for(house_id),
-		approach, {"radius": 100.0})
+		approach, {"radius": 120.0})
 	trigger.interacted.connect(_on_door_used.bind(house_id))
 
 	_doors[house_id] = {"prop": prop, "trigger": trigger}
 
 
 func _attach_nameplate(prop: PlaceholderProp, house_id: int, unlocked: bool,
-		completed: bool, accent: Color) -> void:
+		completed: bool, accent: Color, house_size: Vector2) -> void:
 	var plate := VBoxContainer.new()
 	plate.alignment = BoxContainer.ALIGNMENT_CENTER
-	plate.custom_minimum_size = Vector2(200.0, 0.0)
-	plate.size = Vector2(200.0, 48.0)
-	plate.position = Vector2(-100.0, 4.0)
+	plate.custom_minimum_size = Vector2(240.0, 0.0)
+	plate.size = Vector2(240.0, 56.0)
+	# Float above the roof so names don't sink into yards / boardwalk.
+	plate.position = Vector2(-120.0, -house_size.y - 8.0)
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	plate.z_index = 24
+	plate.z_index = 30
 	plate.add_to_group("world_chrome")
 	plate.add_theme_constant_override("separation", 0)
 
 	var title := Label.new()
 	title.text = Houses.short_name_for(house_id)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 15)
+	title.add_theme_font_size_override("font_size", 18)
 	title.add_theme_color_override("font_color",
-		Palette.CREAM_WARP if unlocked else Palette.alpha(Palette.DREAM_MIST, 0.7))
-	title.add_theme_color_override("font_outline_color", Palette.alpha(Palette.DREAM_ABYSS, 0.92))
-	title.add_theme_constant_override("outline_size", 8)
-	title.add_theme_color_override("font_shadow_color", Palette.alpha(Palette.DREAM_LANTERN, 0.28 if unlocked else 0.0))
-	title.add_theme_constant_override("shadow_outline_size", 8 if unlocked else 0)
+		Palette.CREAM_WARP if unlocked else Palette.alpha(Palette.DREAM_MIST, 0.85))
+	title.add_theme_color_override("font_outline_color", Palette.alpha(Palette.DREAM_ABYSS, 0.95))
+	title.add_theme_constant_override("outline_size", 10)
+	title.add_theme_color_override("font_shadow_color", Palette.alpha(Palette.DREAM_LANTERN, 0.32 if unlocked else 0.1))
+	title.add_theme_constant_override("shadow_outline_size", 10 if unlocked else 4)
 	title.add_theme_constant_override("shadow_offset_x", 0)
 	title.add_theme_constant_override("shadow_offset_y", 0)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -371,11 +386,11 @@ func _attach_nameplate(prop: PlaceholderProp, house_id: int, unlocked: bool,
 		var tag := Label.new()
 		tag.text = "restored" if completed else "open"
 		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		tag.add_theme_font_size_override("font_size", 11)
+		tag.add_theme_font_size_override("font_size", 12)
 		tag.add_theme_color_override("font_color",
 			accent.lightened(0.25) if completed else Palette.GOLD_SACRED)
-		tag.add_theme_color_override("font_outline_color", Palette.alpha(Palette.DREAM_ABYSS, 0.85))
-		tag.add_theme_constant_override("outline_size", 5)
+		tag.add_theme_color_override("font_outline_color", Palette.alpha(Palette.DREAM_ABYSS, 0.9))
+		tag.add_theme_constant_override("outline_size", 6)
 		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		plate.add_child(tag)
 

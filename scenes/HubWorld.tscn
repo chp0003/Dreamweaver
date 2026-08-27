@@ -12,7 +12,7 @@ chapter_id = 0
 chapter_title = "The Crossroads of the Five Houses"
 register_as_current_chapter = false
 player_spawn_cell = Vector2(0.4, 0.4)
-camera_zoom = Vector2(0.62, 0.62)
+camera_zoom = Vector2(0.72, 0.72)
 camera_follows_player = true
 camera_anchor_cell = Vector2(0, 0)
 starting_gray = 1.0
@@ -36,7 +36,7 @@ draw_border = false
 y_sort_enabled = true
 
 [node name="Camera" type="Camera2D" parent="."]
-zoom = Vector2(0.62, 0.62)
+zoom = Vector2(0.72, 0.72)
 
 [node name="UiLayer" type="CanvasLayer" parent="."]
 layer = 120

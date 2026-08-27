@@ -27,6 +27,8 @@ extends Node2D
 @export var collision_feet := Vector2.ZERO
 ## Slow rotation for plants, banners and hanging fiber. Degrees peak-to-peak / 2.
 @export var sway_degrees := 0.0
+## Keep pixel art sharp (hub houses, props that should not soften under zoom).
+@export var nearest_filter := false
 
 var _label: Label
 var _sprite: Sprite2D
@@ -305,7 +307,10 @@ func _load_texture() -> void:
 	_sprite = Sprite2D.new()
 	_sprite.texture = texture
 	_sprite.centered = false
-	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_sprite.texture_filter = (
+		CanvasItem.TEXTURE_FILTER_NEAREST if nearest_filter
+		else CanvasItem.TEXTURE_FILTER_LINEAR
+	)
 	_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
 	var tex_size := texture.get_size()
 	# Scale the art to the prop's footprint so AI sheets of any resolution sit
