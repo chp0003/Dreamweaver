@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Full-screen fade used when moving between auth, intro, and game scenes.
+## Full-screen fade used between scenes, and to cover in-place house enter/leave.
 
 const DEFAULT_DURATION := 0.55
 
@@ -28,6 +28,28 @@ func _ready() -> void:
 
 func is_busy() -> bool:
 	return _busy
+
+
+## Fade to black without changing scenes (house enter/leave on the ridge).
+func cover(duration: float = 0.28) -> void:
+	if _overlay == null:
+		return
+	_busy = true
+	_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	var fade := create_tween()
+	fade.tween_property(_overlay, "modulate:a", 1.0, duration)
+	await fade.finished
+
+
+func reveal(duration: float = 0.32) -> void:
+	if _overlay == null:
+		_busy = false
+		return
+	var fade := create_tween()
+	fade.tween_property(_overlay, "modulate:a", 0.0, duration)
+	await fade.finished
+	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_busy = false
 
 
 func fade_to_scene(scene_path: String, duration: float = DEFAULT_DURATION) -> void:

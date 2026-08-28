@@ -1,8 +1,6 @@
 extends ChapterBase
-## The village green — one continuous map, not a per-screen chapter.
-##
-## S'lang walks a wooden X between the five Guno Bong. Entering a House
-## steps her into that interior on the same map (camera follows). Story still
+## The village green — one continuous ridge map. Entering a House frames that
+## interior as its own screen (zoom-to-fit, other halls hidden). Story still
 ## waits at each door until the previous House is restored.
 
 const DOOR_LABELS := {
@@ -53,6 +51,7 @@ const FLOOR_ROWS := 32
 var _doors: Dictionary = {}
 var _quests: Dictionary = {}
 var _house_floors: Dictionary = {}
+var _house_nodes: Dictionary = {}
 var _exit_triggers: Dictionary = {}
 var _house_exits: Dictionary = {}
 var _ridge_floor: Node2D
@@ -77,7 +76,9 @@ func _build_world() -> void:
 	_dress_park()
 	_dress_living_ridge()
 	_restore_completed_colors()
-	_set_camera_floor(_ridge_floor)
+	_show_ridge()
+	if get_viewport() != null and not get_viewport().size_changed.is_connected(_on_view_resized):
+		get_viewport().size_changed.connect(_on_view_resized)
 	# Soft plaza lanterns carry the warm hub glow; keep staff wash tiny.
 	ColorRestoration.remove_zone("lewet_staff")
 	if player != null:
@@ -99,8 +100,13 @@ func _mount_terrain() -> void:
 func _mount_house(house: Dictionary) -> void:
 	var house_id := int(house["id"])
 	var origin: Vector2 = HOUSE_ORIGINS[house_id]
+	var tracked: Array[Node] = []
 	_add_house_floor(house_id, origin)
+	var floor: Node = _house_floors.get(house_id) as Node
+	if floor != null:
+		tracked.append(floor)
 
+	var world_from := world.get_child_count() if world != null else 0
 	var script := load(str(HOUSE_QUESTS[house_id])) as Script
 	var quest: HouseQuest = script.new() as HouseQuest
 	quest.name = "House%d" % house_id
@@ -110,9 +116,15 @@ func _mount_house(house: Dictionary) -> void:
 	quest.region_spawn = HOUSE_SPAWNS[house_id]
 	add_child(quest)
 	quest.build()
+	tracked.append(quest)
 	_quests[house_id] = quest
 	_hide_house_darkness(quest)
 	_place_house_exit(house_id, origin, house.get("accent", Palette.GOLD_BRASS) as Color)
+	if world != null:
+		for i in range(world_from, world.get_child_count()):
+			tracked.append(world.get_child(i))
+	_house_nodes[house_id] = tracked
+	_set_house_nodes_visible(house_id, false)
 
 
 func _place_house_exit(house_id: int, origin: Vector2, accent: Color) -> void:
@@ -610,7 +622,10 @@ func _on_door_used(house_id: int) -> void:
 		])
 		return
 
+	set_player_input(false)
+	await SceneFader.cover(0.28)
 	await _enter_house(house_id, false)
+	await SceneFader.reveal(0.32)
 
 
 func _enter_house(house_id: int, _from_retry: bool) -> void:
@@ -623,9 +638,7 @@ func _enter_house(house_id: int, _from_retry: bool) -> void:
 	_spawn_position = Iso.cell_to_world(spawn)
 	player.global_position = _spawn_position
 	player.velocity = Vector2.ZERO
-	_set_camera_floor(_house_floors.get(house_id) as Node2D)
-	if camera != null:
-		camera.global_position = player.global_position
+	_show_house(house_id)
 	_set_house_darkness(quest, true)
 	var gate: HouseExit = _house_exits.get(house_id) as HouseExit
 	if gate != null:
@@ -645,7 +658,7 @@ func _enter_house(house_id: int, _from_retry: bool) -> void:
 
 
 func _leave_house(house_id: int) -> void:
-	if _leaving_house or _active_house_id != house_id:
+	if _leaving_house or _active_house_id != house_id or SceneFader.is_busy():
 		return
 	var quest: HouseQuest = _quests.get(house_id) as HouseQuest
 	if quest != null and quest.is_busy():
@@ -654,6 +667,8 @@ func _leave_house(house_id: int) -> void:
 		])
 		return
 	_leaving_house = true
+	set_player_input(false)
+	await SceneFader.cover(0.28)
 	_active_house_id = 0
 	GameState.set_current_chapter(0)
 	_set_house_darkness(quest, false)
@@ -668,9 +683,7 @@ func _leave_house(house_id: int) -> void:
 		player.global_position = Iso.cell_to_world(cell + Vector2(0.9, 0.9))
 	player.velocity = Vector2.ZERO
 	_spawn_position = Iso.cell_to_world(_plaza_cell)
-	_set_camera_floor(_ridge_floor)
-	if camera != null:
-		camera.global_position = player.global_position
+	_show_ridge()
 	_restore_completed_colors()
 	if hud != null and hud.has_method("set_chapter"):
 		hud.call("set_chapter", chapter_title)
@@ -679,6 +692,7 @@ func _leave_house(house_id: int) -> void:
 		objective("The world is whole. Walk the green.")
 	else:
 		objective("Walk the boardwalk. Enter %s. [E]" % Houses.short_name_for(_next_open_house()))
+	await SceneFader.reveal(0.32)
 	_leaving_house = false
 
 
@@ -713,9 +727,44 @@ func _on_player_attacked(swing_position: Vector2, facing: Vector2) -> void:
 		shake_camera(4.5)
 
 
-func _set_camera_floor(which: Node2D) -> void:
-	if which != null:
-		floor_node = which
+func _set_house_nodes_visible(house_id: int, on: bool) -> void:
+	var nodes: Array = _house_nodes.get(house_id, [])
+	for node in nodes:
+		if node == null or not is_instance_valid(node):
+			continue
+		if node is CanvasItem:
+			(node as CanvasItem).visible = on
+
+
+func _show_house(house_id: int) -> void:
+	if _terrain != null:
+		_terrain.visible = false
+	for id in _house_nodes:
+		_set_house_nodes_visible(int(id), int(id) == house_id)
+	var house_floor := _house_floors.get(house_id) as Node2D
+	fit_camera_to_floor(house_floor)
+	if stage != null:
+		stage.configure(house_id, camera)
+
+
+func _show_ridge() -> void:
+	if _terrain != null:
+		_terrain.visible = true
+	for id in _house_nodes:
+		_set_house_nodes_visible(int(id), false)
+	floor_node = _ridge_floor
+	camera_follows_player = true
+	if camera != null:
+		camera.zoom = camera_zoom
+		if player != null and is_instance_valid(player):
+			camera.global_position = player.global_position
+	if stage != null:
+		stage.configure(0, camera)
+
+
+func _on_view_resized() -> void:
+	if _active_house_id != 0:
+		fit_camera_to_floor(_house_floors.get(_active_house_id) as Node2D)
 
 
 func _hide_house_darkness(quest: HouseQuest) -> void:
@@ -728,32 +777,3 @@ func _set_house_darkness(quest: HouseQuest, on: bool) -> void:
 	for child in quest.get_children():
 		if child is CanvasModulate:
 			(child as CanvasModulate).visible = on
-
-
-func _clamp_camera() -> void:
-	if camera == null or floor_node == null:
-		return
-	if not floor_node.get("origin_cell") is Vector2i:
-		super._clamp_camera()
-		return
-	var origin := Vector2(floor_node.origin_cell)
-	var cols := int(floor_node.get("cols"))
-	var rows := int(floor_node.get("rows"))
-	var corners: Array[Vector2] = [
-		Iso.cell_to_world(origin),
-		Iso.cell_to_world(origin + Vector2(cols, 0)),
-		Iso.cell_to_world(origin + Vector2(cols, rows)),
-		Iso.cell_to_world(origin + Vector2(0, rows)),
-	]
-	var min_p: Vector2 = corners[0]
-	var max_p: Vector2 = corners[0]
-	for p in corners:
-		min_p.x = minf(min_p.x, p.x)
-		min_p.y = minf(min_p.y, p.y)
-		max_p.x = maxf(max_p.x, p.x)
-		max_p.y = maxf(max_p.y, p.y)
-	var margin := Vector2(80.0, 60.0)
-	camera.global_position = Vector2(
-		clampf(camera.global_position.x, min_p.x + margin.x, max_p.x - margin.x),
-		clampf(camera.global_position.y, min_p.y + margin.y, max_p.y - margin.y)
-	)

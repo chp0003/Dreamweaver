@@ -115,6 +115,10 @@ func _update_camera(delta: float) -> void:
 			var span := maxf(80.0, bottom.y - top.y)
 			var t := clampf((player.global_position.y - top.y) / span, 0.0, 1.0)
 			player.apply_depth_scale(lerpf(0.94, 1.07, t))
+	else:
+		var rect := floor_world_rect()
+		if rect.size.x >= 8.0:
+			target = rect.get_center()
 	if _shake > 0.4:
 		target += Vector2(randf_range(-_shake, _shake), randf_range(-_shake, _shake) * 0.55)
 		_shake = move_toward(_shake, 0.0, delta * 28.0)
@@ -125,15 +129,18 @@ func _update_camera(delta: float) -> void:
 		_clamp_camera()
 
 
-func _clamp_camera() -> void:
-	if camera == null or floor_node == null:
-		return
-	var origin := Vector2(floor_node.origin_cell)
+func floor_world_rect(which: Node2D = null) -> Rect2:
+	var floor := which if which != null else floor_node
+	if floor == null or not floor.get("origin_cell") is Vector2i:
+		return Rect2()
+	var origin := Vector2(floor.get("origin_cell"))
+	var cols := float(floor.get("cols"))
+	var rows := float(floor.get("rows"))
 	var corners: Array[Vector2] = [
 		Iso.cell_to_world(origin),
-		Iso.cell_to_world(origin + Vector2(floor_node.cols, 0)),
-		Iso.cell_to_world(origin + Vector2(floor_node.cols, floor_node.rows)),
-		Iso.cell_to_world(origin + Vector2(0, floor_node.rows)),
+		Iso.cell_to_world(origin + Vector2(cols, 0.0)),
+		Iso.cell_to_world(origin + Vector2(cols, rows)),
+		Iso.cell_to_world(origin + Vector2(0.0, rows)),
 	]
 	var min_p: Vector2 = corners[0]
 	var max_p: Vector2 = corners[0]
@@ -142,11 +149,56 @@ func _clamp_camera() -> void:
 		min_p.y = minf(min_p.y, p.y)
 		max_p.x = maxf(max_p.x, p.x)
 		max_p.y = maxf(max_p.y, p.y)
-	var margin := Vector2(80.0, 60.0)
-	camera.global_position = Vector2(
-		clampf(camera.global_position.x, min_p.x + margin.x, max_p.x - margin.x),
-		clampf(camera.global_position.y, min_p.y + margin.y, max_p.y - margin.y)
-	)
+	return Rect2(min_p, max_p - min_p)
+
+
+## Frame one isometric room so it fills the screen. If the room is larger than
+## the view, the camera still follows S'lang but cannot pan into neighbouring
+## rooms.
+func fit_camera_to_floor(which: Node2D = null, padding := 1.12) -> void:
+	var floor := which if which != null else floor_node
+	if camera == null or floor == null:
+		return
+	floor_node = floor
+	var rect := floor_world_rect(floor)
+	if rect.size.x < 8.0 or rect.size.y < 8.0:
+		return
+	var view := get_viewport_rect().size
+	var zx := view.x / (rect.size.x * padding)
+	var zy := view.y / (rect.size.y * padding)
+	var z := clampf(minf(zx, zy), 0.7, 1.35)
+	camera.zoom = Vector2(z, z)
+	var view_world := view / camera.zoom
+	camera_follows_player = view_world.x < rect.size.x or view_world.y < rect.size.y
+	if camera_follows_player:
+		if player != null and is_instance_valid(player):
+			camera.global_position = player.global_position
+		_clamp_camera()
+	else:
+		camera.global_position = rect.get_center()
+
+
+func _clamp_camera() -> void:
+	if camera == null:
+		return
+	var rect := floor_world_rect()
+	if rect.size.x < 8.0 or rect.size.y < 8.0:
+		return
+	var half := get_viewport_rect().size / (camera.zoom * 2.0)
+	var min_x := rect.position.x + half.x
+	var max_x := rect.end.x - half.x
+	var min_y := rect.position.y + half.y
+	var max_y := rect.end.y - half.y
+	var pos := camera.global_position
+	if min_x > max_x:
+		pos.x = rect.get_center().x
+	else:
+		pos.x = clampf(pos.x, min_x, max_x)
+	if min_y > max_y:
+		pos.y = rect.get_center().y
+	else:
+		pos.y = clampf(pos.y, min_y, max_y)
+	camera.global_position = pos
 
 
 # --------------------------------------------------------------------------
