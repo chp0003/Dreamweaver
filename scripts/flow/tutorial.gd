@@ -8,8 +8,6 @@ extends ChapterBase
 var _staff: PlaceholderProp
 var _staff_trigger: Interactable
 var _goddess: PlaceholderProp
-var _letterbox_top: ColorRect
-var _letterbox_bottom: ColorRect
 var _tutorial: TutorialManager
 
 
@@ -35,7 +33,7 @@ func _build_world() -> void:
 	})
 
 	_dress_room()
-	_build_letterbox()
+	_light_staff()
 
 	if player != null:
 		player.has_staff = false
@@ -80,41 +78,37 @@ func _dress_room() -> void:
 		})
 
 
-func _build_letterbox() -> void:
-	var box_layer := CanvasLayer.new()
-	box_layer.layer = 108
-	box_layer.name = "LetterboxLayer"
-	add_child(box_layer)
-
-	_letterbox_top = ColorRect.new()
-	_letterbox_top.color = Color(0.02, 0.015, 0.02)
-	_letterbox_top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	_letterbox_top.offset_bottom = 72.0
-	_letterbox_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box_layer.add_child(_letterbox_top)
-
-	_letterbox_bottom = ColorRect.new()
-	_letterbox_bottom.color = Color(0.02, 0.015, 0.02)
-	_letterbox_bottom.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	_letterbox_bottom.offset_top = -72.0
-	_letterbox_bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box_layer.add_child(_letterbox_bottom)
+func _light_staff() -> void:
+	if _staff == null:
+		return
+	var lamp := PointLight2D.new()
+	lamp.name = "StaffGlow"
+	lamp.color = Color(1.0, 0.86, 0.48)
+	lamp.energy = 0.85
+	lamp.texture_scale = 1.6
+	lamp.position = Vector2(0.0, -48.0)
+	var tex := GradientTexture2D.new()
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1, 1, 1, 1))
+	grad.set_color(1, Color(1, 1, 1, 0))
+	tex.gradient = grad
+	tex.width = 256
+	tex.height = 256
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	lamp.texture = tex
+	_staff.add_child(lamp)
 
 
 func _run_chapter() -> void:
 	set_player_input(false)
-	objective("Wake in S'lang's room.")
+	objective("Listen.")
 
 	await say([
 		"S'lang wakes on the mat where she fell asleep, in a room she has known her whole life.",
 		{"speaker": "S'lang", "text": "The loom. The mat. Still here. And there — by the wall — the beater is waiting."},
 	])
-
-	var open := create_tween()
-	open.set_parallel(true)
-	open.tween_property(_letterbox_top, "offset_bottom", 0.0, 0.9)
-	open.tween_property(_letterbox_bottom, "offset_top", 0.0, 0.9)
-	await open.finished
 
 	_tutorial.begin()
 	await _tutorial.finished

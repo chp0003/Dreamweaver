@@ -119,6 +119,11 @@ func _sync_dialogue_chrome() -> void:
 	for node in get_tree().get_nodes_in_group("world_chrome"):
 		if node is CanvasItem:
 			(node as CanvasItem).visible = not busy
+	for node in get_tree().get_nodes_in_group("tutorial_hint"):
+		if node is CanvasItem:
+			(node as CanvasItem).visible = not busy
+	if quest_plate != null:
+		quest_plate.visible = not busy
 
 
 # --------------------------------------------------------------------------

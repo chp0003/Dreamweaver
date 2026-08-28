@@ -6,10 +6,16 @@ const OUT_PATH := "res://tools/shots/05_hub.png"
 
 func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute("res://tools/shots")
-	# Offline capture — skip AccountManager (network can hang in CI/headless).
-	GameState.new_game()
-	GameState.add_item("lewet_staff")
-	GameState.unlock_lore("guno_bong")
+	# Memory-only Color Burst. Do not save — the player's file stays as-is.
+	GameState.current_chapter = 0
+	GameState.unlocked_houses = [1, 2, 3, 4, 5]
+	GameState.completed_houses = [1, 2, 3, 4, 5]
+	GameState.essences = ["black", "red", "gold"]
+	GameState.items = ["lewet_staff", "master_pattern"]
+	GameState.game_completed = true
+	GameState.objective = "The world is whole."
+	ColorRestoration.reset()
+	ColorRestoration.sync_essences()
 	await get_tree().process_frame
 
 	var packed := load("res://scenes/HubWorld.tscn") as PackedScene
