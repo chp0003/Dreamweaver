@@ -65,57 +65,95 @@ static func is_soft_label(label: String, path := "") -> bool:
 	return false
 
 
-## Feet-only StaticBody2D on PhysicsLayers.LAYER_WORLD. Replicate this pattern
-## for any custom solid (fence, rock, house) — see scenes/world/SolidPropExample.tscn.
-##
-## The blocker is reparented onto the same World node as the player so it is a
-## sibling physics body (avoids rare nested-transform misses with y-sort trees).
+## Feet collider on PhysicsLayers.LAYER_WORLD. Reparented onto World (sibling of
+## the player) so CharacterBody2D always sees it. Physics transform is copied
+## from this prop — never from the blocker itself, which stays stale if moved.
 func _add_world_blocker() -> void:
-	if _blocker != null or has_node("WorldBlocker"):
-		_blocker = get_node_or_null("WorldBlocker") as StaticBody2D
-		if _blocker != null:
-			return
+	if _blocker != null and is_instance_valid(_blocker):
+		return
 	_blocker = StaticBody2D.new()
-	_blocker.name = "WorldBlocker_%s" % str(get_instance_id())
+	_blocker.name = "WorldBlocker_%d" % get_instance_id()
 	_blocker.collision_layer = PhysicsLayers.LAYER_WORLD
 	_blocker.collision_mask = PhysicsLayers.MASK_WORLD_STATIC
+	if _silhouette_kind() == "house":
+		_add_house_stilt_shapes(_blocker)
+	else:
+		_add_generic_feet_shape(_blocker)
+	add_child(_blocker)
+	sync_blocker()
+	call_deferred("sync_blocker")
 
+
+func _add_generic_feet_shape(body: CollisionObject2D) -> void:
 	var shape := CollisionShape2D.new()
 	shape.name = "Feet"
-	var radius := 0.0
+	shape.disabled = false
 	if collision_feet != Vector2.ZERO:
-		radius = maxf(collision_feet.x, collision_feet.y) * 0.5
+		shape.shape = PhysicsLayers.feet_circle(maxf(collision_feet.x, collision_feet.y) * 0.5)
 	else:
 		var kind := _silhouette_kind()
+		var radius := 0.0
 		match kind:
-			"house":
-				radius = maxf(40.0, prop_size.x * 0.40)
 			"plant":
 				radius = maxf(16.0, prop_size.x * 0.30)
 			"person":
 				radius = maxf(18.0, prop_size.x * 0.34)
 			_:
 				radius = maxf(22.0, prop_size.x * 0.38)
-	shape.shape = PhysicsLayers.feet_circle(radius)
-	shape.disabled = false
-	_blocker.add_child(shape)
-	# Enter the tree on this prop first, then move beside the player on World.
-	add_child(_blocker)
-	call_deferred("_reparent_blocker_to_world")
+		shape.shape = PhysicsLayers.feet_circle(radius)
+	body.add_child(shape)
 
 
-func _reparent_blocker_to_world() -> void:
+## Sprite is feet-anchored at (0,0). Stilts sit up in the image; the porch/stairs
+## at the bottom stay open so [E] still works.
+func _add_house_stilt_shapes(body: CollisionObject2D) -> void:
+	var span := collision_feet if collision_feet != Vector2.ZERO \
+		else Vector2(maxf(180.0, prop_size.x * 0.78), maxf(78.0, prop_size.x * 0.34))
+	var rx := span.x * 0.5
+	var ry := span.y * 0.5
+	var origin := Vector2(0.0, -maxf(36.0, prop_size.y * 0.22))
+	var diamond := CollisionShape2D.new()
+	diamond.name = "StiltDiamond"
+	diamond.position = origin
+	diamond.shape = PhysicsLayers.feet_shape(rx, ry)
+	body.add_child(diamond)
+	var radius := maxf(28.0, minf(rx, ry) * 0.58)
+	var spots: Array[Vector2] = [
+		origin,
+		origin + Vector2(rx * 0.58, 0.0),
+		origin + Vector2(-rx * 0.58, 0.0),
+		origin + Vector2(0.0, -ry * 0.48),
+		origin + Vector2(0.0, ry * 0.22),
+	]
+	for i in range(spots.size()):
+		var circle := CollisionShape2D.new()
+		circle.name = "StiltPost_%d" % i
+		circle.position = spots[i]
+		circle.shape = PhysicsLayers.feet_circle(radius)
+		body.add_child(circle)
+
+
+func sync_blocker() -> void:
 	if _blocker == null or not is_instance_valid(_blocker):
 		return
+	var xf := global_transform
 	var host := _world_host()
-	if host == null or _blocker.get_parent() == host:
-		return
-	var gp := _blocker.global_position
-	var parent := _blocker.get_parent()
-	if parent != null:
-		parent.remove_child(_blocker)
-	host.add_child(_blocker)
-	_blocker.global_position = gp
+	if host != null and _blocker.get_parent() != host:
+		var parent := _blocker.get_parent()
+		if parent != null:
+			parent.remove_child(_blocker)
+		host.add_child(_blocker)
+	_blocker.global_transform = xf
+	if _blocker.is_inside_tree():
+		PhysicsServer2D.body_set_state(
+			_blocker.get_rid(),
+			PhysicsServer2D.BODY_STATE_TRANSFORM,
+			xf
+		)
+
+
+func get_world_blocker() -> StaticBody2D:
+	return _blocker
 
 
 func _world_host() -> Node2D:
@@ -131,7 +169,6 @@ func _exit_tree() -> void:
 	if _blocker != null and is_instance_valid(_blocker):
 		_blocker.queue_free()
 		_blocker = null
-
 
 
 func _process(delta: float) -> void:

@@ -477,6 +477,9 @@ func _build_door(house: Dictionary) -> void:
 	# assets/images/houses/House1..5 — wide (3/4) vs tall (1/2/5) aspect ratios.
 	var house_size := Vector2(300.0, 292.0) if is_great \
 		else (Vector2(300.0, 176.0) if house_id in [3, 4] else Vector2(236.0, 248.0))
+	# Iso diamond over the wooden base only (not the roof). Wide halls sit flatter.
+	var house_feet := Vector2(220.0, 100.0) if is_great \
+		else (Vector2(210.0, 86.0) if house_id in [3, 4] else Vector2(200.0, 96.0))
 
 	var prop := spawn_prop(str(DOOR_LABELS.get(house_id, "GUNO BONG")), cell, {
 		"texture_path": "res://assets/images/houses/House%d.png" % house_id,
@@ -486,10 +489,13 @@ func _build_door(house: Dictionary) -> void:
 		"show_label": false,
 		"nearest_filter": true,
 		"cast_shadow": false,
-		"collision_feet": Vector2(96.0, 52.0) if is_great else Vector2(80.0, 44.0),
+		"blocks_movement": true,
+		"collision_feet": house_feet,
 	})
 	# Nudge slightly toward the plaza so stairs sit on the brick path.
 	prop.position = Iso.cell_to_world(cell.lerp(_plaza_cell, 0.06))
+	prop.sync_blocker()
+	prop.call_deferred("sync_blocker")
 	prop.z_index = 2
 	# Face the staircase toward the plaza along the approaching road.
 	var to_plaza := _plaza_cell - cell
@@ -758,6 +764,8 @@ func _show_ridge() -> void:
 		camera.zoom = camera_zoom
 		if player != null and is_instance_valid(player):
 			camera.global_position = player.global_position
+		apply_camera_world_limits(_ridge_floor)
+		_clamp_camera()
 	if stage != null:
 		stage.configure(0, camera)
 
@@ -765,6 +773,9 @@ func _show_ridge() -> void:
 func _on_view_resized() -> void:
 	if _active_house_id != 0:
 		fit_camera_to_floor(_house_floors.get(_active_house_id) as Node2D)
+	else:
+		apply_camera_world_limits(_ridge_floor)
+		_clamp_camera()
 
 
 func _hide_house_darkness(quest: HouseQuest) -> void:

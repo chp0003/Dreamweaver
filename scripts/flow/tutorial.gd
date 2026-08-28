@@ -1,21 +1,23 @@
 extends ChapterBase
 ## Tutorial - "S'lang's Awakening".
 ##
-## The cutscene letterbox lifts, the camera hands control over, and the only
-## object in a fully bleached room that still has colour is the Lewet Staff.
-## Taking it teaches WASD and [E], equips the weapon, and opens the Hub.
+## Step-gated: walk until it reads as understood, pick up the Lewet Staff,
+## then land one hit on a Shadow Creep. Colour stays on — this room is not
+## a bleached House.
 
 var _staff: PlaceholderProp
 var _staff_trigger: Interactable
 var _goddess: PlaceholderProp
 var _letterbox_top: ColorRect
 var _letterbox_bottom: ColorRect
-var _move_hint: Label
-var _has_moved := false
+var _tutorial: TutorialManager
 
 
 func _build_world() -> void:
 	add_room_bounds(Vector2i(-6, -6), 13, 13)
+	ColorRestoration.clear_zones()
+	ColorRestoration.set_global_gray(0.0)
+	Audio.set_ambience(0.45, 0.0)
 
 	_staff = spawn_prop("LEWET STAFF", Vector2(0.0, -4.0), {
 		"texture_path": "res://assets/images/props/lewet_staff.png",
@@ -26,15 +28,23 @@ func _build_world() -> void:
 		"float_speed": 1.4,
 		"show_label": false,
 	})
-	_staff_trigger = add_interactable("Take the Lewet Staff", Vector2(0.0, -3.3),
-		{"one_shot": true, "radius": 70.0})
-
-	# The staff is the one thing in the room the forgetting did not reach.
-	ColorRestoration.add_zone("lewet_staff", _staff, 120.0, 1.0)
+	_staff_trigger = add_interactable("Take the Lewet Staff", Vector2(0.0, -3.3), {
+		"one_shot": true,
+		"radius": 70.0,
+		"enabled": false,
+	})
 
 	_dress_room()
 	_build_letterbox()
-	_build_move_hint()
+
+	if player != null:
+		player.has_staff = false
+		player.set_light_enabled(false)
+
+	_tutorial = TutorialManager.new()
+	_tutorial.name = "TutorialManager"
+	add_child(_tutorial)
+	_tutorial.setup(self, _staff, _staff_trigger)
 
 
 func _dress_room() -> void:
@@ -70,8 +80,6 @@ func _dress_room() -> void:
 		})
 
 
-## Cinematic bars left over from the prologue, retracted on the first beat.
-## Own canvas layer under the HUD so objective / vitality stay readable.
 func _build_letterbox() -> void:
 	var box_layer := CanvasLayer.new()
 	box_layer.layer = 108
@@ -93,86 +101,29 @@ func _build_letterbox() -> void:
 	box_layer.add_child(_letterbox_bottom)
 
 
-func _build_move_hint() -> void:
-	_move_hint = Label.new()
-	_move_hint.text = "W  A  S  D    move toward the glowing staff"
-	_move_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_move_hint.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	_move_hint.offset_left = -380.0
-	_move_hint.offset_right = 380.0
-	_move_hint.offset_top = -120.0
-	_move_hint.offset_bottom = -72.0
-	_move_hint.add_theme_font_size_override("font_size", 18)
-	_move_hint.add_theme_color_override("font_color", Color(0.96, 0.9, 0.78, 0.95))
-	_move_hint.add_theme_color_override("font_outline_color", Color(0.02, 0.015, 0.02, 0.9))
-	_move_hint.add_theme_constant_override("outline_size", 8)
-	_move_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_move_hint.modulate.a = 0.0
-	ui_layer.add_child(_move_hint)
-
-
-func _process(delta: float) -> void:
-	super._process(delta)
-	if _has_moved or player == null or not is_instance_valid(player):
-		return
-	if player.velocity.length() > 20.0:
-		_has_moved = true
-		_fade_hint_out()
-
-
-# --------------------------------------------------------------------------
-
 func _run_chapter() -> void:
 	set_player_input(false)
-	Audio.set_ambience(0.45, 0.0)
-	objective("Wake in the bleached room.")
+	objective("Wake in S'lang's room.")
 
 	await say([
-		"S'lang wakes on the mat where she fell asleep, in a room she has known her whole life, and cannot find a single colour in it.",
-		{"speaker": "S'lang", "text": "The cloth on the loom. The mat. My own hands. All of it gray."},
-		{"speaker": "S'lang", "text": "Except - there. By the wall. Something is still gold."},
+		"S'lang wakes on the mat where she fell asleep, in a room she has known her whole life.",
+		{"speaker": "S'lang", "text": "The loom. The mat. Still here. And there — by the wall — the beater is waiting."},
 	])
 
-	# Letterbox retracts and the camera becomes the player's.
 	var open := create_tween()
 	open.set_parallel(true)
 	open.tween_property(_letterbox_top, "offset_bottom", 0.0, 0.9)
 	open.tween_property(_letterbox_bottom, "offset_top", 0.0, 0.9)
 	await open.finished
 
-	set_player_input(true)
-	objective("Move to the glowing Lewet Staff.")
-
-	var hint_in := create_tween()
-	hint_in.tween_property(_move_hint, "modulate:a", 1.0, 0.5)
-
-	await until(func() -> bool: return _staff_trigger.is_player_inside())
-	_fade_hint_out()
-	_show_hint("[E]  take the Lewet Staff")
-	objective("Take the Lewet Staff. [E]")
-
-	await _staff_trigger.interacted
-	_fade_hint_out()
+	_tutorial.begin()
+	await _tutorial.finished
 
 	set_player_input(false)
-	if player != null:
-		player.equip_staff()
-	Audio.play_sfx(Audio.Sfx.CHIME)
-	banner("The Lewet Staff", 2.0)
-
-	# The staff's colour now travels with S'lang instead of sitting on the floor.
-	ColorRestoration.remove_zone("lewet_staff")
-	ColorRestoration.add_zone("staff_carried", player, 150.0, 1.0)
-	_staff.queue_free()
-
-	GameState.unlock_lore("lewet_staff")
 	GameState.unlock_lore("fun_kdungon")
-	GameState.add_score(200)
-	GameState.unlock_house(1)
-
 	await _reveal_fun_kdungon()
 	await say([
-		{"speaker": "Fun Kdungon", "text": "A weaver's beater. Brass on one end, and my hand on the other. Where you carry it, colour follows - a little of it, for now."},
+		{"speaker": "Fun Kdungon", "text": "A weaver's beater. Brass on one end, and my hand on the other. Where you carry it, colour follows — a little of it, for now."},
 		{"speaker": "Fun Kdungon", "text": "Five houses stand on one highland. Four hold a thing that was lost. The fifth holds what took it."},
 		{"speaker": "S'lang", "text": "Then I start at the first."},
 	])
@@ -217,14 +168,3 @@ func _reveal_fun_kdungon() -> void:
 	arrive.tween_property(_goddess, "modulate:a", 1.0, 0.9)\
 		.set_ease(Tween.EASE_OUT)
 	await arrive.finished
-
-
-func _show_hint(text: String) -> void:
-	_move_hint.text = text
-	var tween := create_tween()
-	tween.tween_property(_move_hint, "modulate:a", 1.0, 0.35)
-
-
-func _fade_hint_out() -> void:
-	var tween := create_tween()
-	tween.tween_property(_move_hint, "modulate:a", 0.0, 0.4)

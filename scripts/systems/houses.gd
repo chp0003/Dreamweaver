@@ -71,7 +71,7 @@ const LIST: Array[Dictionary] = [
 		"essence_name": "",
 		"reward_item": "",
 		"accent": Color(0.93, 0.86, 0.55),
-		"hub_cell": Vector2(11.0, 11.0),
+		"hub_cell": Vector2(-6.0, -6.0),
 		"blurb": "The great Guno Bong at the centre. Where the Shadow Weaver waits.",
 		"locked_hint": "Bring Black, Red, Gold and the Sacred Master Pattern.",
 	},

@@ -22,6 +22,8 @@ signal health_changed(current: float, maximum: float)
 signal died
 signal attacked(swing_position: Vector2, facing: Vector2)
 signal chimed(origin: Vector2, radius: float)
+signal staff_acquired
+signal attack_hit(hit: Node2D)
 
 const WeaveBoltScene := preload("res://scripts/world/weave_bolt.gd")
 
@@ -446,9 +448,13 @@ func chime_cooldown_ratio() -> float:
 
 
 func equip_staff() -> void:
+	if has_staff:
+		staff_acquired.emit()
+		return
 	has_staff = true
 	GameState.add_item("lewet_staff")
 	_apply_light()
+	staff_acquired.emit()
 
 
 func set_light_enabled(value: bool) -> void:

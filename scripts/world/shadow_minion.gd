@@ -5,6 +5,7 @@ extends CharacterBody2D
 
 signal died(minion: ShadowMinion)
 signal health_changed(current: float, maximum: float)
+signal damaged(amount: float, source: Node)
 
 const AGGRO_RANGE := 240.0
 const ATTACK_RANGE := 34.0
@@ -99,14 +100,15 @@ func set_selected(on: bool) -> void:
 	_refresh_hp()
 
 
-func take_damage(amount: float, source: Node = null) -> void:
+func take_damage(amount: float, source: Node = null) -> bool:
 	if _dying or _spawning or amount <= 0.0:
-		return
+		return false
 	health = maxf(0.0, health - amount)
 	_hurt_lock = 0.16
 	_flash()
 	_refresh_hp()
 	health_changed.emit(health, max_health)
+	damaged.emit(amount, source)
 	if source is Node2D:
 		var from := (source as Node2D).global_position
 		var push := global_position - from
@@ -114,6 +116,7 @@ func take_damage(amount: float, source: Node = null) -> void:
 			velocity = push.normalized() * 200.0
 	if health <= 0.0:
 		_die()
+	return true
 
 
 func stun(_duration: float) -> void:

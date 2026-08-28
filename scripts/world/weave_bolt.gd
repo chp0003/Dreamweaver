@@ -66,8 +66,16 @@ func _try_hit() -> void:
 
 func _impact(hit: Node2D) -> void:
 	_spent = true
+	var landed := true
 	if hit.has_method("take_damage"):
-		hit.take_damage(damage, source)
+		var result: Variant = hit.take_damage(damage, source)
+		if result is bool:
+			landed = result
+	if landed and source != null and source.has_signal("attack_hit"):
+		source.attack_hit.emit(hit)
+	if not landed:
+		queue_free()
+		return
 	Fx.hit_flash(hit, Palette.GOLD_SUN)
 	Fx.fiber_burst(hit, Palette.GOLD_BRASS)
 	_spawn_impact_burst()

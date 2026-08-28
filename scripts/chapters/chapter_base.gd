@@ -176,6 +176,23 @@ func fit_camera_to_floor(which: Node2D = null, padding := 1.12) -> void:
 		_clamp_camera()
 	else:
 		camera.global_position = rect.get_center()
+	apply_camera_world_limits(floor)
+
+
+## Keep the view on the current island / room. Camera2D limits clip the edges
+## of the playable diamond so a tight follow zoom cannot pan into the void.
+func apply_camera_world_limits(which: Node2D = null) -> void:
+	if camera == null:
+		return
+	var rect := floor_world_rect(which)
+	if rect.size.x < 8.0:
+		return
+	var pad := 24
+	camera.limit_left = int(floor(rect.position.x)) - pad
+	camera.limit_top = int(floor(rect.position.y)) - pad
+	camera.limit_right = int(ceil(rect.end.x)) + pad
+	camera.limit_bottom = int(ceil(rect.end.y)) + pad
+	camera.limit_smoothed = false
 
 
 func _clamp_camera() -> void:
