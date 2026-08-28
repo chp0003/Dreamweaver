@@ -79,7 +79,6 @@ func _build_world() -> void:
 	_show_ridge()
 	if get_viewport() != null and not get_viewport().size_changed.is_connected(_on_view_resized):
 		get_viewport().size_changed.connect(_on_view_resized)
-	# Soft plaza lanterns carry the warm hub glow; keep staff wash tiny.
 	ColorRestoration.remove_zone("lewet_staff")
 	if player != null:
 		player.set_light_enabled(false)
@@ -220,7 +219,6 @@ func _dress_park() -> void:
 
 	# Mid-zone POIs between plaza and houses — gardens, benches, fences, crates.
 	_dress_mid_zone()
-	_dress_plaza_lanterns()
 
 
 func _dress_mid_zone() -> void:
@@ -344,35 +342,6 @@ func _dress_mid_zone() -> void:
 		})
 
 
-func _dress_plaza_lanterns() -> void:
-	# Warm town-square glow — few lanterns, low energy so brick paths stay readable.
-	var lanterns: Array[Dictionary] = [
-		{"cell": Vector2(-2.0, -1.0), "energy": 0.38},
-		{"cell": Vector2(1.0, -2.0), "energy": 0.34},
-		{"cell": Vector2(2.0, 1.0), "energy": 0.38},
-		{"cell": Vector2(-1.0, 2.0), "energy": 0.34},
-	]
-	for entry in lanterns:
-		var cell: Vector2 = entry["cell"]
-		var prop := spawn_prop("PLAZA LANTERN", cell, {
-			"texture_path": "res://assets/images/environments/highland/brass_lantern.png",
-			"prop_size": Vector2(28.0, 44.0),
-			"body_color": Palette.GOLD_BRASS,
-			"accent_color": Palette.GOLD_SUN,
-			"show_label": false,
-			"nearest_filter": true,
-			"cast_shadow": false,
-		})
-		prop.position += Vector2(0.0, -8.0)
-		var light := PointLight2D.new()
-		light.texture = _hub_light_tex()
-		light.color = Color(1.0, 0.72, 0.38, 1.0)
-		light.energy = float(entry["energy"])
-		light.texture_scale = 1.8
-		light.position = Vector2(0.0, -18.0)
-		prop.add_child(light)
-
-
 func _park_slot_free(cell: Vector2, house_radius: float, path_radius: int) -> bool:
 	if _near_house(cell, house_radius):
 		return false
@@ -430,16 +399,6 @@ func _dress_living_ridge() -> void:
 			lamp.texture_scale = 2.0
 			lamp.position = Vector2(0.0, -40.0)
 			shaft.add_child(lamp)
-	if restored >= 4:
-		for i in range(3):
-			spawn_prop("ANCESTOR BANNER", Vector2(-2.4 + float(i) * 1.6, -7.2 - float(i) * 0.8), {
-				"prop_size": Vector2(36.0, 110.0),
-				"body_color": Palette.CREAM_STONE,
-				"accent_color": Palette.GOLD_BRASS,
-				"show_label": false,
-				"cast_shadow": false,
-				"sway_degrees": 2.0,
-			})
 	if restored >= 5:
 		for i in range(5):
 			spawn_prop("HIGHLAND GRASS", Vector2(4.0 + float(i) * 1.2, 4.0 + float(i) * 1.2), {

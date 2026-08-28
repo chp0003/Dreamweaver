@@ -95,10 +95,12 @@ func _build_world() -> void:
 
 	for i in range(5):
 		spawn_prop("ANCESTOR BANNER", Vector2(-7.0 + float(i) * 3.5, -7.5), {
-			"prop_size": Vector2(44.0, 132.0),
+			"texture_path": "res://assets/images/environments/highland/ancestor_banner_3d.png",
+			"prop_size": Vector2(48.0, 132.0),
 			"body_color": Color(0.22, 0.2, 0.19),
 			"accent_color": Color(0.5, 0.4, 0.3),
-			"show_label": i == 0,
+			"show_label": false,
+			"nearest_filter": true,
 			"cast_shadow": false,
 		})
 
