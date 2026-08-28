@@ -1,7 +1,7 @@
 extends ChapterBase
-## The village green — one continuous ridge map. Entering a House frames that
-## interior as its own screen (zoom-to-fit, other halls hidden). Story still
-## waits at each door until the previous House is restored.
+## The village green — one painted 16:9 plate (houses and terrain together).
+## Invisible blockers + nameplates sit on the painted houses. Entering a House
+## hides the plate and frames that interior.
 
 const DOOR_LABELS := {
 	1: "GUNO BONG I",
@@ -56,6 +56,8 @@ var _exit_triggers: Dictionary = {}
 var _house_exits: Dictionary = {}
 var _ridge_floor: Node2D
 var _terrain: HubTerrain
+var _plate: HubPlate
+var _scenery_house: PlaceholderProp
 var _active_house_id := 0
 var _plaza_cell := Vector2.ZERO
 var _leaving_house := false
@@ -65,16 +67,14 @@ func _build_world() -> void:
 	_ridge_floor = floor_node
 	if _ridge_floor != null:
 		_ridge_floor.visible = false
-	add_room_bounds(FLOOR_ORIGIN, FLOOR_COLS, FLOOR_ROWS)
 	Audio.set_ambience(0.55, 16.0)
 
-	_mount_terrain()
+	_mount_plate()
 	for house in Houses.LIST:
 		_build_door(house)
 		_mount_house(house)
+	_place_scenery_house()
 
-	_dress_park()
-	_dress_living_ridge()
 	_restore_completed_colors()
 	_show_ridge()
 	if get_viewport() != null and not get_viewport().size_changed.is_connected(_on_view_resized):
@@ -82,18 +82,23 @@ func _build_world() -> void:
 	ColorRestoration.remove_zone("lewet_staff")
 	if player != null:
 		player.set_light_enabled(false)
-		ColorRestoration.add_zone("staff_carried", player, 48.0, 0.35)
+		if GameState.current_chapter < 1:
+			var spawn := _plate.spawn_world() if _plate != null \
+				else Iso.cell_to_world(player_spawn_cell)
+			player.global_position = spawn
+			_spawn_position = spawn
+
+
+func _mount_plate() -> void:
+	_plate = HubPlate.new()
+	_plate.name = "HubPlate"
+	add_child(_plate)
+	move_child(_plate, 0)
+	_plaza_cell = Iso.world_to_cell(_plate.plaza_world())
 
 
 func _mount_terrain() -> void:
-	var houses: Array[Vector2] = []
-	for house in Houses.LIST:
-		houses.append(house["hub_cell"] as Vector2)
-	_terrain = HubTerrain.new()
-	_terrain.name = "HubTerrain"
-	add_child(_terrain)
-	move_child(_terrain, mini(2, get_child_count() - 1))
-	_terrain.setup(_plaza_cell, houses, FLOOR_ORIGIN, FLOOR_COLS, FLOOR_ROWS)
+	pass
 
 
 func _mount_house(house: Dictionary) -> void:
@@ -428,40 +433,28 @@ func _hub_light_tex() -> GradientTexture2D:
 
 func _build_door(house: Dictionary) -> void:
 	var house_id := int(house["id"])
-	var cell: Vector2 = house["hub_cell"]
 	var unlocked: bool = GameState.is_house_unlocked(house_id)
 	var completed: bool = GameState.is_house_completed(house_id)
 	var accent: Color = house["accent"]
-	var is_great := house_id == Houses.count()
-	# assets/images/houses/House1..5 — wide (3/4) vs tall (1/2/5) aspect ratios.
-	var house_size := Vector2(300.0, 292.0) if is_great \
-		else (Vector2(300.0, 176.0) if house_id in [3, 4] else Vector2(236.0, 248.0))
-	# Iso diamond over the wooden base only (not the roof). Wide halls sit flatter.
-	var house_feet := Vector2(220.0, 100.0) if is_great \
-		else (Vector2(210.0, 86.0) if house_id in [3, 4] else Vector2(200.0, 96.0))
+	var house_size: Vector2 = house.get("hub_size", Vector2(236.0, 248.0)) as Vector2
+	var sprite_path := str(house.get("hub_sprite", "res://assets/images/houses/House%d.png" % house_id))
+	var feet: Vector2 = house.get("hub_feet", Vector2(house_size.x * 0.82, house_size.y * 0.36)) as Vector2
+	var world_pos := _hub_world_pos(house)
 
-	var prop := spawn_prop(str(DOOR_LABELS.get(house_id, "GUNO BONG")), cell, {
-		"texture_path": "res://assets/images/houses/House%d.png" % house_id,
+	var prop := spawn_prop(str(DOOR_LABELS.get(house_id, "GUNO BONG")), _plaza_cell, {
+		"texture_path": sprite_path,
 		"prop_size": house_size,
 		"body_color": Palette.EARTH_LOAM,
 		"accent_color": accent.lightened(0.2),
 		"show_label": false,
-		"nearest_filter": true,
+		"nearest_filter": false,
 		"cast_shadow": false,
-		"blocks_movement": true,
-		"collision_feet": house_feet,
+		"blocks_movement": false,
+		"collision_feet": feet,
 	})
-	# Nudge slightly toward the plaza so stairs sit on the brick path.
-	prop.position = Iso.cell_to_world(cell.lerp(_plaza_cell, 0.06))
-	prop.sync_blocker()
-	prop.call_deferred("sync_blocker")
+	prop.position = world_pos
 	prop.z_index = 2
-	# Face the staircase toward the plaza along the approaching road.
-	var to_plaza := _plaza_cell - cell
-	if to_plaza.x > 0.1:
-		prop.set_flip_h(true)
-	# New House1-5 art already has clean outlines — no extra rim (it read as
-	# black slabs over the sprites).
+	_hide_prop_art(prop)
 
 	if not unlocked:
 		prop.set_tint(Color(0.88, 0.89, 0.93, 0.98))
@@ -470,13 +463,36 @@ func _build_door(house: Dictionary) -> void:
 
 	_attach_nameplate(prop, house_id, unlocked, completed, accent, house_size)
 
-	# Interact on the porch brick where the road meets the stairs.
-	var approach: Vector2 = cell.lerp(_plaza_cell, 0.22)
+	var approach := world_pos.lerp(_plaza_world(), 0.22)
 	var trigger := add_interactable("Enter %s" % Houses.short_name_for(house_id),
-		approach, {"radius": 110.0})
+		_plaza_cell, {"radius": 110.0})
+	trigger.position = approach
 	trigger.interacted.connect(_on_door_used.bind(house_id))
 
 	_doors[house_id] = {"prop": prop, "trigger": trigger}
+
+
+func _place_scenery_house() -> void:
+	pass
+
+
+func _hide_prop_art(prop: PlaceholderProp) -> void:
+	var sprite := prop.get_sprite()
+	if sprite != null:
+		sprite.visible = false
+	prop.cast_shadow = false
+
+
+func _hub_world_pos(house: Dictionary) -> Vector2:
+	if _plate != null and house.has("hub_uv"):
+		return _plate.uv_to_world(house["hub_uv"] as Vector2)
+	return Iso.cell_to_world(house.get("hub_cell", _plaza_cell) as Vector2)
+
+
+func _plaza_world() -> Vector2:
+	if _plate != null:
+		return _plate.plaza_world()
+	return Iso.cell_to_world(_plaza_cell)
 
 
 func _attach_nameplate(prop: PlaceholderProp, house_id: int, unlocked: bool,
@@ -526,17 +542,23 @@ func _attach_nameplate(prop: PlaceholderProp, house_id: int, unlocked: bool,
 ## Restored Houses keep their colour on the green.
 func _restore_completed_colors() -> void:
 	if GameState.game_completed:
+		ColorRestoration.clear_zones()
 		ColorRestoration.set_global_gray(0.0)
+		if _plate != null:
+			_plate.sync_restoration(player)
 		return
-	for house_id in GameState.completed_houses:
-		var door: Variant = _doors.get(int(house_id))
-		if door == null:
-			continue
-		ColorRestoration.add_zone("hub_house_%d" % int(house_id),
-			(door as Dictionary)["prop"] as Node2D, 340.0, 0.94)
-	# Soft staff aura only — keep it small so the plaza does not wash out.
-	if player != null:
-		ColorRestoration.add_zone("staff_carried", player, 48.0, 0.35)
+	if _active_house_id != 0:
+		ColorRestoration.clear_zones()
+		if GameState.is_house_completed(_active_house_id):
+			ColorRestoration.set_global_gray(0.0)
+		else:
+			ColorRestoration.set_global_gray(1.0)
+		return
+	# Ridge uses the cursed plate, not the fullscreen gray filter.
+	ColorRestoration.clear_zones()
+	ColorRestoration.set_global_gray(0.0)
+	if _plate != null:
+		_plate.sync_restoration(player)
 
 
 func _run_chapter() -> void:
@@ -641,13 +663,12 @@ func _leave_house(house_id: int) -> void:
 	if gate != null:
 		gate.set_plate_visible(false)
 	var door: Dictionary = _doors.get(house_id, {}) as Dictionary
-	var cell: Vector2 = Houses.get_house(house_id).get("hub_cell", _plaza_cell)
 	if door.has("trigger") and door["trigger"] is Node2D:
 		player.global_position = (door["trigger"] as Node2D).global_position + Vector2(18.0, 28.0)
 	else:
-		player.global_position = Iso.cell_to_world(cell + Vector2(0.9, 0.9))
+		player.global_position = _hub_world_pos(Houses.get_house(house_id)) + Vector2(18.0, 28.0)
 	player.velocity = Vector2.ZERO
-	_spawn_position = Iso.cell_to_world(_plaza_cell)
+	_spawn_position = _plaza_world()
 	_show_ridge()
 	_restore_completed_colors()
 	if hud != null and hud.has_method("set_chapter"):
@@ -704,17 +725,21 @@ func _set_house_nodes_visible(house_id: int, on: bool) -> void:
 func _show_house(house_id: int) -> void:
 	if _terrain != null:
 		_terrain.visible = false
+	_set_ridge_art_visible(false)
 	for id in _house_nodes:
 		_set_house_nodes_visible(int(id), int(id) == house_id)
 	var house_floor := _house_floors.get(house_id) as Node2D
 	fit_camera_to_floor(house_floor)
 	if stage != null:
 		stage.configure(house_id, camera)
+	_restore_completed_colors()
+	_restore_completed_colors()
 
 
 func _show_ridge() -> void:
 	if _terrain != null:
-		_terrain.visible = true
+		_terrain.visible = false
+	_set_ridge_art_visible(true)
 	for id in _house_nodes:
 		_set_house_nodes_visible(int(id), false)
 	floor_node = _ridge_floor
@@ -727,6 +752,66 @@ func _show_ridge() -> void:
 		_clamp_camera()
 	if stage != null:
 		stage.configure(0, camera)
+
+
+func _set_ridge_art_visible(on: bool) -> void:
+	if _plate != null:
+		_plate.set_ridge_active(on)
+	if _scenery_house != null:
+		_scenery_house.visible = on
+	for data in _doors.values():
+		if data is Dictionary:
+			var prop := (data as Dictionary).get("prop") as CanvasItem
+			if prop != null:
+				prop.visible = on
+			var trigger := (data as Dictionary).get("trigger") as CanvasItem
+			if trigger != null:
+				trigger.visible = on
+
+
+func apply_camera_world_limits(which: Node2D = null) -> void:
+	if _active_house_id == 0 and _plate != null and camera != null:
+		_limit_camera_to_rect(_plate.world_rect())
+		return
+	super.apply_camera_world_limits(which)
+
+
+func _clamp_camera() -> void:
+	if _active_house_id == 0 and _plate != null and camera != null:
+		_clamp_camera_to_rect(_plate.world_rect())
+		return
+	super._clamp_camera()
+
+
+func _limit_camera_to_rect(rect: Rect2) -> void:
+	if camera == null or rect.size.x < 8.0:
+		return
+	var pad := 8
+	camera.limit_left = int(floor(rect.position.x)) - pad
+	camera.limit_top = int(floor(rect.position.y)) - pad
+	camera.limit_right = int(ceil(rect.end.x)) + pad
+	camera.limit_bottom = int(ceil(rect.end.y)) + pad
+	camera.limit_smoothed = false
+
+
+func _clamp_camera_to_rect(rect: Rect2) -> void:
+	if camera == null or rect.size.x < 8.0 or rect.size.y < 8.0:
+		return
+	var half := get_viewport_rect().size / (camera.zoom * 2.0)
+	var min_x := rect.position.x + half.x
+	var max_x := rect.end.x - half.x
+	var min_y := rect.position.y + half.y
+	var max_y := rect.end.y - half.y
+	var pos := camera.global_position
+	if min_x > max_x:
+		pos.x = rect.get_center().x
+	else:
+		pos.x = clampf(pos.x, min_x, max_x)
+	if min_y > max_y:
+		pos.y = rect.get_center().y
+	else:
+		pos.y = clampf(pos.y, min_y, max_y)
+	camera.global_position = pos
 
 
 func _on_view_resized() -> void:

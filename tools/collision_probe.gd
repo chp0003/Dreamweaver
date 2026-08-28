@@ -32,6 +32,7 @@ func _ready() -> void:
 		str(blocker.global_position) if blocker else "n/a",
 		blocker.get_parent().name if blocker and blocker.get_parent() else "n/a",
 	])
+	var parent_ok := blocker != null and blocker.get_parent() == prop
 
 	var player: Slang = (load("res://scenes/world/Player.tscn") as PackedScene).instantiate()
 	player.position = Vector2(80, 90)
@@ -56,6 +57,6 @@ func _ready() -> void:
 		player.move_and_slide()
 		slides += player.get_slide_collision_count()
 	print("SHOVE after=%s slides=%d" % [str(player.global_position), slides])
-	var blocked := player.global_position.y > 0.0 or hits.size() > 0 or slides > 0
+	var blocked := parent_ok and (player.global_position.y > 0.0 or hits.size() > 0 or slides > 0)
 	print("RESULT: %s" % ("OK solid blocks player" if blocked else "FAIL ghost through prop"))
 	get_tree().quit(0 if blocked else 1)

@@ -83,6 +83,8 @@ func _ready() -> void:
 	health = max_health
 	collision_layer = PhysicsLayers.LAYER_PLAYER
 	collision_mask = PhysicsLayers.MASK_PLAYER_MOVES
+	z_index = 0
+	z_as_relative = true
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 	_ensure_feet_collision()
 	_build_visuals()

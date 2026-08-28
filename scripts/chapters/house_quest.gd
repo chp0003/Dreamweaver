@@ -149,7 +149,7 @@ func add_room_bounds(origin_cell: Vector2i, cols: int, rows: int) -> void:
 		origin_cell.x + int(region_origin.x),
 		origin_cell.y + int(region_origin.y)
 	)
-	host.add_room_bounds(shifted, cols, rows)
+	host.add_room_bounds(shifted, cols, rows, self)
 
 
 func _ensure_color_anchor() -> void:

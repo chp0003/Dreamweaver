@@ -104,8 +104,8 @@ func _add_generic_feet_shape(body: CollisionObject2D) -> void:
 	body.add_child(shape)
 
 
-## Sprite is feet-anchored at (0,0). Stilts sit up in the image; the porch/stairs
-## at the bottom stay open so [E] still works.
+## Sprite is feet-anchored at (0,0). Collision traces the porch/base diamond
+## only — roof overhang is visual, so S'lang can walk "behind" a tall roof.
 func _add_house_stilt_shapes(body: CollisionObject2D) -> void:
 	var span := collision_feet if collision_feet != Vector2.ZERO \
 		else Vector2(maxf(180.0, prop_size.x * 0.78), maxf(78.0, prop_size.x * 0.34))

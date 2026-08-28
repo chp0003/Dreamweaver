@@ -382,7 +382,7 @@ func spawn_minion(cell: Vector2, config := {}) -> ShadowMinion:
 ## Invisible walls along the room's diamond edge, so S'lang cannot walk out.
 ## Uses thick capsule segments (not zero-width BUILD_SEGMENTS) so move_and_slide
 ## always registers a solid hit.
-func add_room_bounds(origin_cell: Vector2i, cols: int, rows: int) -> void:
+func add_room_bounds(origin_cell: Vector2i, cols: int, rows: int, parent: Node = null) -> StaticBody2D:
 	var top := Iso.cell_to_world(Vector2(origin_cell.x, origin_cell.y))
 	var right := Iso.cell_to_world(Vector2(origin_cell.x + cols, origin_cell.y))
 	var bottom := Iso.cell_to_world(Vector2(origin_cell.x + cols, origin_cell.y + rows))
@@ -410,7 +410,11 @@ func add_room_bounds(origin_cell: Vector2i, cols: int, rows: int) -> void:
 		shape.rotation = (b - a).angle() + PI * 0.5
 		body.add_child(shape)
 
-	add_child(body)
+	if parent != null:
+		parent.add_child(body)
+	else:
+		add_child(body)
+	return body
 
 
 # --------------------------------------------------------------------------

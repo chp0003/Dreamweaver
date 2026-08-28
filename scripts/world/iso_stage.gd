@@ -54,7 +54,7 @@ func _process(_delta: float) -> void:
 ## Scatter near-edge plants/fibers into the y-sorted World so S'lang walks
 ## behind them. Call after `_build_world()`.
 func dress_foreground(host: Node2D, origin_cell: Vector2i, cols: int, rows: int) -> void:
-	if host == null:
+	if host == null or chapter_id == 0:
 		return
 	var accent := Palette.house_accent(chapter_id)
 	var count := 3 if chapter_id == 0 else (6 if chapter_id == 5 else 5)
