@@ -13,9 +13,9 @@ extends RefCounted
 ##   walk_down, walk_up, walk_left, walk_right
 ##
 ## Art: all frames are derived from `slang.png` so idle↔walk never change height.
-## Optional replacement strips (must also be 64×96 per frame, feet on the bottom edge):
-##   res://assets/images/characters/slang_walk_cycle.png     (4 frames)
-##   res://assets/images/characters/slang_attack_swing.png   (4 frames, staff cut)
+## Optional replacement strips (must also be 128×192 per frame, feet on the bottom edge):
+##   res://assets/images/characters/slang_walk_cycle.png     (8 frames)
+##   res://assets/images/characters/slang_attack_swing.png   (8 frames, staff swing)
 ## Left uses the right-facing frames + flip_h.
 
 const BASE_PATH := "res://assets/images/characters/slang.png"
@@ -24,8 +24,8 @@ const ATTACK_CYCLE_PATH := "res://assets/images/characters/slang_attack_swing.pn
 
 const FRAME_W := 128
 const FRAME_H := 192
-const WALK_FPS := 7.0
-const ATTACK_FPS := 7.0
+const WALK_FPS := 12.0
+const ATTACK_FPS := 14.0
 
 
 static func load_or_build() -> SpriteFrames:
@@ -36,10 +36,10 @@ static func load_or_build() -> SpriteFrames:
 		return frames
 
 	var idle := _to_frame_texture(base)
-	var walk := _load_strip(WALK_CYCLE_PATH, 4)
+	var walk := _load_strip(WALK_CYCLE_PATH, 8)
 	if walk.is_empty() or not _footprint_matches_idle(idle, walk[0] as Texture2D):
 		walk = _walk_cycle_from_idle(base)
-	var attack := _load_strip(ATTACK_CYCLE_PATH, 4)
+	var attack := _load_strip(ATTACK_CYCLE_PATH, 8)
 	if attack.is_empty() or not _footprint_matches_idle(idle, attack[0] as Texture2D):
 		attack = _attack_cycle_from_idle(base)
 
