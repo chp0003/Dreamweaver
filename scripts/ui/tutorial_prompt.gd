@@ -22,10 +22,10 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	theme = preload("res://assets/themes/dreamweaver.tres")
 	set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	offset_left = -230.0
-	offset_right = 230.0
-	offset_top = -228.0
-	offset_bottom = -22.0
+	offset_left = -210.0
+	offset_right = 210.0
+	offset_top = -196.0
+	offset_bottom = -28.0
 	modulate.a = 0.0
 	visible = true
 
@@ -96,7 +96,7 @@ func _ready() -> void:
 
 func show_hint(title: String, body: String, keys: Array = [],
 		step := 1, total := 3, layout := "row") -> void:
-	_eyebrow.text = "LESSON  %d  /  %d" % [step, total]
+	_eyebrow.text = "the house   ·   %d  of  %d" % [step, total]
 	_title.text = title
 	_body.text = body
 	_body.visible = not body.is_empty()

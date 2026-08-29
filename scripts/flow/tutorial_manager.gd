@@ -1,6 +1,7 @@
 class_name TutorialManager
 extends Node
-## Gated awakening: move, pick up the staff, land one hit.
+## Gated awakening: walk the painted house, take the staff, land one hit.
+## Colour sleeps until the beater is in hand — the same restoration the hub uses.
 ##
 ## One lesson on screen at a time. HUD quest steps track progress; the bottom
 ## card teaches the input. Advance only on real signals.
@@ -16,7 +17,7 @@ signal step_changed(step: Step)
 signal finished
 
 const STEPS: Array[String] = [
-	"Walk around the room",
+	"Walk the house",
 	"Take the Lewet Staff",
 	"Strike a Shadow Creep",
 ]
@@ -24,10 +25,6 @@ const STEPS: Array[String] = [
 const MOVE_HOLD_SECONDS := 0.9
 const MOVE_MIN_DISTANCE := 72.0
 const CREEP_COUNT := 2
-const CREEP_CELLS: Array[Vector2] = [
-	Vector2(-4.5, 1.2),
-	Vector2(4.5, 1.6),
-]
 
 var step := Step.Movement
 
@@ -127,10 +124,10 @@ func _enter_movement() -> void:
 		_beacon.clear()
 	if _host != null:
 		_host.set_player_input(true)
-		_host.objective("Walk around the room.")
+		_host.objective("Walk the house.")
 	_prompt.show_hint(
-		"Move",
-		"Use these keys to walk.",
+		"Your feet",
+		"The floor still knows you. Walk it.",
 		["W", "A", "S", "D"],
 		1,
 		3,
@@ -148,8 +145,8 @@ func _enter_pickup() -> void:
 	if _host != null:
 		_host.objective("Take the Lewet Staff.")
 	_prompt.show_hint(
-		"Take the staff",
-		"Walk to the glow, then press the key.",
+		"The beater",
+		"Gold still lives in it. Walk to the glow, then press the key.",
 		["E"],
 		2,
 		3
@@ -162,7 +159,7 @@ func _enter_combat() -> void:
 	if _host != null:
 		_host.objective("Strike a Shadow Creep.")
 	_prompt.show_hint(
-		"Attack",
+		"A thread of shadow",
 		"Click a Shadow Creep, or press Space.",
 		["CLICK", "SPACE"],
 		3,
@@ -228,7 +225,9 @@ func _on_staff_interacted() -> void:
 	Audio.play_sfx(Audio.Sfx.CHIME)
 	if _host != null:
 		_host.banner("The Lewet Staff", 1.6)
-		ColorRestoration.add_zone("staff_carried", _player, 150.0, 1.0)
+		ColorRestoration.remove_zone("lewet_staff")
+		ColorRestoration.bloom_zone("staff_carried", _player, 620.0, 1.0, 1.15)
+		ColorRestoration.set_global_gray(0.0, 1.4)
 
 
 func _on_staff_acquired() -> void:
@@ -263,14 +262,18 @@ func _finish_step(done_title: String) -> void:
 func _spawn_creeps() -> void:
 	if _host == null:
 		return
-	var count := mini(CREEP_COUNT, CREEP_CELLS.size())
-	for i in range(count):
-		var minion := _host.spawn_minion(CREEP_CELLS[i], {
+	for i in range(CREEP_COUNT):
+		var spawn := {
 			"spawn_delay": 0.55,
 			"max_health": 48.0,
 			"touch_damage": 6.0,
 			"speed": 58.0,
-		})
+		}
+		var cell := Vector2(-4.5, 1.2) if i == 0 else Vector2(4.5, 1.6)
+		if _host.has_method("creep_world"):
+			spawn["position"] = _host.call("creep_world", i)
+			cell = Vector2.ZERO
+		var minion := _host.spawn_minion(cell, spawn)
 		if minion == null:
 			continue
 		_creeps.append(minion)

@@ -1,0 +1,210 @@
+class_name TutorialPlate
+extends Node2D
+## Painted 16:9 interior. Same UV rule as HubPlate: sprite centred, solids
+## in this node's local space.
+
+const TEXTURE_PATH := "res://assets/images/environments/prologue/slang_room.png"
+const SHADER_PATH := "res://shaders/tutorial_plate.gdshader"
+const NATIVE := Vector2(1536.0, 1024.0)
+
+const SPAWN_UV := Vector2(0.50, 0.72)
+const STAFF_UV := Vector2(0.52, 0.34)
+const STAFF_REACH_UV := Vector2(0.52, 0.40)
+const GODDESS_UV := Vector2(0.38, 0.36)
+const CREEP_UVS: Array[Vector2] = [
+	Vector2(0.40, 0.56),
+	Vector2(0.64, 0.58),
+]
+
+@export var plate_scale := 1.0
+@export var debug_draw_collision := true
+
+var _sprite: Sprite2D
+var _tex_size := NATIVE
+var _solids: StaticBody2D
+var _bounds: StaticBody2D
+var _debug_rects: Array[Rect2] = []
+
+
+func _ready() -> void:
+	z_index = -120
+	z_as_relative = false
+	position = Vector2.ZERO
+	scale = Vector2.ONE
+	var disk := _load_disk_image()
+	if disk != null:
+		_tex_size = Vector2(disk.get_width(), disk.get_height())
+	_sprite = Sprite2D.new()
+	_sprite.name = "Plate"
+	_sprite.centered = true
+	_sprite.position = Vector2.ZERO
+	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
+	_sprite.texture = _load_texture(disk)
+	if _sprite.texture != null and disk == null:
+		_tex_size = _sprite.texture.get_size()
+	_sprite.scale = Vector2(plate_scale, plate_scale)
+	_apply_grade()
+	add_child(_sprite)
+	_add_edge_walls()
+	_add_solids()
+	queue_redraw()
+
+
+func displayed_size() -> Vector2:
+	return _tex_size * plate_scale
+
+
+func world_rect() -> Rect2:
+	var size := displayed_size()
+	return Rect2(-size * 0.5, size)
+
+
+func uv_to_world(uv: Vector2) -> Vector2:
+	var size := displayed_size()
+	return Vector2((uv.x - 0.5) * size.x, (uv.y - 0.5) * size.y)
+
+
+func spawn_world() -> Vector2:
+	return uv_to_world(SPAWN_UV)
+
+
+func staff_world() -> Vector2:
+	return uv_to_world(STAFF_UV)
+
+
+func staff_reach_world() -> Vector2:
+	return uv_to_world(STAFF_REACH_UV)
+
+
+func goddess_world() -> Vector2:
+	return uv_to_world(GODDESS_UV)
+
+
+func attach_solids(_host: Node2D) -> void:
+	pass
+
+
+func creep_world(index: int) -> Vector2:
+	var uv: Vector2 = CREEP_UVS[clampi(index, 0, CREEP_UVS.size() - 1)]
+	return uv_to_world(uv)
+
+
+func _load_disk_image() -> Image:
+	var disk := ProjectSettings.globalize_path(TEXTURE_PATH)
+	if not FileAccess.file_exists(disk):
+		return null
+	var image := Image.new()
+	if image.load(disk) != OK:
+		return null
+	return image
+
+
+func _load_texture(disk: Image) -> Texture2D:
+	if ResourceLoader.exists(TEXTURE_PATH):
+		var loaded := load(TEXTURE_PATH)
+		if loaded is Texture2D:
+			return loaded as Texture2D
+	if disk != null:
+		return ImageTexture.create_from_image(disk)
+	push_warning("TutorialPlate: missing %s" % TEXTURE_PATH)
+	return null
+
+
+func _apply_grade() -> void:
+	var shader := load(SHADER_PATH)
+	if shader is Shader:
+		var mat := ShaderMaterial.new()
+		mat.shader = shader as Shader
+		_sprite.material = mat
+
+
+func _draw() -> void:
+	if not debug_draw_collision:
+		return
+	for rect in _debug_rects:
+		draw_rect(rect, Color(1.0, 0.15, 0.2, 0.28))
+		draw_rect(rect, Color(1.0, 0.85, 0.2, 0.95), false, 1.5)
+
+
+func _add_edge_walls() -> void:
+	var rect := world_rect()
+	_bounds = StaticBody2D.new()
+	_bounds.name = "PlateBounds"
+	_bounds.position = Vector2.ZERO
+	_bounds.collision_layer = PhysicsLayers.LAYER_WORLD
+	_bounds.collision_mask = PhysicsLayers.MASK_WORLD_STATIC
+	var thick := 48.0
+	var pads: Array[Rect2] = [
+		Rect2(rect.position.x - thick, rect.position.y - thick, rect.size.x + thick * 2.0, thick),
+		Rect2(rect.position.x - thick, rect.end.y, rect.size.x + thick * 2.0, thick),
+		Rect2(rect.position.x - thick, rect.position.y, thick, rect.size.y),
+		Rect2(rect.end.x, rect.position.y, thick, rect.size.y),
+	]
+	for pad in pads:
+		_add_rect_shape(_bounds, pad)
+	add_child(_bounds)
+
+
+func _add_solids() -> void:
+	_solids = StaticBody2D.new()
+	_solids.name = "RoomSolids"
+	_solids.position = Vector2.ZERO
+	_solids.collision_layer = PhysicsLayers.LAYER_WORLD
+	_solids.collision_mask = PhysicsLayers.MASK_WORLD_STATIC
+	add_child(_solids)
+	_add_hut_ring(Vector2(0.50, 0.54), 0.36, 0.38, 18)
+	_add_uv_box(Vector2(0.26, 0.50), Vector2(0.24, 0.32))
+	_add_uv_box(Vector2(0.80, 0.44), Vector2(0.20, 0.28))
+	_add_uv_box(Vector2(0.74, 0.82), Vector2(0.20, 0.16))
+	_add_uv_box(Vector2(0.50, 0.18), Vector2(0.36, 0.14))
+
+
+func _add_hut_ring(uv_centre: Vector2, rx: float, ry: float, segments: int) -> void:
+	for i in range(segments):
+		var a0 := TAU * float(i) / float(segments)
+		var a1 := TAU * float(i + 1) / float(segments)
+		var p0 := uv_to_world(uv_centre + Vector2(cos(a0) * rx, sin(a0) * ry))
+		var p1 := uv_to_world(uv_centre + Vector2(cos(a1) * rx, sin(a1) * ry))
+		_add_segment(_solids, p0, p1, 28.0)
+
+
+func _add_uv_box(uv_centre: Vector2, uv_size: Vector2) -> void:
+	var half := uv_size * 0.5
+	var a := uv_to_world(uv_centre - half)
+	var b := uv_to_world(uv_centre + half)
+	var rect := Rect2(
+		Vector2(minf(a.x, b.x), minf(a.y, b.y)),
+		Vector2(absf(b.x - a.x), absf(b.y - a.y))
+	)
+	_add_rect_shape(_solids, rect)
+
+
+func _add_rect_shape(body: StaticBody2D, rect: Rect2) -> void:
+	if body == null or rect.size.x < 1.0 or rect.size.y < 1.0:
+		return
+	var shape := CollisionShape2D.new()
+	var box := RectangleShape2D.new()
+	box.size = rect.size
+	shape.shape = box
+	shape.position = rect.get_center()
+	shape.disabled = false
+	body.add_child(shape)
+	_debug_rects.append(rect)
+
+
+func _add_segment(body: StaticBody2D, a: Vector2, b: Vector2, radius: float) -> void:
+	var length := a.distance_to(b)
+	if length < 1.0:
+		return
+	var shape := CollisionShape2D.new()
+	var capsule := CapsuleShape2D.new()
+	capsule.radius = radius
+	capsule.height = maxf(4.0, length)
+	shape.shape = capsule
+	shape.position = (a + b) * 0.5
+	shape.rotation = (b - a).angle() + PI * 0.5
+	shape.disabled = false
+	body.add_child(shape)
+	var mid := (a + b) * 0.5
+	_debug_rects.append(Rect2(mid - Vector2(radius, length * 0.5), Vector2(radius * 2.0, length)))

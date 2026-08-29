@@ -461,12 +461,15 @@ func _build_door(house: Dictionary) -> void:
 	elif completed:
 		prop.set_tint(Color(1.02, 1.01, 0.99, 1.0))
 
-	_attach_nameplate(prop, house_id, unlocked, completed, accent, house_size)
+	var tag := "restored" if completed else ("open" if unlocked else "")
+	_attach_name_label(prop, Houses.short_name_for(house_id), tag, unlocked, accent, house_size)
 
-	var approach := world_pos.lerp(_plaza_world(), 0.22)
+	# Porch, not the path. A 0.36 lerp sat ~140px toward the plaza — outside
+	# the old 110px radius — so S'lang could stand at the door and never get [E].
+	var porch := world_pos.lerp(_plaza_world(), 0.10)
 	var trigger := add_interactable("Enter %s" % Houses.short_name_for(house_id),
-		_plaza_cell, {"radius": 110.0})
-	trigger.position = approach
+		_plaza_cell, {"radius": 170.0})
+	trigger.position = porch
 	trigger.interacted.connect(_on_door_used.bind(house_id))
 
 	_doors[house_id] = {"prop": prop, "trigger": trigger}
@@ -495,22 +498,25 @@ func _plaza_world() -> Vector2:
 	return Iso.cell_to_world(_plaza_cell)
 
 
-func _attach_nameplate(prop: PlaceholderProp, house_id: int, unlocked: bool,
-		completed: bool, accent: Color, house_size: Vector2) -> void:
+func _attach_name_label(prop: PlaceholderProp, title_text: String, tag_text: String,
+		unlocked: bool, accent: Color, house_size: Vector2) -> void:
 	var plate := VBoxContainer.new()
 	plate.alignment = BoxContainer.ALIGNMENT_CENTER
 	plate.custom_minimum_size = Vector2(240.0, 0.0)
 	plate.size = Vector2(240.0, 56.0)
-	# Float just above the roof peak (not a full prop-height above, which
-	# slides south-facing nameplates back over the plaza on iso).
-	plate.position = Vector2(-120.0, -house_size.y * 0.72)
+	# Painted roofs sit ~7% of plate height above the door UV. Overlay sprite
+	# height parked titles on the wrong hut (or off the plate).
+	var lift := house_size.y * 0.28
+	if _plate != null:
+		lift = _plate.displayed_size().y * 0.07
+	plate.position = Vector2(-120.0, -lift)
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.z_index = 30
 	plate.add_to_group("world_chrome")
 	plate.add_theme_constant_override("separation", 0)
 
 	var title := Label.new()
-	title.text = Houses.short_name_for(house_id)
+	title.text = title_text
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 18)
 	title.add_theme_color_override("font_color",
@@ -524,13 +530,13 @@ func _attach_nameplate(prop: PlaceholderProp, house_id: int, unlocked: bool,
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.add_child(title)
 
-	if completed or unlocked:
+	if not tag_text.is_empty():
 		var tag := Label.new()
-		tag.text = "restored" if completed else "open"
+		tag.text = tag_text
 		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		tag.add_theme_font_size_override("font_size", 12)
 		tag.add_theme_color_override("font_color",
-			accent.lightened(0.25) if completed else Palette.GOLD_SACRED)
+			accent.lightened(0.25) if tag_text == "restored" else Palette.GOLD_SACRED)
 		tag.add_theme_color_override("font_outline_color", Palette.alpha(Palette.DREAM_ABYSS, 0.9))
 		tag.add_theme_constant_override("outline_size", 6)
 		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -756,7 +762,10 @@ func _show_ridge() -> void:
 
 func _set_ridge_art_visible(on: bool) -> void:
 	if _plate != null:
-		_plate.set_ridge_active(on)
+		_plate.set_ridge_visible(on)
+		# Solids stay on while the ridge is the active scene, even if the
+		# painting is hidden for a fade. Only house interiors drop them.
+		_plate.set_ridge_collision(_active_house_id == 0)
 	if _scenery_house != null:
 		_scenery_house.visible = on
 	for data in _doors.values():

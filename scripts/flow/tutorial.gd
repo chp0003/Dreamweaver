@@ -1,81 +1,90 @@
 extends ChapterBase
 ## Tutorial - "S'lang's Awakening".
 ##
-## Step-gated: walk until it reads as understood, pick up the Lewet Staff,
-## then land one hit on a Shadow Creep. Colour stays on — this room is not
-## a bleached House.
+## Same language as the hub: one painted plate you walk on. The room starts
+## dusk-bleached; the Lewet Staff is the lantern. Take it, and colour returns
+## to the house — a small Color Restoration before the ridge.
 
 var _staff: PlaceholderProp
 var _staff_trigger: Interactable
 var _goddess: PlaceholderProp
 var _tutorial: TutorialManager
+var _plate: TutorialPlate
+
+
+func at_uv(uv: Vector2) -> Vector2:
+	if _plate != null:
+		return _plate.uv_to_world(uv)
+	return Iso.cell_to_world(uv)
+
+
+func creep_world(index: int) -> Vector2:
+	if _plate != null:
+		return _plate.creep_world(index)
+	return Iso.cell_to_world(Vector2(-4.5, 1.2) if index == 0 else Vector2(4.5, 1.6))
 
 
 func _build_world() -> void:
-	add_room_bounds(Vector2i(-6, -6), 13, 13)
-	ColorRestoration.clear_zones()
-	ColorRestoration.set_global_gray(0.0)
+	if floor_node != null:
+		floor_node.visible = false
+	if stage != null:
+		stage.visible = false
 	Audio.set_ambience(0.45, 0.0)
 
-	_staff = spawn_prop("LEWET STAFF", Vector2(0.0, -4.0), {
-		"texture_path": "res://assets/images/props/lewet_staff.png",
-		"prop_size": Vector2(28.0, 100.0),
-		"body_color": Color(0.68, 0.52, 0.24),
-		"accent_color": Color(0.98, 0.86, 0.46),
-		"float_amplitude": 4.0,
-		"float_speed": 1.4,
-		"show_label": false,
-	})
-	_staff_trigger = add_interactable("Take the Lewet Staff", Vector2(0.0, -3.3), {
-		"one_shot": true,
-		"radius": 70.0,
-		"enabled": false,
-	})
-
-	_dress_room()
+	_mount_plate()
+	_place_staff()
 	_light_staff()
 
 	if player != null:
 		player.has_staff = false
 		player.set_light_enabled(false)
+		var spawn := _plate.spawn_world() if _plate != null else Iso.cell_to_world(player_spawn_cell)
+		player.global_position = spawn
+		_spawn_position = spawn
 
 	_tutorial = TutorialManager.new()
 	_tutorial.name = "TutorialManager"
 	add_child(_tutorial)
 	_tutorial.setup(self, _staff, _staff_trigger)
 
+	if get_viewport() != null and not get_viewport().size_changed.is_connected(_on_view_resized):
+		get_viewport().size_changed.connect(_on_view_resized)
+	apply_camera_world_limits()
+	_clamp_camera()
 
-func _dress_room() -> void:
-	spawn_prop("SLEEPING MAT", Vector2(0.0, 3.0), {
-		"texture_path": "res://assets/images/props/sleeping_mat.png",
-		"prop_size": Vector2(90.0, 36.0),
-		"body_color": Color(0.26, 0.24, 0.22),
-		"accent_color": Color(0.4, 0.36, 0.3),
+
+func _mount_plate() -> void:
+	_plate = TutorialPlate.new()
+	_plate.name = "TutorialPlate"
+	add_child(_plate)
+	move_child(_plate, 0)
+	if world != null:
+		_plate.attach_solids(world)
+
+
+func _place_staff() -> void:
+	var staff_pos := _plate.staff_world() if _plate != null else Iso.cell_to_world(Vector2(0.0, -4.0))
+	var reach_pos := _plate.staff_reach_world() if _plate != null else Iso.cell_to_world(Vector2(0.0, -3.3))
+	_staff = spawn_prop("LEWET STAFF", Vector2.ZERO, {
+		"position": staff_pos,
+		"texture_path": "res://assets/images/props/lewet_staff.png",
+		"prop_size": Vector2(32.0, 112.0),
+		"body_color": Color(0.68, 0.52, 0.24),
+		"accent_color": Color(0.98, 0.86, 0.46),
+		"float_amplitude": 4.0,
+		"float_speed": 1.4,
 		"show_label": false,
+		"blocks_movement": false,
+		"cast_shadow": true,
 	})
-	spawn_prop("S'LANG'S BACKSTRAP LOOM", Vector2(-4.0, 0.0), {
-		"texture_path": "res://assets/images/props/backstrap_loom.png",
-		"prop_size": Vector2(96.0, 70.0),
-		"body_color": Color(0.28, 0.25, 0.21),
-		"accent_color": Color(0.46, 0.4, 0.3),
-		"show_label": false,
+	_staff_trigger = add_interactable("Take the Lewet Staff", Vector2.ZERO, {
+		"position": reach_pos,
+		"one_shot": true,
+		"radius": 78.0,
+		"enabled": false,
 	})
-	spawn_prop("UNFINISHED T'NALAK", Vector2(4.0, 0.0), {
-		"texture_path": "res://assets/images/props/unfinished_tnalak.png",
-		"prop_size": Vector2(78.0, 58.0),
-		"body_color": Color(0.31, 0.3, 0.28),
-		"accent_color": Color(0.45, 0.43, 0.4),
-		"show_label": false,
-	})
-	for x in range(-5, 6, 2):
-		spawn_prop("WALL", Vector2(float(x), -6.0), {
-			"texture_path": "res://assets/images/props/wall_panel.png",
-			"prop_size": Vector2(72.0, 110.0),
-			"body_color": Color(0.19, 0.18, 0.17),
-			"accent_color": Color(0.3, 0.28, 0.26),
-			"show_label": false,
-			"cast_shadow": false,
-		})
+	if _staff != null:
+		ColorRestoration.add_zone("lewet_staff", _staff, 200.0, 1.0)
 
 
 func _light_staff() -> void:
@@ -84,9 +93,14 @@ func _light_staff() -> void:
 	var lamp := PointLight2D.new()
 	lamp.name = "StaffGlow"
 	lamp.color = Color(1.0, 0.86, 0.48)
-	lamp.energy = 0.85
-	lamp.texture_scale = 1.6
+	lamp.energy = 0.95
+	lamp.texture_scale = 1.8
 	lamp.position = Vector2(0.0, -48.0)
+	lamp.texture = _radial_light()
+	_staff.add_child(lamp)
+
+
+func _radial_light() -> GradientTexture2D:
 	var tex := GradientTexture2D.new()
 	var grad := Gradient.new()
 	grad.set_color(0, Color(1, 1, 1, 1))
@@ -97,8 +111,7 @@ func _light_staff() -> void:
 	tex.fill = GradientTexture2D.FILL_RADIAL
 	tex.fill_from = Vector2(0.5, 0.5)
 	tex.fill_to = Vector2(1.0, 0.5)
-	lamp.texture = tex
-	_staff.add_child(lamp)
+	return tex
 
 
 func _run_chapter() -> void:
@@ -107,7 +120,7 @@ func _run_chapter() -> void:
 
 	await say([
 		"S'lang wakes on the mat where she fell asleep, in a room she has known her whole life.",
-		{"speaker": "S'lang", "text": "The loom. The mat. Still here. And there — by the wall — the beater is waiting."},
+		{"speaker": "S'lang", "text": "The loom. The mat. Still here. And there — by the wall — the beater kept its gold."},
 	])
 
 	_tutorial.begin()
@@ -127,7 +140,9 @@ func _run_chapter() -> void:
 
 
 func _reveal_fun_kdungon() -> void:
-	_goddess = spawn_prop("FUN KDUNGON", Vector2(-2.4, -3.2), {
+	var where := _plate.goddess_world() if _plate != null else Iso.cell_to_world(Vector2(-2.4, -3.2))
+	_goddess = spawn_prop("FUN KDUNGON", Vector2.ZERO, {
+		"position": where,
 		"texture_path": "res://assets/images/characters/fun_kdungon.png",
 		"prop_size": Vector2(78.0, 130.0),
 		"body_color": Palette.BLACK_CHARCOAL,
@@ -146,19 +161,59 @@ func _reveal_fun_kdungon() -> void:
 	lamp.energy = 1.1
 	lamp.texture_scale = 2.4
 	lamp.position = Vector2(0.0, -96.0)
-	var tex := GradientTexture2D.new()
-	var grad := Gradient.new()
-	grad.set_color(0, Color(1, 1, 1, 1))
-	grad.set_color(1, Color(1, 1, 1, 0))
-	tex.gradient = grad
-	tex.width = 256
-	tex.height = 256
-	tex.fill = GradientTexture2D.FILL_RADIAL
-	tex.fill_from = Vector2(0.5, 0.5)
-	tex.fill_to = Vector2(1.0, 0.5)
-	lamp.texture = tex
+	lamp.texture = _radial_light()
 	_goddess.add_child(lamp)
 	var arrive := create_tween()
 	arrive.tween_property(_goddess, "modulate:a", 1.0, 0.9)\
 		.set_ease(Tween.EASE_OUT)
 	await arrive.finished
+
+
+func apply_camera_world_limits(which: Node2D = null) -> void:
+	if _plate != null and camera != null:
+		_limit_camera_to_rect(_plate.world_rect())
+		return
+	super.apply_camera_world_limits(which)
+
+
+func _clamp_camera() -> void:
+	if _plate != null and camera != null:
+		_clamp_camera_to_rect(_plate.world_rect())
+		return
+	super._clamp_camera()
+
+
+func _limit_camera_to_rect(rect: Rect2) -> void:
+	if camera == null or rect.size.x < 8.0:
+		return
+	var pad := 8
+	camera.limit_left = int(floor(rect.position.x)) - pad
+	camera.limit_top = int(floor(rect.position.y)) - pad
+	camera.limit_right = int(ceil(rect.end.x)) + pad
+	camera.limit_bottom = int(ceil(rect.end.y)) + pad
+	camera.limit_smoothed = false
+
+
+func _clamp_camera_to_rect(rect: Rect2) -> void:
+	if camera == null or rect.size.x < 8.0 or rect.size.y < 8.0:
+		return
+	var half := get_viewport_rect().size / (camera.zoom * 2.0)
+	var min_x := rect.position.x + half.x
+	var max_x := rect.end.x - half.x
+	var min_y := rect.position.y + half.y
+	var max_y := rect.end.y - half.y
+	var pos := camera.global_position
+	if min_x > max_x:
+		pos.x = rect.get_center().x
+	else:
+		pos.x = clampf(pos.x, min_x, max_x)
+	if min_y > max_y:
+		pos.y = rect.get_center().y
+	else:
+		pos.y = clampf(pos.y, min_y, max_y)
+	camera.global_position = pos
+
+
+func _on_view_resized() -> void:
+	apply_camera_world_limits()
+	_clamp_camera()
