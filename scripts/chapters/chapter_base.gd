@@ -352,6 +352,8 @@ func add_interactable(prompt: String, cell: Vector2, config := {}) -> Interactab
 	for key in config:
 		trigger.set(str(key), config[key])
 	_world_parent().add_child(trigger)
+	if config.has("radius"):
+		trigger.apply_radius(float(config["radius"]))
 	return trigger
 
 

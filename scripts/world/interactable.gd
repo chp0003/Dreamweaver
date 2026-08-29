@@ -15,6 +15,9 @@ signal interacted
 @export var one_shot := false
 @export var prompt_offset := Vector2(0.0, -96.0)
 @export var radius := 60.0
+## When true, only the closest door in group `hub_door` may show a prompt or
+## accept [E] while the player overlaps several at once.
+@export var hub_door_priority := false
 ## Walk-in doors: stepping onto the trigger uses it without an extra [E].
 @export var auto_use := false
 
@@ -41,7 +44,10 @@ func _process(_delta: float) -> void:
 
 func _ensure_shape() -> void:
 	for child in get_children():
-		if child is CollisionShape2D or child is CollisionPolygon2D:
+		if child is CollisionShape2D:
+			var existing := child as CollisionShape2D
+			if existing.shape is CircleShape2D:
+				(existing.shape as CircleShape2D).radius = radius
 			return
 	var circle := CircleShape2D.new()
 	circle.radius = radius
@@ -50,8 +56,15 @@ func _ensure_shape() -> void:
 	add_child(shape)
 
 
+func apply_radius(value: float) -> void:
+	radius = maxf(value, 8.0)
+	_ensure_shape()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not _can_interact():
+		return
+	if hub_door_priority and _best_hub_door() != self:
 		return
 	if not event.is_action_pressed("interact") or event.is_echo():
 		return
@@ -66,7 +79,10 @@ func set_enabled(value: bool) -> void:
 	enabled = value
 	if value:
 		_refresh_overlap()
-	set_prompt_visible(_player_inside and _can_interact())
+	if hub_door_priority:
+		_refresh_hub_door_prompts()
+	else:
+		set_prompt_visible(_player_inside and _can_interact())
 
 
 func _refresh_overlap() -> void:
@@ -125,15 +141,21 @@ func _can_interact() -> bool:
 func _on_body_entered(body: Node2D) -> void:
 	if body.is_in_group("player"):
 		_player_inside = true
-		set_prompt_visible(_can_interact())
-		if auto_use and _can_interact():
+		if hub_door_priority:
+			_refresh_hub_door_prompts(body)
+		else:
+			set_prompt_visible(_can_interact())
+		if auto_use and _can_interact() and (not hub_door_priority or _best_hub_door(body) == self):
 			interacted.emit()
 
 
 func _on_body_exited(body: Node2D) -> void:
 	if body.is_in_group("player"):
 		_player_inside = false
-		set_prompt_visible(false)
+		if hub_door_priority:
+			_refresh_hub_door_prompts(body)
+		else:
+			set_prompt_visible(false)
 
 
 func _build_prompt() -> void:
@@ -146,3 +168,37 @@ func _build_prompt() -> void:
 	_prompt_badge = _prompt_label
 	_prompt_label.resized.connect(_center_badge)
 	_center_badge()
+
+
+func _best_hub_door(player: Node2D = null) -> Interactable:
+	if not hub_door_priority or not is_inside_tree():
+		return self
+	if player == null:
+		player = get_tree().get_first_node_in_group("player") as Node2D
+	if player == null:
+		return null
+	var best: Interactable = null
+	var best_d2 := INF
+	for node in get_tree().get_nodes_in_group("hub_door"):
+		var door := node as Interactable
+		if door == null or not door.enabled or not door._player_inside:
+			continue
+		if not door._can_interact():
+			continue
+		var d2 := door.global_position.distance_squared_to(player.global_position)
+		if d2 < best_d2:
+			best_d2 = d2
+			best = door
+	return best
+
+
+func _refresh_hub_door_prompts(player: Node2D = null) -> void:
+	if not is_inside_tree():
+		return
+	if player == null:
+		player = get_tree().get_first_node_in_group("player") as Node2D
+	var best := _best_hub_door(player)
+	for node in get_tree().get_nodes_in_group("hub_door"):
+		var door := node as Interactable
+		if door != null:
+			door.set_prompt_visible(door == best)

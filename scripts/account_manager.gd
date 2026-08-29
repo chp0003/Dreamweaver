@@ -9,6 +9,7 @@ const Config := preload("res://scripts/systems/supabase_config.gd")
 const SAVE_PATH := "user://accounts.json"
 const MIN_PASSWORD_LENGTH := 6
 
+const BOOT_SCENE := "res://scenes/Boot.tscn"
 const LOGIN_SCENE := "res://scenes/Login.tscn"
 const REGISTER_SCENE := "res://scenes/Register.tscn"
 const STORY_INTRO_SCENE := "res://scenes/StoryIntro.tscn"
@@ -25,6 +26,7 @@ var _current_key: String = ""
 ## Cached progress for the signed-in weaver (GameState reads this sync).
 var _progress_cache: Dictionary = {}
 var _has_seen_intro_cache: bool = false
+var _startup_sync_done: bool = false
 
 
 func _ready() -> void:
@@ -33,7 +35,15 @@ func _ready() -> void:
 		_current_key = _normalize_key(Supabase.user_email)
 		if _current_key.is_empty():
 			_current_key = _normalize_key(Supabase.username)
+
+
+## Called from Boot.tscn so cloud sync shows on the loading screen, not a blank frame.
+func startup_sync() -> void:
+	if _startup_sync_done:
+		return
+	if is_cloud_mode() and has_session():
 		await _pull_progress_from_cloud()
+	_startup_sync_done = true
 
 
 func is_cloud_mode() -> bool:

@@ -48,6 +48,11 @@ const FLOOR_ORIGIN := Vector2i(-16, -16)
 const FLOOR_COLS := 32
 const FLOOR_ROWS := 32
 
+## Tight porch [E] zone — stand on the door step, not the crossroads path.
+const HOUSE_DOOR_RADIUS := 46.0
+## Place the trigger this many px from the painted house toward the plaza.
+const HOUSE_PORCH_INSET := 36.0
+
 var _doors: Dictionary = {}
 var _quests: Dictionary = {}
 var _house_floors: Dictionary = {}
@@ -464,11 +469,15 @@ func _build_door(house: Dictionary) -> void:
 	var tag := "restored" if completed else ("open" if unlocked else "")
 	_attach_name_label(prop, Houses.short_name_for(house_id), tag, unlocked, accent, house_size)
 
-	# Porch, not the path. A 0.36 lerp sat ~140px toward the plaza — outside
-	# the old 110px radius — so S'lang could stand at the door and never get [E].
-	var porch := world_pos.lerp(_plaza_world(), 0.10)
+	# Porch step only — small radius plus nearest-door priority so crossroads
+	# paths never light several houses at once.
+	var porch := _porch_pos(world_pos)
 	var trigger := add_interactable("Enter %s" % Houses.short_name_for(house_id),
-		_plaza_cell, {"radius": 170.0})
+		_plaza_cell, {
+			"radius": HOUSE_DOOR_RADIUS,
+			"hub_door_priority": true,
+		})
+	trigger.add_to_group("hub_door")
 	trigger.position = porch
 	trigger.interacted.connect(_on_door_used.bind(house_id))
 
@@ -496,6 +505,13 @@ func _plaza_world() -> Vector2:
 	if _plate != null:
 		return _plate.plaza_world()
 	return Iso.cell_to_world(_plaza_cell)
+
+
+func _porch_pos(world_pos: Vector2) -> Vector2:
+	var delta := _plaza_world() - world_pos
+	if delta.length_squared() < 1.0:
+		return world_pos
+	return world_pos + delta.normalized() * HOUSE_PORCH_INSET
 
 
 func _attach_name_label(prop: PlaceholderProp, title_text: String, tag_text: String,

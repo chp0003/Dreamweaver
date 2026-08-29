@@ -1,0 +1,97 @@
+[gd_scene format=3 uid="uid://bwboot001"]
+
+[ext_resource type="Script" path="res://scripts/boot.gd" id="1_boot"]
+[ext_resource type="Theme" uid="uid://bwdreamtheme" path="res://assets/themes/dreamweaver.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://assets/images/ui/logo_emblem.png" id="3_emblem"]
+[ext_resource type="FontFile" path="res://assets/fonts/Cinzel-Bold.ttf" id="4_cinzel_b"]
+[ext_resource type="FontFile" path="res://assets/fonts/CrimsonPro-Italic.ttf" id="5_crimson_i"]
+[ext_resource type="Script" path="res://scripts/ui/loading_spindle.gd" id="6_spindle"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0.027, 0.035, 0.071, 1)
+
+[node name="Boot" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_boot")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.027, 0.035, 0.071, 1)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Column" type="VBoxContainer" parent="Center"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Emblem" type="TextureRect" parent="Center/Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 120)
+layout_mode = 2
+size_flags_horizontal = 4
+texture = ExtResource("3_emblem")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TitleLabel" type="Label" parent="Center/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.93, 0.82, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.85)
+theme_override_constants/outline_size = 8
+theme_override_fonts/font = ExtResource("4_cinzel_b")
+theme_override_font_sizes/font_size = 52
+text = "DREAMWEAVER"
+horizontal_alignment = 1
+
+[node name="Tagline" type="Label" parent="Center/Column"]
+layout_mode = 2
+theme_type_variation = &"TaglineLabel"
+theme_override_fonts/font = ExtResource("5_crimson_i")
+theme_override_font_sizes/font_size = 20
+text = "The cloth of the world is waiting."
+horizontal_alignment = 1
+
+[node name="SpindleRow" type="HBoxContainer" parent="Center/Column"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 14
+
+[node name="Spindle" type="Control" parent="Center/Column/SpindleRow"]
+layout_mode = 2
+script = ExtResource("6_spindle")
+
+[node name="StatusLabel" type="Label" parent="Center/Column/SpindleRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.576, 0.651, 0.8, 1)
+theme_override_font_sizes/font_size = 16
+text = "Awakening the loom…"
+vertical_alignment = 1
+
+[node name="ProgressBar" type="ProgressBar" parent="Center/Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 8)
+layout_mode = 2
+size_flags_horizontal = 4
+max_value = 100.0
+show_percentage = false
