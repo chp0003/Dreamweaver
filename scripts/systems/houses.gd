@@ -20,7 +20,23 @@ const LIST: Array[Dictionary] = [
 		"reward_item": "",
 		"accent": Color(0.16, 0.15, 0.15),
 		"hub_cell": Vector2(1.0, 11.0),
-		"hub_uv": Vector2(0.28, 0.70),
+		"hub_uv": Vector2(0.32, 0.595),
+		"hub_solid_centre_uv": Vector2(0.265, 0.625),
+		"hub_solid_size_uv": Vector2(0.105, 0.135),
+		"hub_roof_polygons_uv": [
+			[
+				Vector2(0.178, 0.552),
+				Vector2(0.272, 0.568),
+				Vector2(0.262, 0.600),
+				Vector2(0.168, 0.584),
+			],
+			[
+				Vector2(0.262, 0.558),
+				Vector2(0.312, 0.572),
+				Vector2(0.302, 0.594),
+				Vector2(0.252, 0.580),
+			],
+		],
 		"hub_sprite": "res://assets/images/hub_crossroads/house_black_foundation.png",
 		"hub_size": Vector2(236.0, 248.0),
 		"hub_feet": Vector2(194.0, 90.0),
@@ -37,7 +53,23 @@ const LIST: Array[Dictionary] = [
 		"reward_item": "",
 		"accent": Color(0.62, 0.14, 0.13),
 		"hub_cell": Vector2(11.0, 1.0),
-		"hub_uv": Vector2(0.72, 0.70),
+		"hub_uv": Vector2(0.685, 0.595),
+		"hub_solid_centre_uv": Vector2(0.735, 0.625),
+		"hub_solid_size_uv": Vector2(0.105, 0.135),
+		"hub_roof_polygons_uv": [
+			[
+				Vector2(0.822, 0.552),
+				Vector2(0.728, 0.568),
+				Vector2(0.738, 0.600),
+				Vector2(0.832, 0.584),
+			],
+			[
+				Vector2(0.738, 0.558),
+				Vector2(0.688, 0.572),
+				Vector2(0.698, 0.594),
+				Vector2(0.748, 0.580),
+			],
+		],
 		"hub_sprite": "res://assets/images/hub_crossroads/house_red_courage.png",
 		"hub_size": Vector2(236.0, 248.0),
 		"hub_feet": Vector2(194.0, 90.0),
@@ -54,7 +86,23 @@ const LIST: Array[Dictionary] = [
 		"reward_item": "",
 		"accent": Color(0.86, 0.68, 0.24),
 		"hub_cell": Vector2(-9.0, -9.0),
-		"hub_uv": Vector2(0.50, 0.20),
+		"hub_uv": Vector2(0.50, 0.268),
+		"hub_solid_centre_uv": Vector2(0.50, 0.195),
+		"hub_solid_size_uv": Vector2(0.118, 0.148),
+		"hub_roof_polygons_uv": [
+			[
+				Vector2(0.418, 0.162),
+				Vector2(0.582, 0.162),
+				Vector2(0.568, 0.228),
+				Vector2(0.432, 0.228),
+			],
+			[
+				Vector2(0.462, 0.228),
+				Vector2(0.538, 0.228),
+				Vector2(0.528, 0.258),
+				Vector2(0.472, 0.258),
+			],
+		],
 		"hub_sprite": "res://assets/images/hub_crossroads/house_golden_sun.png",
 		"hub_size": Vector2(300.0, 320.0),
 		"hub_feet": Vector2(230.0, 108.0),
@@ -71,7 +119,23 @@ const LIST: Array[Dictionary] = [
 		"reward_item": "master_pattern",
 		"accent": Color(0.84, 0.78, 0.63),
 		"hub_cell": Vector2(-10.0, -4.0),
-		"hub_uv": Vector2(0.25, 0.32),
+		"hub_uv": Vector2(0.305, 0.368),
+		"hub_solid_centre_uv": Vector2(0.255, 0.335),
+		"hub_solid_size_uv": Vector2(0.102, 0.125),
+		"hub_roof_polygons_uv": [
+			[
+				Vector2(0.208, 0.292),
+				Vector2(0.288, 0.312),
+				Vector2(0.278, 0.348),
+				Vector2(0.198, 0.328),
+			],
+			[
+				Vector2(0.268, 0.328),
+				Vector2(0.318, 0.342),
+				Vector2(0.308, 0.362),
+				Vector2(0.258, 0.348),
+			],
+		],
 		"hub_sprite": "res://assets/images/hub_crossroads/house_dream_ancestors.png",
 		"hub_size": Vector2(250.0, 260.0),
 		"hub_feet": Vector2(200.0, 92.0),
@@ -88,7 +152,23 @@ const LIST: Array[Dictionary] = [
 		"reward_item": "",
 		"accent": Color(0.93, 0.86, 0.55),
 		"hub_cell": Vector2(0.0, 0.0),
-		"hub_uv": Vector2(0.73, 0.34),
+		"hub_uv": Vector2(0.685, 0.388),
+		"hub_solid_centre_uv": Vector2(0.735, 0.355),
+		"hub_solid_size_uv": Vector2(0.102, 0.125),
+		"hub_roof_polygons_uv": [
+			[
+				Vector2(0.742, 0.292),
+				Vector2(0.662, 0.312),
+				Vector2(0.672, 0.348),
+				Vector2(0.752, 0.328),
+			],
+			[
+				Vector2(0.682, 0.328),
+				Vector2(0.632, 0.342),
+				Vector2(0.642, 0.362),
+				Vector2(0.692, 0.348),
+			],
+		],
 		"hub_sprite": "res://assets/images/hub_crossroads/ritual_altar.png",
 		"hub_size": Vector2(236.0, 248.0),
 		"hub_feet": Vector2(194.0, 90.0),
@@ -142,6 +222,49 @@ static func name_for(house_id: int) -> String:
 static func short_name_for(house_id: int) -> String:
 	var house := get_house(house_id)
 	return str(house.get("short", "Unknown"))
+
+
+## Painted hut centre on hub_background.png (UV 0..1). Used for house-shaped collision.
+static func hub_solid_centre(house: Dictionary) -> Vector2:
+	return house.get("hub_solid_centre_uv", house.get("hub_uv", Vector2(0.5, 0.5))) as Vector2
+
+
+static func hub_solid_size(house: Dictionary) -> Vector2:
+	return house.get("hub_solid_size_uv", Vector2(0.10, 0.13)) as Vector2
+
+
+## One or more diagonal thatch-roof quads in UV space (4+ points each, clockwise).
+static func hub_roof_polygons(house: Dictionary) -> Array[PackedVector2Array]:
+	var result: Array[PackedVector2Array] = []
+	var multi: Variant = house.get("hub_roof_polygons_uv", [])
+	if multi is Array:
+		for entry in multi:
+			var packed := _pack_uv_polygon(entry)
+			if packed.size() >= 3:
+				result.append(packed)
+	if not result.is_empty():
+		return result
+	var legacy := _pack_uv_polygon(house.get("hub_roof_polygon_uv", []))
+	if legacy.size() >= 3:
+		result.append(legacy)
+	return result
+
+
+static func _pack_uv_polygon(raw: Variant) -> PackedVector2Array:
+	var packed := PackedVector2Array()
+	if raw is Array:
+		for pt in raw:
+			if pt is Vector2:
+				packed.append(pt)
+	return packed
+
+
+## Legacy single-roof accessor.
+static func hub_roof_polygon(house: Dictionary) -> PackedVector2Array:
+	var polys := hub_roof_polygons(house)
+	if polys.is_empty():
+		return PackedVector2Array()
+	return polys[0]
 
 
 static func accent_for(house_id: int) -> Color:

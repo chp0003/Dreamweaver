@@ -134,8 +134,13 @@ func _add_house_stilt_shapes(body: CollisionObject2D) -> void:
 
 
 func sync_blocker() -> void:
-	if _blocker == null or not is_instance_valid(_blocker):
+	if not blocks_movement:
 		return
+	if _blocker == null or not is_instance_valid(_blocker):
+		if is_inside_tree():
+			_add_world_blocker()
+		else:
+			return
 	var xf := global_transform
 	var host := _world_host()
 	if host != null and _blocker.get_parent() != host:

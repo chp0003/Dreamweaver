@@ -44,7 +44,7 @@ void fragment() {
 			continue;
 		}
 		float d = length(UV - zone.xy) / zone.z;
-		restored = max(restored, zone.w * (1.0 - smoothstep(0.70, 1.0, d)));
+		restored = max(restored, zone.w * (1.0 - smoothstep(0.75, 1.0, d)));
 	}
 	float veil = clamp(curse * (1.0 - restored), 0.0, 1.0);
 	COLOR = vec4(mix(live, dead, veil), 1.0);

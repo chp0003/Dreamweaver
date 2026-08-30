@@ -75,6 +75,9 @@ func _build_world() -> void:
 	Audio.set_ambience(0.55, 16.0)
 
 	_mount_plate()
+	_hide_map_reference()
+	if _plate != null and world != null:
+		_plate.reparent_solids_to(world)
 	for house in Houses.LIST:
 		_build_door(house)
 		_mount_house(house)
@@ -100,6 +103,14 @@ func _mount_plate() -> void:
 	add_child(_plate)
 	move_child(_plate, 0)
 	_plaza_cell = Iso.world_to_cell(_plate.plaza_world())
+
+
+func _hide_map_reference() -> void:
+	if world == null:
+		return
+	var map_ref := world.get_node_or_null("MapReference") as CanvasItem
+	if map_ref != null:
+		map_ref.visible = false
 
 
 func _mount_terrain() -> void:

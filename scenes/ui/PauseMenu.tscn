@@ -16,17 +16,22 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.027, 0.035, 0.071, 0.72)
+mouse_filter = 2
+color = Color(0.027, 0.035, 0.071, 0.45)
 
-[node name="Center" type="CenterContainer" parent="."]
-anchors_preset = 15
+[node name="Corner" type="MarginContainer" parent="."]
+anchors_preset = 1
+anchor_left = 1.0
 anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
+offset_left = -420.0
+offset_bottom = 520.0
+grow_horizontal = 0
 grow_vertical = 2
 theme = ExtResource("2_theme")
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
 
-[node name="Panel" type="PanelContainer" parent="Center"]
+[node name="Panel" type="PanelContainer" parent="Corner"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(380, 0)
 layout_mode = 2
@@ -36,11 +41,11 @@ lit = true
 draw_kleng = true
 header_band = true
 
-[node name="Column" type="VBoxContainer" parent="Center/Panel"]
+[node name="Column" type="VBoxContainer" parent="Corner/Panel"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="Kicker" type="Label" parent="Center/Panel/Column"]
+[node name="Kicker" type="Label" parent="Corner/Panel/Column"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.86, 0.72, 0.42, 0.85)
 theme_override_fonts/font = ExtResource("3_cinzel")
@@ -48,7 +53,7 @@ theme_override_font_sizes/font_size = 12
 text = "THE LOOM RESTS"
 horizontal_alignment = 1
 
-[node name="Title" type="Label" parent="Center/Panel/Column"]
+[node name="Title" type="Label" parent="Corner/Panel/Column"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.98, 0.94, 0.88, 1)
 theme_override_colors/font_outline_color = Color(0.02, 0.015, 0.02, 0.9)
@@ -58,7 +63,7 @@ theme_override_font_sizes/font_size = 48
 text = "Paused"
 horizontal_alignment = 1
 
-[node name="ProgressLabel" type="Label" parent="Center/Panel/Column"]
+[node name="ProgressLabel" type="Label" parent="Corner/Panel/Column"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.86, 0.78, 0.62, 0.88)
@@ -67,45 +72,45 @@ theme_override_font_sizes/font_size = 15
 text = ""
 horizontal_alignment = 1
 
-[node name="Spacer" type="Control" parent="Center/Panel/Column"]
+[node name="Spacer" type="Control" parent="Corner/Panel/Column"]
 custom_minimum_size = Vector2(0, 12)
 layout_mode = 2
 
-[node name="ResumeButton" type="Button" parent="Center/Panel/Column"]
+[node name="ResumeButton" type="Button" parent="Corner/Panel/Column"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(280, 44)
 layout_mode = 2
 text = "Resume"
 
-[node name="SettingsButton" type="Button" parent="Center/Panel/Column"]
+[node name="SettingsButton" type="Button" parent="Corner/Panel/Column"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(280, 40)
 layout_mode = 2
 theme_type_variation = &"GhostButton"
 text = "Settings"
 
-[node name="CodexButton" type="Button" parent="Center/Panel/Column"]
+[node name="CodexButton" type="Button" parent="Corner/Panel/Column"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(280, 40)
 layout_mode = 2
 theme_type_variation = &"GhostButton"
 text = "Lore Codex"
 
-[node name="HubButton" type="Button" parent="Center/Panel/Column"]
+[node name="HubButton" type="Button" parent="Corner/Panel/Column"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(280, 40)
 layout_mode = 2
 theme_type_variation = &"GhostButton"
 text = "Return to Hub"
 
-[node name="MenuButton" type="Button" parent="Center/Panel/Column"]
+[node name="MenuButton" type="Button" parent="Corner/Panel/Column"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(280, 40)
 layout_mode = 2
 theme_type_variation = &"GhostButton"
 text = "Return to the Gateway"
 
-[node name="Hint" type="Label" parent="Center/Panel/Column"]
+[node name="Hint" type="Label" parent="Corner/Panel/Column"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.64, 0.54, 0.65)
 theme_override_fonts/font = ExtResource("3_cinzel")
