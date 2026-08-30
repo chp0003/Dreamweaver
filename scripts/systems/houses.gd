@@ -21,6 +21,7 @@ const LIST: Array[Dictionary] = [
 		"accent": Color(0.16, 0.15, 0.15),
 		"hub_cell": Vector2(1.0, 11.0),
 		"hub_uv": Vector2(0.32, 0.595),
+		"hub_porch_uv": Vector2(0.32, 0.638),
 		"hub_solid_centre_uv": Vector2(0.265, 0.625),
 		"hub_solid_size_uv": Vector2(0.105, 0.135),
 		"hub_roof_polygons_uv": [
@@ -54,6 +55,7 @@ const LIST: Array[Dictionary] = [
 		"accent": Color(0.62, 0.14, 0.13),
 		"hub_cell": Vector2(11.0, 1.0),
 		"hub_uv": Vector2(0.685, 0.595),
+		"hub_porch_uv": Vector2(0.685, 0.638),
 		"hub_solid_centre_uv": Vector2(0.735, 0.625),
 		"hub_solid_size_uv": Vector2(0.105, 0.135),
 		"hub_roof_polygons_uv": [
@@ -87,6 +89,7 @@ const LIST: Array[Dictionary] = [
 		"accent": Color(0.86, 0.68, 0.24),
 		"hub_cell": Vector2(-9.0, -9.0),
 		"hub_uv": Vector2(0.50, 0.268),
+		"hub_porch_uv": Vector2(0.50, 0.312),
 		"hub_solid_centre_uv": Vector2(0.50, 0.195),
 		"hub_solid_size_uv": Vector2(0.118, 0.148),
 		"hub_roof_polygons_uv": [
@@ -120,6 +123,7 @@ const LIST: Array[Dictionary] = [
 		"accent": Color(0.84, 0.78, 0.63),
 		"hub_cell": Vector2(-10.0, -4.0),
 		"hub_uv": Vector2(0.305, 0.368),
+		"hub_porch_uv": Vector2(0.305, 0.412),
 		"hub_solid_centre_uv": Vector2(0.255, 0.335),
 		"hub_solid_size_uv": Vector2(0.102, 0.125),
 		"hub_roof_polygons_uv": [
@@ -153,6 +157,7 @@ const LIST: Array[Dictionary] = [
 		"accent": Color(0.93, 0.86, 0.55),
 		"hub_cell": Vector2(0.0, 0.0),
 		"hub_uv": Vector2(0.685, 0.388),
+		"hub_porch_uv": Vector2(0.685, 0.432),
 		"hub_solid_centre_uv": Vector2(0.735, 0.355),
 		"hub_solid_size_uv": Vector2(0.102, 0.125),
 		"hub_roof_polygons_uv": [
@@ -222,6 +227,14 @@ static func name_for(house_id: int) -> String:
 static func short_name_for(house_id: int) -> String:
 	var house := get_house(house_id)
 	return str(house.get("short", "Unknown"))
+
+
+static func hub_porch(house: Dictionary) -> Vector2:
+	if house.has("hub_porch_uv"):
+		return house["hub_porch_uv"] as Vector2
+	var door: Vector2 = house.get("hub_uv", Vector2(0.50, 0.52)) as Vector2
+	# Default: a few pixels toward the camera, on the painted porch in front of the door.
+	return door + Vector2(0.0, 0.038)
 
 
 ## Painted hut centre on hub_background.png (UV 0..1). Used for house-shaped collision.

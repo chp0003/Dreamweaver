@@ -39,6 +39,8 @@ const PLAYER_SCENE := "res://scenes/world/Player.tscn"
 @export var simplify_hud := false
 ## When false (the open ridge), finishing a House does not freeze S'lang forever.
 @export var lock_input_when_finished := true
+## When set, camera limits use this world rect instead of the iso floor diamond.
+var camera_limit_rect := Rect2()
 
 var player: Slang
 var floor_node: Node2D
@@ -107,7 +109,7 @@ func _update_camera(delta: float) -> void:
 	var target := camera.global_position
 	if camera_follows_player and player != null and is_instance_valid(player):
 		target = player.global_position
-		if player.has_method("apply_depth_scale") and floor_node != null:
+		if player.has_method("apply_depth_scale") and floor_node != null and floor_node.visible:
 			var top := Iso.cell_to_world(Vector2(floor_node.origin_cell))
 			var bottom := Iso.cell_to_world(Vector2(
 				floor_node.origin_cell.x + floor_node.cols,
@@ -184,7 +186,7 @@ func fit_camera_to_floor(which: Node2D = null, padding := 1.12) -> void:
 func apply_camera_world_limits(which: Node2D = null) -> void:
 	if camera == null:
 		return
-	var rect := floor_world_rect(which)
+	var rect := camera_limit_rect if camera_limit_rect.size.x >= 8.0 else floor_world_rect(which)
 	if rect.size.x < 8.0:
 		return
 	var pad := 24
@@ -198,7 +200,7 @@ func apply_camera_world_limits(which: Node2D = null) -> void:
 func _clamp_camera() -> void:
 	if camera == null:
 		return
-	var rect := floor_world_rect()
+	var rect := camera_limit_rect if camera_limit_rect.size.x >= 8.0 else floor_world_rect()
 	if rect.size.x < 8.0 or rect.size.y < 8.0:
 		return
 	var half := get_viewport_rect().size / (camera.zoom * 2.0)

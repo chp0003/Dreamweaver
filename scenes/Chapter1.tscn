@@ -12,10 +12,11 @@ script = ExtResource("1_chapter")
 chapter_id = 1
 quest_script = ExtResource("6_quest")
 player_spawn_cell = Vector2(0, -1.2)
-camera_zoom = Vector2(0.92, 0.92)
-starting_gray = 1.0
+camera_zoom = Vector2(0.86, 0.86)
+starting_gray = 0.0
 
 [node name="Floor" type="Node2D" parent="."]
+visible = false
 script = ExtResource("2_floor")
 cols = 25
 rows = 25
@@ -31,7 +32,7 @@ scatter_detail = true
 y_sort_enabled = true
 
 [node name="Camera" type="Camera2D" parent="."]
-zoom = Vector2(0.92, 0.92)
+zoom = Vector2(0.86, 0.86)
 
 [node name="UiLayer" type="CanvasLayer" parent="."]
 layer = 120

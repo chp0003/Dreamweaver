@@ -1,13 +1,14 @@
 extends "res://scripts/chapters/house_quest.gd"
 ## Chapter 1 - House of the Black Foundation.
 ##
-## One readable hall. You spawn facing the work line:
-##   1 Spirit (remember) → 2 garden strands → 3 rack (sort) → 4 vat (dye).
-## The garden sits behind you, through a single framed door, on the way back
-## to the ridge porch.
+## Same language as the tutorial and the hub: one painted 16:9 plate.
+## Warm Guno Bong hall, Spirit of the Fiber by the loom, garden in the
+## foreground. Work line on the far wall:
+##   1 Spirit (remember) → 2 garden/hall strands → 3 rack (sort) → 4 vat (dye).
 
 const STRAND_TOTAL := 10
 const FIBER_SORTING := "res://scenes/minigames/FiberSorting.tscn"
+const COLLISION_SCENE := "res://scenes/world/House1Collision.tscn"
 const STEPS: Array[String] = [
 	"Speak with the Spirit",
 	"Find abaca  ·  10",
@@ -15,191 +16,214 @@ const STEPS: Array[String] = [
 	"Pour the black vat",
 ]
 
-## Hall pickups sit behind dressing. Garden pickups sit in the plant beds.
-const HALL_STRANDS: Array[Vector2] = [
-	Vector2(-11.2, -7.5),
-	Vector2(-8.5, -4.9),
-	Vector2(-9.0, 2.1),
-	Vector2(9.3, -7.3),
-	Vector2(8.6, -0.6),
-]
-const GARDEN_STRANDS: Array[Vector2] = [
-	Vector2(-9.1, 6.7),
-	Vector2(-7.5, 10.5),
-	Vector2(3.5, 9.6),
-	Vector2(8.8, 7.3),
-	Vector2(7.8, 9.7),
-]
-
+var _plate: Chapter1Plate
 var _spirit: PlaceholderProp
 var _spirit_trigger: Interactable
-var _rack: PlaceholderProp
+var _rack: Node2D
 var _rack_trigger: Interactable
-var _vat: PlaceholderProp
+var _vat: Node2D
 var _vat_trigger: Interactable
-var _garden_door: PlaceholderProp
 var _collected := 0
 var _beacon: QuestBeacon
 var _marks: Dictionary = {}
 var _strands: Array[Collectible] = []
 
 
+func uses_painted_plate() -> bool:
+	return true
+
+
+func player_spawn_world() -> Vector2:
+	if _plate != null:
+		return _plate.spawn_world()
+	return super.player_spawn_world()
+
+
+func threshold_world() -> Vector2:
+	if _plate != null:
+		return _plate.exit_world()
+	return Vector2.ZERO
+
+
+func plate_world_rect() -> Rect2:
+	if _plate != null:
+		return _plate.global_world_rect()
+	return Rect2()
+
+
+func plate_camera_zoom() -> float:
+	return 0.86
+
+
+func painted_player_scale() -> float:
+	return 1.4
+
+
 func _build_world() -> void:
-	add_room_bounds(Vector2i(-12, -11), 25, 25)
+	_mount_plate()
 	_build_work_line()
-	_build_partition()
-	_build_garden()
 	_beacon = QuestBeacon.new()
 	_beacon.name = "QuestBeacon"
-	world.add_child(_beacon)
+	if world != null:
+		world.add_child(_beacon)
+	else:
+		add_child(_beacon)
+	if host != null and host.register_as_current_chapter:
+		_bind_host_camera()
+
+
+func _mount_plate() -> void:
+	var standalone := host != null and host.register_as_current_chapter
+	if standalone:
+		if host.floor_node != null:
+			host.floor_node.visible = false
+		if host.stage != null:
+			host.stage.visible = false
+	_plate = Chapter1Plate.new()
+	_plate.name = "Chapter1Plate"
+	_plate.position = Iso.cell_to_world(region_origin)
+	add_child(_plate)
+	if world != null:
+		_plate.attach_solids(world)
+	_mount_collision()
+	if standalone and player != null:
+		var spawn := _plate.spawn_world()
+		player.global_position = spawn
+		host._spawn_position = spawn
+
+
+func _mount_collision() -> void:
+	var packed := load(COLLISION_SCENE) as PackedScene
+	if packed == null:
+		return
+	var root := packed.instantiate() as Node2D
+	root.name = "House1Collision"
+	var hall := root.get_node_or_null("HallCollision")
+	if hall != null:
+		hall.set("show_collision_debug", false)
+	if _plate != null:
+		_plate.add_child(root)
+		root.position = Vector2.ZERO
+	elif world != null:
+		world.add_child(root)
+	else:
+		add_child(root)
 
 
 func _build_work_line() -> void:
-	# Left to right along the far wall: remember, judge, dye.
-	_spirit = spawn_prop("SPIRIT OF THE FIBER", Vector2(-8.2, -7.0), {
+	_spirit = place_prop("SPIRIT OF THE FIBER", _plate.spirit_world(), {
 		"texture_path": "res://assets/images/characters/spirit_of_the_fiber.png",
-		"prop_size": Vector2(64.0, 104.0),
+		"prop_size": Vector2(96.0, 156.0),
 		"body_color": Color(0.34, 0.33, 0.31),
 		"accent_color": Color(0.5, 0.48, 0.44),
-		"float_amplitude": 2.2,
-		"float_speed": 0.7,
+		"float_amplitude": 0.8,
+		"float_speed": 0.55,
 		"show_label": false,
+		"blocks_movement": false,
+		"cast_shadow": true,
 	})
-	_spirit.set_tint(Color(0.78, 0.78, 0.8))
-	_spirit_trigger = add_interactable("Speak with the Spirit", Vector2(-8.2, -5.9),
-		{"enabled": false, "radius": 88.0})
+	_spirit.set_tint(Color(0.92, 0.90, 0.86))
+	_spirit_trigger = place_interactable("Speak with the Spirit", _plate.spirit_reach_world(), {
+		"enabled": false,
+		"radius": 88.0,
+	})
 	_mark_station("spirit", _spirit, "SPIRIT")
+	_light_spirit()
 
-	_rack = spawn_prop("DRYING RACK", Vector2(0.0, -7.2), {
-		"texture_path": "res://assets/images/props/drying_rack.png",
-		"prop_size": Vector2(122.0, 94.0),
-		"body_color": Color(0.31, 0.27, 0.22),
-		"accent_color": Color(0.52, 0.44, 0.3),
-		"show_label": false,
+	_rack = _anchor("RackAnchor", _plate.rack_world())
+	_rack_trigger = place_interactable("Sort the strands", _plate.rack_reach_world(), {
+		"enabled": false,
+		"radius": 90.0,
 	})
-	_rack_trigger = add_interactable("Sort the strands", Vector2(0.0, -6.0),
-		{"enabled": false, "radius": 90.0})
 	_mark_station("rack", _rack, "SORT")
 
-	_vat = spawn_prop("SACRED DYE VAT", Vector2(8.2, -7.0), {
-		"texture_path": "res://assets/images/props/sacred_vat.png",
-		"prop_size": Vector2(94.0, 92.0),
-		"body_color": Color(0.18, 0.16, 0.16),
-		"accent_color": Color(0.46, 0.4, 0.3),
-		"show_label": false,
+	_vat = _anchor("VatAnchor", _plate.vat_world())
+	_vat_trigger = place_interactable("Pour into the vat", _plate.vat_reach_world(), {
+		"enabled": false,
+		"radius": 88.0,
 	})
-	_vat_trigger = add_interactable("Pour into the vat", Vector2(8.2, -5.9),
-		{"enabled": false, "radius": 88.0})
 	_mark_station("vat", _vat, "VAT")
-
-	spawn_prop("ABLUN LOOM (idle)", Vector2(-9.6, -4.4), {
-		"texture_path": "res://assets/images/props/loom_small.png",
-		"prop_size": Vector2(78.0, 62.0),
-		"body_color": Color(0.29, 0.25, 0.21),
-		"accent_color": Color(0.5, 0.42, 0.28),
-		"show_label": false,
-	})
-	for i in range(3):
-		spawn_prop("FIBRE BASKET", Vector2(9.8, -4.8 + float(i) * 1.45), {
-			"texture_path": "res://assets/images/props/fibre_basket.png",
-			"prop_size": Vector2(36.0, 36.0),
-			"body_color": Color(0.26, 0.23, 0.2),
-			"accent_color": Color(0.44, 0.38, 0.27),
-			"show_label": false,
-		})
-	spawn_prop("FIBRE BASKET", Vector2(-10.4, -8.2), {
-		"texture_path": "res://assets/images/props/fibre_basket.png",
-		"prop_size": Vector2(34.0, 34.0),
-		"body_color": Color(0.26, 0.23, 0.2),
-		"accent_color": Color(0.44, 0.38, 0.27),
-		"show_label": false,
-	})
-	spawn_prop("STORAGE CRATE", Vector2(10.2, -8.2), {
-		"texture_path": "res://assets/images/props/storage_crate.png",
-		"prop_size": Vector2(48.0, 52.0),
-		"body_color": Color(0.23, 0.2, 0.18),
-		"accent_color": Color(0.4, 0.34, 0.26),
-		"show_label": false,
-	})
-	spawn_prop("STORAGE CRATE", Vector2(-10.0, 1.4), {
-		"texture_path": "res://assets/images/props/storage_crate.png",
-		"prop_size": Vector2(48.0, 52.0),
-		"body_color": Color(0.23, 0.2, 0.18),
-		"accent_color": Color(0.4, 0.34, 0.26),
-		"show_label": false,
-	})
+	if _color_anchor != null:
+		_color_anchor.global_position = _plate.vat_world()
 
 
-func _build_partition() -> void:
-	spawn_prop("WALL", Vector2(-7.4, 2.8), {
-		"texture_path": "res://assets/images/props/wall_panel.png",
-		"prop_size": Vector2(200.0, 92.0),
-		"body_color": Color(0.2, 0.19, 0.18),
-		"accent_color": Color(0.33, 0.3, 0.26),
-		"show_label": false,
-		"cast_shadow": false,
-		"collision_feet": Vector2(52.0, 20.0),
-	})
-	spawn_prop("WALL", Vector2(7.4, 2.8), {
-		"texture_path": "res://assets/images/props/wall_panel.png",
-		"prop_size": Vector2(200.0, 92.0),
-		"body_color": Color(0.2, 0.19, 0.18),
-		"accent_color": Color(0.33, 0.3, 0.26),
-		"show_label": false,
-		"cast_shadow": false,
-		"collision_feet": Vector2(52.0, 20.0),
-	})
-	_garden_door = spawn_prop("DOORWAY TO THE GARDEN", Vector2(0.0, 2.75), {
-		"texture_path": "res://assets/images/props/doorway_garden.png",
-		"prop_size": Vector2(128.0, 108.0),
-		"body_color": Color(0.14, 0.13, 0.12),
-		"accent_color": Color(0.62, 0.52, 0.3),
-		"show_label": false,
-		"cast_shadow": false,
-	})
+func _anchor(anchor_name: String, world_pos: Vector2) -> Node2D:
+	var node := Node2D.new()
+	node.name = anchor_name
+	node.position = world_pos
+	if world != null:
+		world.add_child(node)
+	else:
+		add_child(node)
+	return node
 
 
-func _build_garden() -> void:
-	var plants: Array[Vector2] = [
-		Vector2(-10.2, 6.2), Vector2(-8.6, 10.0), Vector2(-6.4, 7.4),
-		Vector2(6.2, 7.6), Vector2(10.0, 6.6), Vector2(8.8, 10.2),
-		Vector2(-4.8, 9.4), Vector2(4.4, 10.4),
-	]
-	for cell in plants:
-		spawn_prop("ABACA PLANT", cell, {
-			"texture_path": "res://assets/images/props/abaca_plant.png",
-			"prop_size": Vector2(52.0, 104.0),
-			"body_color": Color(0.24, 0.26, 0.23),
-			"accent_color": Color(0.4, 0.44, 0.36),
-			"show_label": false,
-			"sway_degrees": 2.8,
-		})
-	spawn_prop("STRIPPING BENCH", Vector2(9.2, 10.6), {
-		"texture_path": "res://assets/images/props/stripping_bench.png",
-		"prop_size": Vector2(82.0, 56.0),
-		"body_color": Color(0.28, 0.25, 0.21),
-		"accent_color": Color(0.48, 0.4, 0.28),
-		"show_label": false,
-	})
+func _light_spirit() -> void:
+	if _spirit == null:
+		return
+	var lamp := PointLight2D.new()
+	lamp.name = "SpiritGlow"
+	lamp.color = Color(1.0, 0.88, 0.62)
+	lamp.energy = 0.78
+	lamp.texture_scale = 1.85
+	lamp.position = Vector2(0.0, -48.0)
+	lamp.texture = _radial_light()
+	_spirit.add_child(lamp)
+
+
+func _radial_light() -> GradientTexture2D:
+	var tex := GradientTexture2D.new()
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1, 1, 1, 1))
+	grad.set_color(1, Color(1, 1, 1, 0))
+	tex.gradient = grad
+	tex.width = 256
+	tex.height = 256
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	return tex
+
+
+func _bind_host_camera() -> void:
+	if host == null or _plate == null:
+		return
+	host.camera_limit_rect = _plate.global_world_rect()
+	var z := plate_camera_zoom()
+	var rect := _plate.global_world_rect()
+	if host.camera != null:
+		host.camera.zoom = Vector2(z, z)
+		var view := host.get_viewport_rect().size / Vector2(z, z)
+		host.camera_follows_player = view.x < rect.size.x or view.y < rect.size.y
+		if host.camera_follows_player and player != null:
+			host.camera.global_position = player.global_position
+		else:
+			host.camera.global_position = rect.get_center()
+		if player != null and player.has_method("apply_depth_scale"):
+			player.apply_depth_scale(painted_player_scale())
+	host.apply_camera_world_limits()
+	host._clamp_camera()
 
 
 func _scatter_strands() -> void:
-	var cells: Array[Vector2] = []
-	cells.append_array(HALL_STRANDS)
-	cells.append_array(GARDEN_STRANDS)
-	for cell in cells:
-		var strand := spawn_collectible("Faded Abaca Strand", cell, {
+	var uvs: Array[Vector2] = []
+	uvs.append_array(Chapter1Plate.HALL_STRAND_UVS)
+	uvs.append_array(Chapter1Plate.GARDEN_STRAND_UVS)
+	for uv in uvs:
+		var strand := place_collectible("Faded Abaca Strand", _plate.uv_to_global(uv), {
 			"texture_path": "res://assets/images/props/abaca_strand.png",
-			"tint": Color(0.52, 0.48, 0.42),
+			"tint": Color(0.58, 0.54, 0.48),
 			"score_value": 40,
 			"highlight": false,
-			"pickup_radius": 22.0,
+			"pickup_radius": 26.0,
 		})
 		strand.collected.connect(_on_strand_collected)
 		_strands.append(strand)
 
 
 func _mark_station(id: String, anchor: Node2D, title: String) -> void:
+	if anchor == null:
+		return
 	var mark := StationMarker.new()
 	mark.title = title
 	anchor.add_child(mark)
@@ -243,10 +267,19 @@ func _on_strand_collected(pickup: Collectible) -> void:
 	_set_steps(1, _collected)
 
 
+func apply_restored_color() -> void:
+	super.apply_restored_color()
+	if _plate != null:
+		_plate.set_restore(1.0)
+	if _spirit != null:
+		_spirit.set_tint(Color.WHITE)
+
+
 func _run_chapter() -> void:
+	Audio.set_ambience(0.32, 0.0)
 	_set_steps(0)
 	_light_station("spirit")
-	objective("The glowing figure on the left. Walk to her and press [E].")
+	objective("The faded figure on the left. Walk to her and press [E].")
 	await wait(0.35)
 	await say([
 		"Far wall, left to right: a spirit, a drying rack, a dye vat. That is the work of this house.",
@@ -269,7 +302,7 @@ func _run_chapter() -> void:
 	_light_station("")
 	if _beacon != null:
 		_beacon.clear()
-	objective("Search the hall and garden. Strands hide behind plants, baskets, and crates.")
+	objective("Search the hall and the garden below. Strands hide by the loom, the vat, and the plant beds.")
 	await until(func() -> bool: return _collected >= STRAND_TOTAL)
 	if _beacon != null:
 		_beacon.clear()
@@ -312,6 +345,8 @@ func _run_chapter() -> void:
 	set_player_input(false)
 	banner("Black returns to the vat", 1.8)
 	Audio.play_sfx(Audio.Sfx.CHIME)
+	if _plate != null:
+		_plate.bloom_restore(3.2)
 	restore_local_color(_vat)
 	_spirit.set_tint(Color.WHITE)
 	if _beacon != null:
@@ -322,9 +357,11 @@ func _run_chapter() -> void:
 			mark.set_lit(false)
 	await wait(3.2)
 	_clear_steps()
+	banner("House of Red Courage unlocked", 2.2)
+	await wait(1.6)
 
 	await complete_chapter([
 		"The vat is not gray anymore. It is black — the night-soil black every cloth is built on.",
 		{"speaker": "Spirit of the Fiber", "text": "The foundation is laid. I will not lose it again."},
-		{"speaker": "Spirit of the Fiber", "text": "Leave by the porch behind the garden. The House of Red Courage is next — something has grown across its door."},
+		{"speaker": "Spirit of the Fiber", "text": "Leave by the porch at the garden's edge. The House of Red Courage is next — something has grown across its door."},
 	])

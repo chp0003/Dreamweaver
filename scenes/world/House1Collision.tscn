@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://c1r3ig45xlage"]
+
+[ext_resource type="Texture2D" uid="uid://btn6g2qm1d0nb" path="res://assets/images/environments/house_black/black_foundation_hall.png" id="1_hall"]
+[ext_resource type="Script" uid="uid://c282enk2jiljv" path="res://scripts/world/editor_plate_ref.gd" id="2_ref"]
+[ext_resource type="Script" uid="uid://clye7sh26pu3e" path="res://scripts/world/hub_collision_debug.gd" id="3_debug"]
+
+[node name="House1Collision" type="Node2D" unique_id=1306390892]
+
+[node name="PlateRef" type="Sprite2D" parent="." unique_id=372585474]
+z_index = -120
+texture = ExtResource("1_hall")
+script = ExtResource("2_ref")
+
+[node name="HallCollision" type="StaticBody2D" parent="." unique_id=1315134503]
+z_index = 50
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("3_debug")
+show_collision_debug = true
+
+[node name="CopyMe" type="CollisionPolygon2D" parent="HallCollision" unique_id=1224418122]
+position = Vector2(5, 166)
+polygon = PackedVector2Array(-90, -220, 90, -220, 90, -140, -90, -140)

@@ -35,10 +35,15 @@ func _ready() -> void:
 	body_exited.connect(_on_body_exited)
 	_ensure_shape()
 	_build_prompt()
-	set_process(false)
+	if hub_door_priority:
+		set_process(true)
+	else:
+		set_process(false)
 
 
 func _process(_delta: float) -> void:
+	if hub_door_priority:
+		_refresh_hub_door_prompts()
 	_follow_prompt()
 
 
@@ -62,11 +67,14 @@ func apply_radius(value: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not _can_interact():
-		return
-	if hub_door_priority and _best_hub_door() != self:
-		return
 	if not event.is_action_pressed("interact") or event.is_echo():
+		return
+	if hub_door_priority:
+		if not enabled or (one_shot and _used) or not monitoring:
+			return
+		if _best_hub_door() != self:
+			return
+	elif not _can_interact():
 		return
 	get_viewport().set_input_as_handled()
 	if one_shot:
@@ -107,7 +115,7 @@ func set_prompt(text: String) -> void:
 func set_prompt_visible(value: bool) -> void:
 	if _prompt_badge != null:
 		_prompt_badge.visible = value
-		set_process(value)
+		set_process(value or hub_door_priority)
 		if value:
 			_follow_prompt()
 	elif _prompt_label != null:
@@ -135,7 +143,11 @@ func _center_badge() -> void:
 
 
 func _can_interact() -> bool:
-	return enabled and _player_inside and not (one_shot and _used)
+	if not enabled or (one_shot and _used):
+		return false
+	if hub_door_priority:
+		return _best_hub_door() == self
+	return _player_inside
 
 
 func _on_body_entered(body: Node2D) -> void:
@@ -178,16 +190,17 @@ func _best_hub_door(player: Node2D = null) -> Interactable:
 	if player == null:
 		return null
 	var best: Interactable = null
-	var best_d2 := INF
+	var best_d := INF
 	for node in get_tree().get_nodes_in_group("hub_door"):
 		var door := node as Interactable
-		if door == null or not door.enabled or not door._player_inside:
+		if door == null or not door.enabled or not door.monitoring:
 			continue
-		if not door._can_interact():
+		var reach := door.radius + 14.0
+		var d := door.global_position.distance_to(player.global_position)
+		if d > reach:
 			continue
-		var d2 := door.global_position.distance_squared_to(player.global_position)
-		if d2 < best_d2:
-			best_d2 = d2
+		if d < best_d:
+			best_d = d
 			best = door
 	return best
 

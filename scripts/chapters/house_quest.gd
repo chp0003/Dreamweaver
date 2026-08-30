@@ -46,6 +46,55 @@ func build() -> void:
 	_build_world()
 
 
+## Painted-plate Houses (Chapter 1) skip the iso diamond and walk a 16:9 picture.
+func uses_painted_plate() -> bool:
+	return false
+
+
+func player_spawn_world() -> Vector2:
+	return Iso.cell_to_world(map_cell(region_spawn))
+
+
+func threshold_world() -> Vector2:
+	return Vector2.ZERO
+
+
+func plate_world_rect() -> Rect2:
+	return Rect2()
+
+
+func plate_camera_zoom() -> float:
+	return 1.04
+
+
+func painted_player_scale() -> float:
+	return 1.0
+
+
+func place_prop(label: String, world_pos: Vector2, config := {}) -> PlaceholderProp:
+	if host == null:
+		return null
+	var cfg := config.duplicate()
+	cfg["position"] = world_pos
+	return host.spawn_prop(label, Vector2.ZERO, cfg)
+
+
+func place_interactable(prompt: String, world_pos: Vector2, config := {}) -> Interactable:
+	if host == null:
+		return null
+	var cfg := config.duplicate()
+	cfg["position"] = world_pos
+	return host.add_interactable(prompt, Vector2.ZERO, cfg)
+
+
+func place_collectible(label: String, world_pos: Vector2, config := {}) -> Collectible:
+	if host == null:
+		return null
+	var cfg := config.duplicate()
+	cfg["position"] = world_pos
+	return host.spawn_collectible(label, Vector2.ZERO, cfg)
+
+
 func is_busy() -> bool:
 	return _quest_running
 

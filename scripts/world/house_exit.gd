@@ -12,6 +12,9 @@ const TEX_OPEN := "res://assets/images/props/guno_door_open.png"
 
 @export var accent := Palette.GOLD_BRASS
 @export var open := false
+## Painted interiors already have a porch in the picture. Hide the hut door
+## and diamonds; the wooden path itself is the way out.
+@export var painted_path := false
 
 var _trigger: Interactable
 var _plate: Control
@@ -25,12 +28,13 @@ var _time := 0.0
 func _ready() -> void:
 	z_as_relative = true
 	z_index = 8
-	_build_art()
 	_build_trigger()
-	_build_plate()
-	_build_light()
+	if not painted_path:
+		_build_art()
+		_build_plate()
+		_build_light()
 	set_open(open, true)
-	set_process(true)
+	set_process(not painted_path)
 	queue_redraw()
 
 
@@ -103,6 +107,8 @@ func _apply_gate_art() -> void:
 
 
 func _draw() -> void:
+	if painted_path:
+		return
 	var gold := accent
 	var fill := gold if open else Palette.CURSED_ASH
 	var a := (0.28 + _glow * 0.22) if open else 0.16
@@ -116,13 +122,25 @@ func _draw() -> void:
 func _build_trigger() -> void:
 	_trigger = Interactable.new()
 	_trigger.name = "ExitTrigger"
-	_trigger.prompt = "Leave to the ridge"
-	_trigger.radius = 78.0
+	_trigger.prompt = "Leave" if painted_path else "Leave to the ridge"
+	_trigger.radius = 110.0 if painted_path else 78.0
 	_trigger.enabled = false
 	_trigger.auto_use = false
-	_trigger.prompt_offset = Vector2(0.0, -168.0)
+	_trigger.prompt_offset = Vector2(0.0, -56.0) if painted_path else Vector2(0.0, -168.0)
 	_trigger.interacted.connect(func() -> void: used.emit())
 	add_child(_trigger)
+	if painted_path:
+		_stretch_path_trigger()
+
+
+func _stretch_path_trigger() -> void:
+	var box := CollisionShape2D.new()
+	box.name = "PathPad"
+	var rect := RectangleShape2D.new()
+	rect.size = Vector2(240.0, 88.0)
+	box.shape = rect
+	box.position = Vector2(0.0, 12.0)
+	_trigger.add_child(box)
 
 
 func _build_plate() -> void:

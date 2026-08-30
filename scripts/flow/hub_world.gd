@@ -48,10 +48,8 @@ const FLOOR_ORIGIN := Vector2i(-16, -16)
 const FLOOR_COLS := 32
 const FLOOR_ROWS := 32
 
-## Tight porch [E] zone — stand on the door step, not the crossroads path.
-const HOUSE_DOOR_RADIUS := 46.0
-## Place the trigger this many px from the painted house toward the plaza.
-const HOUSE_PORCH_INSET := 36.0
+## Stand on the painted porch in front of the door. World pixels on the 1536 plate.
+const HOUSE_DOOR_RADIUS := 108.0
 
 var _doors: Dictionary = {}
 var _quests: Dictionary = {}
@@ -78,6 +76,13 @@ func _build_world() -> void:
 	_hide_map_reference()
 	if _plate != null and world != null:
 		_plate.reparent_solids_to(world)
+	if player != null:
+		player.set_light_enabled(false)
+		if GameState.current_chapter < 1:
+			var spawn := _plate.spawn_world() if _plate != null \
+				else Iso.cell_to_world(player_spawn_cell)
+			player.global_position = spawn
+			_spawn_position = spawn
 	for house in Houses.LIST:
 		_build_door(house)
 		_mount_house(house)
@@ -88,13 +93,6 @@ func _build_world() -> void:
 	if get_viewport() != null and not get_viewport().size_changed.is_connected(_on_view_resized):
 		get_viewport().size_changed.connect(_on_view_resized)
 	ColorRestoration.remove_zone("lewet_staff")
-	if player != null:
-		player.set_light_enabled(false)
-		if GameState.current_chapter < 1:
-			var spawn := _plate.spawn_world() if _plate != null \
-				else Iso.cell_to_world(player_spawn_cell)
-			player.global_position = spawn
-			_spawn_position = spawn
 
 
 func _mount_plate() -> void:
@@ -148,25 +146,33 @@ func _mount_house(house: Dictionary) -> void:
 
 
 func _place_house_exit(house_id: int, origin: Vector2, accent: Color) -> void:
-	var exit_cell: Vector2 = origin + HOUSE_EXITS[house_id]
-	# Woven runner leading to the porch so the way out is readable from mid-room.
-	var mat_start := origin + Vector2(0.0, HOUSE_EXITS[house_id].y - 5.0)
-	for i in range(3):
-		var t := 0.38 + float(i) * 0.18
-		var cell := mat_start.lerp(exit_cell, t)
-		spawn_prop("RIDGE MAT", cell, {
-			"texture_path": "res://assets/images/props/sleeping_mat.png",
-			"prop_size": Vector2(52.0 - float(i) * 4.0, 16.0),
-			"body_color": Palette.EARTH_WOOD,
-			"accent_color": accent,
-			"show_label": false,
-			"cast_shadow": false,
-			"blocks_movement": false,
-		})
+	var quest: HouseQuest = _quests.get(house_id) as HouseQuest
+	var painted := quest != null and quest.uses_painted_plate()
+	var exit_pos := Vector2.ZERO
+	if painted:
+		exit_pos = quest.threshold_world()
+	else:
+		var exit_cell: Vector2 = origin + HOUSE_EXITS[house_id]
+		# Woven runner leading to the porch so the way out is readable from mid-room.
+		var mat_start := origin + Vector2(0.0, HOUSE_EXITS[house_id].y - 5.0)
+		for i in range(3):
+			var t := 0.38 + float(i) * 0.18
+			var cell := mat_start.lerp(exit_cell, t)
+			spawn_prop("RIDGE MAT", cell, {
+				"texture_path": "res://assets/images/props/sleeping_mat.png",
+				"prop_size": Vector2(52.0 - float(i) * 4.0, 16.0),
+				"body_color": Palette.EARTH_WOOD,
+				"accent_color": accent,
+				"show_label": false,
+				"cast_shadow": false,
+				"blocks_movement": false,
+			})
+		exit_pos = Iso.cell_to_world(exit_cell)
 	var gate := HouseExit.new()
 	gate.name = "RidgeExit_%d" % house_id
 	gate.accent = accent
-	gate.position = Iso.cell_to_world(exit_cell)
+	gate.painted_path = painted
+	gate.position = exit_pos
 	world.add_child(gate)
 	gate.used.connect(_leave_house.bind(house_id))
 	_house_exits[house_id] = gate
@@ -176,6 +182,8 @@ func _place_house_exit(house_id: int, origin: Vector2, accent: Color) -> void:
 
 
 func _add_house_floor(house_id: int, origin: Vector2) -> void:
+	if house_id == 1:
+		return
 	var floor := Node2D.new()
 	floor.name = "FloorHouse%d" % house_id
 	floor.set_script(load("res://scripts/world/iso_floor.gd"))
@@ -480,16 +488,16 @@ func _build_door(house: Dictionary) -> void:
 	var tag := "restored" if completed else ("open" if unlocked else "")
 	_attach_name_label(prop, Houses.short_name_for(house_id), tag, unlocked, accent, house_size)
 
-	# Porch step only — small radius plus nearest-door priority so crossroads
-	# paths never light several houses at once.
-	var porch := _porch_pos(world_pos)
+	# Doorstep: same X as the painted door, a few pixels toward the camera.
+	var porch := _porch_world(house)
 	var trigger := add_interactable("Enter %s" % Houses.short_name_for(house_id),
-		_plaza_cell, {
+		Vector2.ZERO, {
+			"position": porch,
 			"radius": HOUSE_DOOR_RADIUS,
 			"hub_door_priority": true,
+			"prompt_offset": Vector2(0.0, -120.0),
 		})
 	trigger.add_to_group("hub_door")
-	trigger.position = porch
 	trigger.interacted.connect(_on_door_used.bind(house_id))
 
 	_doors[house_id] = {"prop": prop, "trigger": trigger}
@@ -518,11 +526,17 @@ func _plaza_world() -> Vector2:
 	return Iso.cell_to_world(_plaza_cell)
 
 
+func _porch_world(house: Dictionary) -> Vector2:
+	if _plate != null:
+		return _plate.uv_to_world(Houses.hub_porch(house))
+	return _porch_pos(_hub_world_pos(house))
+
+
 func _porch_pos(world_pos: Vector2) -> Vector2:
 	var delta := _plaza_world() - world_pos
 	if delta.length_squared() < 1.0:
 		return world_pos
-	return world_pos + delta.normalized() * HOUSE_PORCH_INSET
+	return world_pos + delta.normalized() * 96.0
 
 
 func _attach_name_label(prop: PlaceholderProp, title_text: String, tag_text: String,
@@ -582,7 +596,9 @@ func _restore_completed_colors() -> void:
 		return
 	if _active_house_id != 0:
 		ColorRestoration.clear_zones()
-		if GameState.is_house_completed(_active_house_id):
+		var quest: HouseQuest = _quests.get(_active_house_id) as HouseQuest
+		var painted := quest != null and quest.uses_painted_plate()
+		if painted or GameState.is_house_completed(_active_house_id):
 			ColorRestoration.set_global_gray(0.0)
 		else:
 			ColorRestoration.set_global_gray(1.0)
@@ -654,8 +670,11 @@ func _enter_house(house_id: int, _from_retry: bool) -> void:
 		return
 	_active_house_id = house_id
 	GameState.set_current_chapter(house_id)
-	var spawn: Vector2 = HOUSE_ORIGINS[house_id] + HOUSE_SPAWNS[house_id]
-	_spawn_position = Iso.cell_to_world(spawn)
+	if quest.uses_painted_plate():
+		_spawn_position = quest.player_spawn_world()
+	else:
+		var spawn: Vector2 = HOUSE_ORIGINS[house_id] + HOUSE_SPAWNS[house_id]
+		_spawn_position = Iso.cell_to_world(spawn)
 	player.global_position = _spawn_position
 	player.velocity = Vector2.ZERO
 	_show_house(house_id)
@@ -674,7 +693,7 @@ func _enter_house(house_id: int, _from_retry: bool) -> void:
 	else:
 		quest.apply_restored_color()
 		if not _from_retry:
-			objective("Look around, then leave by the porch marked TO THE RIDGE.")
+			objective("Look around, then walk the wooden path at the front of the house.")
 
 
 func _leave_house(house_id: int) -> void:
@@ -724,7 +743,7 @@ func on_house_completed(house_id: int, _next_scene := "") -> void:
 	set_player_input(true)
 	if house_id == Houses.count():
 		return
-	objective("Walk the glowing porch at the front of the house — TO THE RIDGE.")
+	objective("Walk the wooden path at the front of the house to leave.")
 
 
 func _refresh_door_locks() -> void:
@@ -753,6 +772,18 @@ func _set_house_nodes_visible(house_id: int, on: bool) -> void:
 			continue
 		if node is CanvasItem:
 			(node as CanvasItem).visible = on
+		_set_area_monitoring(node, on)
+
+
+func _set_area_monitoring(node: Node, on: bool) -> void:
+	if node is Area2D:
+		var area := node as Area2D
+		area.monitoring = on
+		area.monitorable = on
+		if area is Interactable and not on:
+			(area as Interactable).set_prompt_visible(false)
+	for child in node.get_children():
+		_set_area_monitoring(child, on)
 
 
 func _show_house(house_id: int) -> void:
@@ -761,11 +792,32 @@ func _show_house(house_id: int) -> void:
 	_set_ridge_art_visible(false)
 	for id in _house_nodes:
 		_set_house_nodes_visible(int(id), int(id) == house_id)
-	var house_floor := _house_floors.get(house_id) as Node2D
-	fit_camera_to_floor(house_floor)
-	if stage != null:
-		stage.configure(house_id, camera)
-	_restore_completed_colors()
+	var quest: HouseQuest = _quests.get(house_id) as HouseQuest
+	var painted := quest != null and quest.uses_painted_plate()
+	if painted:
+		if stage != null:
+			stage.visible = false
+		camera_limit_rect = quest.plate_world_rect()
+		if camera != null:
+			var z := quest.plate_camera_zoom()
+			camera.zoom = Vector2(z, z)
+			var rect := quest.plate_world_rect()
+			var view := get_viewport_rect().size / Vector2(z, z)
+			camera_follows_player = view.x < rect.size.x or view.y < rect.size.y
+			if camera_follows_player and player != null and is_instance_valid(player):
+				camera.global_position = player.global_position
+			else:
+				camera.global_position = rect.get_center()
+			if player != null and is_instance_valid(player) and player.has_method("apply_depth_scale"):
+				player.apply_depth_scale(quest.painted_player_scale())
+		apply_camera_world_limits()
+		_clamp_camera()
+	else:
+		camera_limit_rect = Rect2()
+		if stage != null:
+			stage.visible = true
+			stage.configure(house_id, camera)
+		fit_camera_to_floor(_house_floors.get(house_id) as Node2D)
 	_restore_completed_colors()
 
 
@@ -777,13 +829,17 @@ func _show_ridge() -> void:
 		_set_house_nodes_visible(int(id), false)
 	floor_node = _ridge_floor
 	camera_follows_player = true
+	camera_limit_rect = Rect2()
 	if camera != null:
 		camera.zoom = camera_zoom
 		if player != null and is_instance_valid(player):
 			camera.global_position = player.global_position
+			if player.has_method("apply_depth_scale"):
+				player.apply_depth_scale(1.0)
 		apply_camera_world_limits(_ridge_floor)
 		_clamp_camera()
 	if stage != null:
+		stage.visible = true
 		stage.configure(0, camera)
 
 
@@ -800,15 +856,27 @@ func _set_ridge_art_visible(on: bool) -> void:
 			var prop := (data as Dictionary).get("prop") as CanvasItem
 			if prop != null:
 				prop.visible = on
-			var trigger := (data as Dictionary).get("trigger") as CanvasItem
+			var trigger := (data as Dictionary).get("trigger") as Interactable
 			if trigger != null:
 				trigger.visible = on
+				trigger.monitoring = on
+				trigger.monitorable = on
+				trigger.set_process(on)
+				if not on:
+					trigger.set_prompt_visible(false)
+				trigger.set_enabled(on)
 
 
 func apply_camera_world_limits(which: Node2D = null) -> void:
 	if _active_house_id == 0 and _plate != null and camera != null:
 		_limit_camera_to_rect(_plate.world_rect())
 		return
+	var quest: HouseQuest = _quests.get(_active_house_id) as HouseQuest
+	if quest != null and quest.uses_painted_plate():
+		var rect := quest.plate_world_rect()
+		if rect.size.x >= 8.0:
+			_limit_camera_to_rect(rect)
+			return
 	super.apply_camera_world_limits(which)
 
 
@@ -816,6 +884,12 @@ func _clamp_camera() -> void:
 	if _active_house_id == 0 and _plate != null and camera != null:
 		_clamp_camera_to_rect(_plate.world_rect())
 		return
+	var quest: HouseQuest = _quests.get(_active_house_id) as HouseQuest
+	if quest != null and quest.uses_painted_plate():
+		var rect := quest.plate_world_rect()
+		if rect.size.x >= 8.0:
+			_clamp_camera_to_rect(rect)
+			return
 	super._clamp_camera()
 
 
@@ -852,7 +926,12 @@ func _clamp_camera_to_rect(rect: Rect2) -> void:
 
 func _on_view_resized() -> void:
 	if _active_house_id != 0:
-		fit_camera_to_floor(_house_floors.get(_active_house_id) as Node2D)
+		var quest: HouseQuest = _quests.get(_active_house_id) as HouseQuest
+		if quest != null and quest.uses_painted_plate():
+			apply_camera_world_limits()
+			_clamp_camera()
+		else:
+			fit_camera_to_floor(_house_floors.get(_active_house_id) as Node2D)
 	else:
 		apply_camera_world_limits(_ridge_floor)
 		_clamp_camera()

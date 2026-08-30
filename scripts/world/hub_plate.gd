@@ -30,7 +30,7 @@ const RESTORE_ZONE_PORCH_PAD := 0.045
 ## Show live mouse UV readout while debug_draw_collision is on.
 @export var debug_draw_mouse_uv := true
 ## When true, porch walk-pads and door UV anchors are drawn (green / white).
-@export var debug_draw_porch_pads := true
+@export var debug_draw_porch_pads := false
 
 ## Hand-placed rim water — centre UV + full width/height in UV space (0..1).
 const RIVER_BOXES: Array[Dictionary] = [
@@ -316,10 +316,9 @@ func _draw_mouse_uv_hud() -> void:
 
 func _draw_porch_pad_hints() -> void:
 	for house in Houses.LIST:
-		var door: Vector2 = house.get("hub_uv", PLAZA_UV)
-		var porch: Vector2 = door.lerp(PLAZA_UV, 0.28)
-		var pad_r: float = 0.045 * displayed_size().x
-		_draw_debug_circle(uv_to_world(porch), pad_r, "porch")
+		var porch_uv: Vector2 = Houses.hub_porch(house)
+		var pad_r: float = 0.055 * displayed_size().x
+		_draw_debug_circle(uv_to_world(porch_uv), pad_r, "porch")
 
 
 func _add_edge_walls() -> void:
