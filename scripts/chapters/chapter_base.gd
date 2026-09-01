@@ -109,7 +109,10 @@ func _update_camera(delta: float) -> void:
 	var target := camera.global_position
 	if camera_follows_player and player != null and is_instance_valid(player):
 		target = player.global_position
-		if player.has_method("apply_depth_scale") and floor_node != null and floor_node.visible:
+		# Painted plates set camera_limit_rect and their own player scale.
+		# Don't stomp that with the ridge's near/far depth lerp.
+		if camera_limit_rect.size.x < 8.0 and player.has_method("apply_depth_scale") \
+				and floor_node != null and floor_node.visible:
 			var top := Iso.cell_to_world(Vector2(floor_node.origin_cell))
 			var bottom := Iso.cell_to_world(Vector2(
 				floor_node.origin_cell.x + floor_node.cols,
@@ -118,9 +121,9 @@ func _update_camera(delta: float) -> void:
 			var t := clampf((player.global_position.y - top.y) / span, 0.0, 1.0)
 			player.apply_depth_scale(lerpf(0.94, 1.07, t))
 	else:
-		var rect := floor_world_rect()
-		if rect.size.x >= 8.0:
-			target = rect.get_center()
+		var pin := camera_limit_rect if camera_limit_rect.size.x >= 8.0 else floor_world_rect()
+		if pin.size.x >= 8.0:
+			target = pin.get_center()
 	if _shake > 0.4:
 		target += Vector2(randf_range(-_shake, _shake), randf_range(-_shake, _shake) * 0.55)
 		_shake = move_toward(_shake, 0.0, delta * 28.0)

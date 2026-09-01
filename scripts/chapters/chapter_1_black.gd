@@ -56,7 +56,7 @@ func plate_camera_zoom() -> float:
 
 
 func painted_player_scale() -> float:
-	return 1.4
+	return 2.6
 
 
 func _build_world() -> void:
@@ -98,22 +98,27 @@ func _mount_collision() -> void:
 		return
 	var root := packed.instantiate() as Node2D
 	root.name = "House1Collision"
-	var hall := root.get_node_or_null("HallCollision")
+	var hall := root.get_node_or_null("HallCollision") as StaticBody2D
 	if hall != null:
 		hall.set("show_collision_debug", false)
+	# StaticBody2D must sit on World (same branch as the player) or
+	# CharacterBody2D.move_and_slide() never hits it — same as HubCollision.
+	var host_node: Node2D = world if world != null else self
+	host_node.add_child(root)
 	if _plate != null:
-		_plate.add_child(root)
-		root.position = Vector2.ZERO
-	elif world != null:
-		world.add_child(root)
-	else:
-		add_child(root)
+		root.global_transform = _plate.global_transform
+	if hall != null and hall.get_parent() != host_node:
+		var xf := hall.global_transform
+		hall.reparent(host_node)
+		hall.global_transform = xf
+		hall.name = "House1Collision"
+		root.queue_free()
 
 
 func _build_work_line() -> void:
 	_spirit = place_prop("SPIRIT OF THE FIBER", _plate.spirit_world(), {
 		"texture_path": "res://assets/images/characters/spirit_of_the_fiber.png",
-		"prop_size": Vector2(96.0, 156.0),
+		"prop_size": Vector2(130.0, 210.0),
 		"body_color": Color(0.34, 0.33, 0.31),
 		"accent_color": Color(0.5, 0.48, 0.44),
 		"float_amplitude": 0.8,
@@ -122,7 +127,7 @@ func _build_work_line() -> void:
 		"blocks_movement": false,
 		"cast_shadow": true,
 	})
-	_spirit.set_tint(Color(0.92, 0.90, 0.86))
+	_spirit.set_tint(Color(0.62, 0.60, 0.56))
 	_spirit_trigger = place_interactable("Speak with the Spirit", _plate.spirit_reach_world(), {
 		"enabled": false,
 		"radius": 88.0,

@@ -19,5 +19,9 @@ script = ExtResource("3_debug")
 show_collision_debug = true
 
 [node name="CopyMe" type="CollisionPolygon2D" parent="HallCollision" unique_id=1224418122]
-position = Vector2(5, 166)
-polygon = PackedVector2Array(-90, -220, 90, -220, 90, -140, -90, -140)
+position = Vector2(-153, 260)
+polygon = PackedVector2Array(-102, -774, 625, -767, 915, -779, 920, 251, 419, 251, 392, -158, 694, -140, 762, -196, 734, -289, 640, -272, 570, -341, 595, -446, 463, -448, 60, -467, 43, -489, 44, -489, 58, -460, 39, -453, -45, -473, -169, -494)
+
+[node name="CopyMe2" type="CollisionPolygon2D" parent="HallCollision" unique_id=1345722857]
+position = Vector2(-674, 260)
+polygon = PackedVector2Array(-102, -774, 419, -774, 326, -397, 375, -365, 369, -300, 307, -278, 213, -244, 146, -162, 425, -158, 436, 25, 434, 246, -98, 255, -90, -140)

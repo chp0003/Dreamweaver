@@ -597,8 +597,11 @@ func _restore_completed_colors() -> void:
 	if _active_house_id != 0:
 		ColorRestoration.clear_zones()
 		var quest: HouseQuest = _quests.get(_active_house_id) as HouseQuest
-		var painted := quest != null and quest.uses_painted_plate()
-		if painted or GameState.is_house_completed(_active_house_id):
+		# Painted interiors curse the plate itself, same as the ridge.
+		# Iso houses still use the fullscreen veil.
+		if quest != null and quest.uses_painted_plate():
+			ColorRestoration.set_global_gray(0.0)
+		elif GameState.is_house_completed(_active_house_id):
 			ColorRestoration.set_global_gray(0.0)
 		else:
 			ColorRestoration.set_global_gray(1.0)
@@ -797,6 +800,8 @@ func _show_house(house_id: int) -> void:
 	if painted:
 		if stage != null:
 			stage.visible = false
+		if floor_node != null:
+			floor_node.visible = false
 		camera_limit_rect = quest.plate_world_rect()
 		if camera != null:
 			var z := quest.plate_camera_zoom()
@@ -828,6 +833,8 @@ func _show_ridge() -> void:
 	for id in _house_nodes:
 		_set_house_nodes_visible(int(id), false)
 	floor_node = _ridge_floor
+	if _ridge_floor != null:
+		_ridge_floor.visible = true
 	camera_follows_player = true
 	camera_limit_rect = Rect2()
 	if camera != null:
