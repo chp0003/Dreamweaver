@@ -6,11 +6,9 @@ extends CharacterBody2D
 ## PhysicsLayers.LAYER_WORLD (props, room bounds, fences). Input is WASD in
 ## screen space (squashed vertically to match the isometric tiles).
 ##
-## Visuals are an AnimatedSprite2D driven from velocity:
-##   idle_down / idle_up / idle_left / idle_right
-##   walk_down / walk_up / walk_left / walk_right
-## Left uses the side sheet with flip_h. Extra directional sheets can be dropped
-## in later — see SlangFrames.
+## Visuals are an AnimatedSprite2D driven from velocity in 8 directions:
+##   down, down_right, right, up_right, up, and the three west mirrors via flip_h.
+## Sheets live in SlangFrames / slang_8dir.
 ##
 ## Combat (once the Lewet Staff is equipped) — AdventureQuest Worlds feel:
 ##   Left-click enemy  - lock target + auto-fire gold Lewet bolts
@@ -52,8 +50,15 @@ const INVULNERABLE_TIME := 0.85
 var health := 100.0
 var facing := Vector2(0.0, 1.0)
 var input_enabled := true
-## Last facing used for idle / walk animation names ("down", "up", "left", "right").
+## Last facing used for idle / walk animation names (8-dir).
 var last_direction := "down"
+
+const OCTANTS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
+const FLIP_SHEET := {
+	"left": "right",
+	"up_left": "up_right",
+	"down_left": "down_right",
+}
 
 var _attack_timer := 0.0
 var _chime_timer := 0.0
@@ -157,30 +162,24 @@ func _update_animation(input_vector: Vector2) -> void:
 	if _animated == null:
 		return
 
-	if _attacking:
-		_animated.flip_h = last_direction == "left"
-		var attack_dir := "right" if last_direction == "left" else last_direction
-		var attack_name := "attack_" + attack_dir
-		if _animated.animation != attack_name:
-			_play_anim(attack_name)
-		return
+	if input_vector != Vector2.ZERO:
+		last_direction = _octant_name(input_vector)
 
-	# Standard 2D: facing from input, walk while moving, idle when stopped.
-	# Left shares right-facing art via flip_h (single-sheet placeholder).
-	if input_vector == Vector2.ZERO:
-		_animated.flip_h = last_direction == "left"
-		var idle_dir := "right" if last_direction == "left" else last_direction
-		_play_anim("idle_" + idle_dir)
-		return
+	var prefix := "attack" if _attacking else ("walk" if input_vector != Vector2.ZERO else "idle")
+	_play_facing(prefix)
 
-	if absf(input_vector.x) > absf(input_vector.y):
-		last_direction = "right" if input_vector.x > 0.0 else "left"
-	else:
-		last_direction = "down" if input_vector.y > 0.0 else "up"
 
-	_animated.flip_h = last_direction == "left"
-	var walk_dir := "right" if last_direction == "left" else last_direction
-	_play_anim("walk_" + walk_dir)
+func _octant_name(dir: Vector2) -> String:
+	if dir == Vector2.ZERO:
+		return last_direction
+	return OCTANTS[posmod(int(round(dir.angle() / (PI * 0.25))), 8)]
+
+
+func _play_facing(prefix: String) -> void:
+	var flip := FLIP_SHEET.has(last_direction)
+	var sheet: String = FLIP_SHEET[last_direction] if flip else last_direction
+	_animated.flip_h = flip
+	_play_anim("%s_%s" % [prefix, sheet])
 
 
 func _play_anim(anim_name: String) -> void:
@@ -384,20 +383,14 @@ func _face_vector(dir: Vector2) -> void:
 	if dir == Vector2.ZERO:
 		return
 	facing = dir.normalized()
-	if absf(facing.x) > absf(facing.y):
-		last_direction = "right" if facing.x > 0.0 else "left"
-	else:
-		last_direction = "down" if facing.y > 0.0 else "up"
+	last_direction = _octant_name(facing)
 
 
 func _play_cast_pose() -> void:
 	if _animated == null:
 		return
-	_animated.flip_h = last_direction == "left"
-	var attack_dir := "right" if last_direction == "left" else last_direction
-	_play_anim("attack_" + attack_dir)
-	# Heavy staff cut: coil back, then sweep through, then settle.
-	var side := -1.0 if last_direction == "left" else 1.0
+	_play_facing("attack")
+	var side := -1.0 if FLIP_SHEET.has(last_direction) else 1.0
 	_animated.rotation_degrees = -22.0 * side
 	var tween := create_tween()
 	tween.tween_property(_animated, "rotation_degrees", 28.0 * side, ATTACK_ANIM * 0.45)\

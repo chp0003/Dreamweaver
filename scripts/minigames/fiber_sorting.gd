@@ -78,8 +78,9 @@ func _build_content(parent: Control) -> void:
 	_tray = GridContainer.new()
 	_tray.columns = 5
 	_tray.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_tray.add_theme_constant_override("h_separation", 12)
-	_tray.add_theme_constant_override("v_separation", 12)
+	_tray.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_tray.add_theme_constant_override("h_separation", 10)
+	_tray.add_theme_constant_override("v_separation", 10)
 	scroll.add_child(_tray)
 
 
@@ -138,7 +139,7 @@ func _on_card_dropped(card: FiberCard, bin: FiberBin) -> void:
 func _evaluate() -> void:
 	if _correct >= REQUIRED_CORRECT:
 		GameState.unlock_lore("abaca")
-		succeed("%d of %d strands sorted true. The Spirit of the Fiber remembers the feel of good abaca." % [_correct, _total])
+		succeed("%d of %d strands sorted true. Fun Kdungon nods — this fibre will hold a knot." % [_correct, _total])
 	else:
 		fail("Only %d of %d strands were sorted true. The vat needs at least %d." % [
 			_correct, _total, REQUIRED_CORRECT])

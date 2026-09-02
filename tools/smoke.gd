@@ -31,6 +31,7 @@ const SCENES := [
 
 const MINI_GAMES := [
 	"res://scenes/minigames/FiberSorting.tscn",
+	"res://scenes/minigames/TnalakWeaving.tscn",
 	"res://scenes/minigames/PigmentMashing.tscn",
 	"res://scenes/minigames/PatternMemory.tscn",
 	"res://scenes/minigames/WarpAlignment.tscn",

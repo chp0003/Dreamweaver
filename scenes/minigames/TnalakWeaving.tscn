@@ -1,0 +1,16 @@
+[gd_scene format=3 uid="uid://bwdwtnalakw01"]
+
+[ext_resource type="Script" path="res://scripts/minigames/tnalak_weaving.gd" id="1_weave"]
+
+[node name="TnalakWeaving" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_weave")
+time_limit = 60.0
+max_attempts = 3
+reward_score = 320
+grid_size = Vector2i(4, 4)

@@ -1,25 +1,20 @@
 shader_type canvas_item;
+render_mode unshaded;
 
-// Same language as hub_plate: cursed charcoal dusk vs the live painting.
-// restore 0 = forgotten (matches hub_background_cursed), 1 = vat restored.
+// Same language as the hub ridge: cursed charcoal dusk vs the live painting.
+// restore 0 = forgotten (hub cursed ash), 1 = vat restored.
 
 uniform float restore : hint_range(0.0, 1.0) = 0.0;
 
 vec3 hub_curse(vec3 c) {
 	float luma = dot(c, vec3(0.299, 0.587, 0.114));
+	// Drained cloth like hub_background_cursed — ash gray, not lantern orange.
 	vec3 dead = vec3(luma);
-	dead = mix(dead, vec3(0.16, 0.15, 0.13), 0.22);
-	dead *= vec3(0.78, 0.80, 0.72);
-	dead *= 0.48;
+	dead = mix(dead, vec3(0.18, 0.18, 0.19), 0.28);
+	dead *= vec3(0.84, 0.85, 0.88);
+	dead *= 0.52;
 	float shade = 1.0 - smoothstep(0.06, 0.42, luma);
-	dead = mix(dead, vec3(0.045, 0.048, 0.042), shade * 0.72);
-	float gold = max(min(c.r, c.g) - c.b, 0.0);
-	float fire = max(c.r - c.g, 0.0);
-	float lantern = max(
-		smoothstep(0.10, 0.28, gold) * smoothstep(0.28, 0.65, luma),
-		smoothstep(0.08, 0.22, fire) * smoothstep(0.25, 0.55, luma)
-	);
-	dead = mix(dead, clamp(c * vec3(1.15, 0.70, 0.32), 0.0, 1.0), lantern * 0.62);
+	dead = mix(dead, vec3(0.045, 0.046, 0.050), shade * 0.72);
 	return clamp(dead, 0.0, 1.0);
 }
 

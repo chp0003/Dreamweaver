@@ -200,6 +200,7 @@ const ESSENCE_COLORS := {
 const ITEM_NAMES := {
 	"lewet_staff": "Lewet Staff",
 	"master_pattern": "Sacred Master Pattern",
+	"tnalak_cloth": "T'nalak Cloth",
 }
 
 

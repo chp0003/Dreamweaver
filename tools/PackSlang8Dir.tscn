@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://b87i0jpaogeuj"]
+
+[ext_resource type="Script" path="res://tools/pack_slang_8dir.gd" id="1"]
+
+[node name="PackSlang8Dir" type="Node"]
+script = ExtResource("1")

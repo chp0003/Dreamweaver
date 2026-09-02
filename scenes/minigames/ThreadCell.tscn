@@ -1,0 +1,8 @@
+[gd_scene format=3 uid="uid://cipfxj35vo301"]
+
+[ext_resource type="Script" path="res://scripts/minigames/thread_cell.gd" id="1_cell"]
+
+[node name="ThreadCell" type="Button"]
+custom_minimum_size = Vector2(22, 22)
+focus_mode = 0
+script = ExtResource("1_cell")

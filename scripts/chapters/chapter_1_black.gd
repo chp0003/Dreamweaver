@@ -2,18 +2,19 @@ extends "res://scripts/chapters/house_quest.gd"
 ## Chapter 1 - House of the Black Foundation.
 ##
 ## Same language as the tutorial and the hub: one painted 16:9 plate.
-## Warm Guno Bong hall, Spirit of the Fiber by the loom, garden in the
+## Warm Guno Bong hall, Fun Kdungon by the loom, garden in the
 ## foreground. Work line on the far wall:
-##   1 Spirit (remember) → 2 garden/hall strands → 3 rack (sort) → 4 vat (dye).
+##   1 Fun Kdungon (remember) → 2 garden/hall strands → 3 rack (sort) → 4 vat (resist and dye).
 
 const STRAND_TOTAL := 10
 const FIBER_SORTING := "res://scenes/minigames/FiberSorting.tscn"
+const TNALAK_WEAVING := "res://scenes/minigames/TnalakWeaving.tscn"
 const COLLISION_SCENE := "res://scenes/world/House1Collision.tscn"
 const STEPS: Array[String] = [
-	"Speak with the Spirit",
+	"Speak with Fun Kdungon",
 	"Find abaca  ·  10",
 	"Sort at the rack",
-	"Pour the black vat",
+	"Weave the T'nalak",
 ]
 
 var _plate: Chapter1Plate
@@ -27,6 +28,8 @@ var _collected := 0
 var _beacon: QuestBeacon
 var _marks: Dictionary = {}
 var _strands: Array[Collectible] = []
+## Latest finished cloth payload from TnalakCloth.to_dictionary().
+var _finished_cloth: Dictionary = {}
 
 
 func uses_painted_plate() -> bool:
@@ -116,23 +119,21 @@ func _mount_collision() -> void:
 
 
 func _build_work_line() -> void:
-	_spirit = place_prop("SPIRIT OF THE FIBER", _plate.spirit_world(), {
-		"texture_path": "res://assets/images/characters/spirit_of_the_fiber.png",
-		"prop_size": Vector2(130.0, 210.0),
-		"body_color": Color(0.34, 0.33, 0.31),
-		"accent_color": Color(0.5, 0.48, 0.44),
-		"float_amplitude": 0.8,
-		"float_speed": 0.55,
+	_spirit = place_prop("FUN KDUNGON", _plate.spirit_world(), {
+		"texture_path": "res://assets/images/characters/fun_kdungon.png",
+		"prop_size": Vector2(110.0, 188.0),
+		"body_color": Palette.BLACK_CHARCOAL,
+		"accent_color": Palette.GOLD_SACRED,
+		"float_amplitude": 0.0,
 		"show_label": false,
 		"blocks_movement": false,
 		"cast_shadow": true,
 	})
-	_spirit.set_tint(Color(0.62, 0.60, 0.56))
-	_spirit_trigger = place_interactable("Speak with the Spirit", _plate.spirit_reach_world(), {
+	_spirit_trigger = place_interactable("Speak with Fun Kdungon", _plate.spirit_reach_world(), {
 		"enabled": false,
-		"radius": 88.0,
+		"radius": 96.0,
 	})
-	_mark_station("spirit", _spirit, "SPIRIT")
+	_mark_station("spirit", _spirit, "FUN KDUNGON", Vector2(0.0, -96.0))
 	_light_spirit()
 
 	_rack = _anchor("RackAnchor", _plate.rack_world())
@@ -143,11 +144,11 @@ func _build_work_line() -> void:
 	_mark_station("rack", _rack, "SORT")
 
 	_vat = _anchor("VatAnchor", _plate.vat_world())
-	_vat_trigger = place_interactable("Pour into the vat", _plate.vat_reach_world(), {
+	_vat_trigger = place_interactable("Resist and dye the warp", _plate.vat_reach_world(), {
 		"enabled": false,
 		"radius": 88.0,
 	})
-	_mark_station("vat", _vat, "VAT")
+	_mark_station("vat", _vat, "DYE")
 	if _color_anchor != null:
 		_color_anchor.global_position = _plate.vat_world()
 
@@ -167,11 +168,11 @@ func _light_spirit() -> void:
 	if _spirit == null:
 		return
 	var lamp := PointLight2D.new()
-	lamp.name = "SpiritGlow"
-	lamp.color = Color(1.0, 0.88, 0.62)
-	lamp.energy = 0.78
-	lamp.texture_scale = 1.85
-	lamp.position = Vector2(0.0, -48.0)
+	lamp.name = "GoddessGlow"
+	lamp.color = Color(0.82, 0.86, 0.92)
+	lamp.energy = 0.42
+	lamp.texture_scale = 1.25
+	lamp.position = Vector2(0.0, -96.0)
 	lamp.texture = _radial_light()
 	_spirit.add_child(lamp)
 
@@ -219,20 +220,20 @@ func _scatter_strands() -> void:
 			"texture_path": "res://assets/images/props/abaca_strand.png",
 			"tint": Color(0.58, 0.54, 0.48),
 			"score_value": 40,
-			"highlight": false,
-			"pickup_radius": 26.0,
+			"highlight": true,
+			"pickup_radius": 32.0,
 		})
 		strand.collected.connect(_on_strand_collected)
 		_strands.append(strand)
 
 
-func _mark_station(id: String, anchor: Node2D, title: String) -> void:
+func _mark_station(id: String, anchor: Node2D, title: String, offset := Vector2(0.0, 2.0)) -> void:
 	if anchor == null:
 		return
 	var mark := StationMarker.new()
 	mark.title = title
 	anchor.add_child(mark)
-	mark.position = Vector2(0.0, 2.0)
+	mark.position = offset
 	_marks[id] = mark
 
 
@@ -284,11 +285,11 @@ func _run_chapter() -> void:
 	Audio.set_ambience(0.32, 0.0)
 	_set_steps(0)
 	_light_station("spirit")
-	objective("The faded figure on the left. Walk to her and press [E].")
+	objective("Fun Kdungon on the hall floor, right of the loom. Walk to her and press [E].")
 	await wait(0.35)
 	await say([
-		"Far wall, left to right: a spirit, a drying rack, a dye vat. That is the work of this house.",
-		{"speaker": "S'lang", "text": "Someone is sitting so still I took her for a post."},
+		"Far wall, left to right: Fun Kdungon, a drying rack, a dye vat. That is the work of this house.",
+		{"speaker": "S'lang", "text": "You. The one who put the staff in my hands."},
 	])
 
 	_spirit_trigger.set_enabled(true)
@@ -296,9 +297,9 @@ func _run_chapter() -> void:
 	_spirit_trigger.set_enabled(false)
 
 	await say([
-		{"speaker": "Spirit of the Fiber", "text": "Weaver's hands. Then tell me — what comes first?"},
+		{"speaker": "Fun Kdungon", "text": "Weaver's hands. Then tell me — what comes first?"},
 		{"speaker": "S'lang", "text": "The abaca. Strip it, comb it, knot it."},
-		{"speaker": "Spirit of the Fiber", "text": "The grayness took that out of me. Ten pale strands remain in this house — tucked, faded, easy to walk past. Search the hall and the garden. Bring them here."},
+		{"speaker": "Fun Kdungon", "text": "Good. The grayness took that out of this house. Ten pale strands remain — tucked, faded, easy to walk past. Search the hall and the garden. Bring them here."},
 	])
 	GameState.unlock_lore("abaca")
 
@@ -314,7 +315,7 @@ func _run_chapter() -> void:
 
 	await say([
 		{"speaker": "S'lang", "text": "Ten. Half of these will snap under tension."},
-		{"speaker": "Spirit of the Fiber", "text": "Then sort them. Brittle from viable. The rack in the centre is waiting."},
+		{"speaker": "Fun Kdungon", "text": "Then sort them. Brittle from viable. The rack in the centre is waiting."},
 	])
 
 	_set_steps(2)
@@ -327,7 +328,7 @@ func _run_chapter() -> void:
 	var sorted_well: bool = await run_mini_game(FIBER_SORTING)
 	if not sorted_well:
 		await say([
-			{"speaker": "Spirit of the Fiber", "text": "You hurried, and the fibre knows it. Abaca punishes hurry."},
+			{"speaker": "Fun Kdungon", "text": "You hurried, and the fibre knows it. Abaca punishes hurry."},
 		])
 		_clear_steps()
 		if _beacon != null:
@@ -336,19 +337,38 @@ func _run_chapter() -> void:
 		return
 
 	await say([
-		{"speaker": "Spirit of the Fiber", "text": "There. My hands moved before I told them to."},
-		{"speaker": "Spirit of the Fiber", "text": "The vat on the right. What you judged well, the black will accept."},
+		{"speaker": "Fun Kdungon", "text": "There. The fibre remembers you."},
+		{"speaker": "Fun Kdungon", "text": "The vat on the right. Bind cream on a row, then dip it. Four rows and you have a cloth."},
 	])
 
 	_set_steps(3)
 	_light_station("vat")
 	_vat_trigger.set_enabled(true)
-	objective("The vat on the right. Press [E] to pour.")
+	objective("The vat on the right. Press [E] to weave a cloth, strand by strand.")
 	await _vat_trigger.interacted
 	_vat_trigger.set_enabled(false)
 
+	_finished_cloth = {}
+	var woven: bool = await run_mini_game(TNALAK_WEAVING, {}, func(game: Node) -> void:
+		if game.has_signal("cloth_completed"):
+			game.cloth_completed.connect(func(cloth: Variant) -> void:
+				if cloth != null and cloth.has_method("to_dictionary"):
+					_finished_cloth = cloth.to_dictionary()
+				GameState.add_item("tnalak_cloth")
+			)
+	)
+	if not woven:
+		await say([
+			{"speaker": "Fun Kdungon", "text": "The cloth is not yet on the loom. Come back when the last strand is in."},
+		])
+		_clear_steps()
+		if _beacon != null:
+			_beacon.clear()
+		await fail_chapter()
+		return
+
 	set_player_input(false)
-	banner("Black returns to the vat", 1.8)
+	banner("The first T'nalak holds", 1.8)
 	Audio.play_sfx(Audio.Sfx.CHIME)
 	if _plate != null:
 		_plate.bloom_restore(3.2)
@@ -366,7 +386,7 @@ func _run_chapter() -> void:
 	await wait(1.6)
 
 	await complete_chapter([
-		"The vat is not gray anymore. It is black — the night-soil black every cloth is built on.",
-		{"speaker": "Spirit of the Fiber", "text": "The foundation is laid. I will not lose it again."},
-		{"speaker": "Spirit of the Fiber", "text": "Leave by the porch at the garden's edge. The House of Red Courage is next — something has grown across its door."},
+		"The cloth is on the loom. Each strand was bound, dyed, and woven in by hand.",
+		{"speaker": "Fun Kdungon", "text": "The foundation is laid. A T'nalak remembers. I will not let this house forget again."},
+		{"speaker": "Fun Kdungon", "text": "Leave by the porch at the garden's edge. The House of Red Courage is next — something has grown across its door."},
 	])

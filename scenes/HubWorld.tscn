@@ -31,6 +31,7 @@ camera_zoom = Vector2(0.84, 0.84)
 lock_input_when_finished = false
 
 [node name="Floor" type="Node2D" parent="." unique_id=798339335]
+visible = false
 script = ExtResource("2_floor")
 cols = 32
 rows = 32

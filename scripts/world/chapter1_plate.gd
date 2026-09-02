@@ -8,27 +8,30 @@ const SHADER_PATH := "res://shaders/house_black_plate.gdshader"
 const NATIVE := Vector2(1536.0, 1024.0)
 
 const SPAWN_UV := Vector2(0.50, 0.66)
-const SPIRIT_UV := Vector2(0.24, 0.50)
-const SPIRIT_REACH_UV := Vector2(0.30, 0.54)
+## Open floor to the right of the painted loom — not on the seat.
+const SPIRIT_UV := Vector2(0.40, 0.58)
+const SPIRIT_REACH_UV := Vector2(0.40, 0.60)
 const RACK_UV := Vector2(0.50, 0.30)
 const RACK_REACH_UV := Vector2(0.50, 0.40)
 const VAT_UV := Vector2(0.78, 0.38)
 const VAT_REACH_UV := Vector2(0.72, 0.46)
 const EXIT_UV := Vector2(0.50, 0.88)
 
+## Spread across the walkable diamond of House1Collision (hall + garden path).
+## Inset ~40px from wall / loom / shelf / planter edges.
 const HALL_STRAND_UVS: Array[Vector2] = [
-	Vector2(0.34, 0.48),
-	Vector2(0.20, 0.58),
-	Vector2(0.42, 0.42),
-	Vector2(0.62, 0.48),
-	Vector2(0.80, 0.54),
+	Vector2(0.30, 0.54),
+	Vector2(0.42, 0.38),
+	Vector2(0.58, 0.38),
+	Vector2(0.70, 0.46),
+	Vector2(0.50, 0.52),
 ]
 const GARDEN_STRAND_UVS: Array[Vector2] = [
-	Vector2(0.28, 0.74),
-	Vector2(0.22, 0.86),
-	Vector2(0.48, 0.80),
-	Vector2(0.72, 0.76),
-	Vector2(0.78, 0.88),
+	Vector2(0.40, 0.64),
+	Vector2(0.60, 0.64),
+	Vector2(0.40, 0.84),
+	Vector2(0.60, 0.86),
+	Vector2(0.50, 0.86),
 ]
 
 @export var plate_scale := 1.0

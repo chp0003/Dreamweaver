@@ -10,7 +10,8 @@ const NATIVE := Vector2(1536.0, 1024.0)
 const SPAWN_UV := Vector2(0.50, 0.72)
 const STAFF_UV := Vector2(0.52, 0.34)
 const STAFF_REACH_UV := Vector2(0.52, 0.40)
-const GODDESS_UV := Vector2(0.38, 0.36)
+## Open planks between the painted loom and the floor motif — not on the cloth.
+const GODDESS_UV := Vector2(0.44, 0.56)
 const CREEP_UVS: Array[Vector2] = [
 	Vector2(0.40, 0.56),
 	Vector2(0.64, 0.58),

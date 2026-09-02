@@ -140,15 +140,14 @@ func _run_chapter() -> void:
 
 
 func _reveal_fun_kdungon() -> void:
-	var where := _plate.goddess_world() if _plate != null else Iso.cell_to_world(Vector2(-2.4, -3.2))
+	var where := _plate.goddess_world() if _plate != null else Iso.cell_to_world(Vector2(-1.2, 0.4))
 	_goddess = spawn_prop("FUN KDUNGON", Vector2.ZERO, {
 		"position": where,
 		"texture_path": "res://assets/images/characters/fun_kdungon.png",
-		"prop_size": Vector2(78.0, 130.0),
+		"prop_size": Vector2(92.0, 154.0),
 		"body_color": Palette.BLACK_CHARCOAL,
 		"accent_color": Palette.GOLD_SACRED,
-		"float_amplitude": 2.2,
-		"float_speed": 0.7,
+		"float_amplitude": 0.0,
 		"show_label": false,
 		"blocks_movement": false,
 		"cast_shadow": true,

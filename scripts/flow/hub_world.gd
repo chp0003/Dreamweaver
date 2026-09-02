@@ -834,7 +834,9 @@ func _show_ridge() -> void:
 		_set_house_nodes_visible(int(id), false)
 	floor_node = _ridge_floor
 	if _ridge_floor != null:
-		_ridge_floor.visible = true
+		# The painted HubPlate is the ridge. The old iso grass diamond
+		# must stay hidden or it covers the jungle with neon checkers.
+		_ridge_floor.visible = false
 	camera_follows_player = true
 	camera_limit_rect = Rect2()
 	if camera != null:

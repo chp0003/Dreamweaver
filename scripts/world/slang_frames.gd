@@ -1,31 +1,28 @@
 class_name SlangFrames
 extends RefCounted
-## SpriteFrames builder for S'lang — standard 2D idle / walk setup.
+## SpriteFrames builder for S'lang — 8-direction idle / walk.
 ##
 ## CANVAS (every frame, every animation):
 ##   Frame size:  128 x 192 px
 ##   Anchor:      feet at bottom-centre of the canvas
-##   Node offset: AnimatedSprite2D.offset = (0, -46)  // feet on CharacterBody2D origin
-##   Node scale:  (56/128, 92/192)  // one fixed on-screen size for all anims
+##   Node offset: AnimatedSprite2D.offset = (0, -46)
+##   Node scale:  (56/128, 92/192)
 ##
-## Animations:
-##   idle_down, idle_up, idle_left, idle_right
-##   walk_down, walk_up, walk_left, walk_right
-##
-## Art: all frames are derived from `slang.png` so idle↔walk never change height.
-## Optional replacement strips (must also be 128×192 per frame, feet on the bottom edge):
-##   res://assets/images/characters/slang_walk_cycle.png     (8 frames)
-##   res://assets/images/characters/slang_attack_swing.png   (8 frames, staff swing)
-## Left uses the right-facing frames + flip_h.
+## Unique sheets: down, down_right, right, up_right, up.
+## West facings (left, up_left, down_left) use the east sheet + flip_h.
+## Art lives in res://assets/images/characters/slang_8dir/
 
 const BASE_PATH := "res://assets/images/characters/slang.png"
 const WALK_CYCLE_PATH := "res://assets/images/characters/slang_walk_cycle.png"
 const ATTACK_CYCLE_PATH := "res://assets/images/characters/slang_attack_swing.png"
+const DIR8_PATH := "res://assets/images/characters/slang_8dir/"
 
 const FRAME_W := 128
 const FRAME_H := 192
 const WALK_FPS := 12.0
 const ATTACK_FPS := 14.0
+
+const UNIQUE_DIRS := ["down", "down_right", "right", "up_right", "up"]
 
 
 static func load_or_build() -> SpriteFrames:
@@ -35,19 +32,54 @@ static func load_or_build() -> SpriteFrames:
 		push_warning("SlangFrames: missing %s" % BASE_PATH)
 		return frames
 
-	var idle := _to_frame_texture(base)
-	var walk := _load_strip(WALK_CYCLE_PATH, 8)
-	if walk.is_empty() or not _footprint_matches_idle(idle, walk[0] as Texture2D):
-		walk = _walk_cycle_from_idle(base)
+	var idle_fallback := _to_frame_texture(base)
+	var walk_fallback := _load_strip(WALK_CYCLE_PATH, 8)
+	if walk_fallback.is_empty() or not _footprint_matches_idle(idle_fallback, walk_fallback[0] as Texture2D):
+		walk_fallback = _walk_cycle_from_idle(base)
 	var attack := _load_strip(ATTACK_CYCLE_PATH, 8)
-	if attack.is_empty() or not _footprint_matches_idle(idle, attack[0] as Texture2D):
+	if attack.is_empty() or not _footprint_matches_idle(idle_fallback, attack[0] as Texture2D):
 		attack = _attack_cycle_from_idle(base)
 
-	for dir in ["down", "up", "left", "right"]:
+	for dir in UNIQUE_DIRS:
+		var idle := _load_idle_dir(dir)
+		if idle == null:
+			idle = idle_fallback
+		var walk := _load_packed_strip(DIR8_PATH + "walk_%s.png" % dir, 4)
+		if walk.is_empty() or not _frames_differ(walk):
+			if dir == "right" and not walk_fallback.is_empty():
+				walk = walk_fallback
+			else:
+				walk = _walk_cycle_from_idle(idle)
 		_add_anim(frames, "idle_" + dir, [idle], true, 1.0)
 		_add_anim(frames, "walk_" + dir, walk, true, WALK_FPS)
 		_add_anim(frames, "attack_" + dir, attack, false, ATTACK_FPS)
 	return frames
+
+
+static func _load_idle_dir(dir: String) -> Texture2D:
+	var tex := _load_texture(DIR8_PATH + "idle_%s.png" % dir)
+	if tex == null:
+		return null
+	# Already fitted and keyed. Do not decontaminate again — that punches holes
+	# in black cloth and makes her look like a ghost.
+	return tex
+
+
+static func _load_packed_strip(path: String, count: int) -> Array:
+	var sheet := _load_texture(path)
+	if sheet == null:
+		return []
+	var img := _texture_to_image(sheet)
+	if img == null:
+		return []
+	var fw := int(img.get_width() / float(count))
+	if fw < 8:
+		return []
+	var out: Array = []
+	for i in range(count):
+		var cell := img.get_region(Rect2i(i * fw, 0, fw, img.get_height()))
+		out.append(ImageTexture.create_from_image(cell))
+	return out
 
 
 static func _add_anim(frames: SpriteFrames, name: String, texs: Array, loop: bool, fps: float) -> void:
