@@ -439,12 +439,16 @@ static func _texture_to_image(tex: Texture2D) -> Image:
 static func _load_texture(path: String) -> Texture2D:
 	if path.is_empty():
 		return null
+	# Prefer the PNG on disk so a fresh pack is not stuck behind Godot's .ctex cache.
+	var disk := ProjectSettings.globalize_path(path) if path.begins_with("res://") else path
+	if FileAccess.file_exists(disk):
+		var image := Image.new()
+		if image.load(disk) == OK:
+			if image.get_format() != Image.FORMAT_RGBA8:
+				image.convert(Image.FORMAT_RGBA8)
+			return ImageTexture.create_from_image(image)
 	if ResourceLoader.exists(path):
 		var loaded := load(path)
 		if loaded is Texture2D:
 			return loaded
-	if FileAccess.file_exists(path):
-		var image := Image.new()
-		if image.load(path) == OK:
-			return ImageTexture.create_from_image(image)
 	return null

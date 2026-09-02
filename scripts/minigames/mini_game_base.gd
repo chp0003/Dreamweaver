@@ -43,6 +43,7 @@ var _status_label: Label
 var _attempts_label: Label
 var _result_layer: Control
 var _result_title: Label
+var _result_art: TextureRect
 var _result_body: Label
 var _result_buttons: HBoxContainer
 var _theme: Theme
@@ -100,6 +101,9 @@ func start_round() -> void:
 	running = true
 	_time_left = time_limit
 	_result_layer.visible = false
+	if _result_art != null:
+		_result_art.visible = false
+		_result_art.texture = null
 	_timer_bar.visible = time_limit > 0.0
 	_timer_bar.max_value = maxf(time_limit, 0.001)
 	_timer_bar.value = _time_left
@@ -128,6 +132,13 @@ func fail(message := "") -> void:
 func set_status(text: String) -> void:
 	if _status_label != null:
 		_status_label.text = text
+
+
+func set_result_texture(texture: Texture2D) -> void:
+	if _result_art == null:
+		return
+	_result_art.texture = texture
+	_result_art.visible = texture != null
 
 
 func time_left() -> float:
@@ -277,6 +288,15 @@ func _build_result_layer() -> void:
 	_result_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(_result_title)
 
+	_result_art = TextureRect.new()
+	_result_art.name = "ResultArt"
+	_result_art.visible = false
+	_result_art.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	_result_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_result_art.custom_minimum_size = Vector2(220.0, 280.0)
+	_result_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(_result_art)
+
 	_result_body = Label.new()
 	_result_body.custom_minimum_size = Vector2(520.0, 0.0)
 	_result_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -301,6 +321,9 @@ func _show_result(success: bool, message: String) -> void:
 			else "The pattern holds. Colour returns to this corner of the House."
 		_add_result_button("Continue", func() -> void: finished.emit(true))
 	else:
+		if _result_art != null:
+			_result_art.visible = false
+			_result_art.texture = null
 		_result_title.text = "Frayed"
 		var retries := attempts_left()
 		if retries > 0:

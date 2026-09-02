@@ -84,18 +84,19 @@ func _save(image: Image, path: String) -> bool:
 
 
 func _key_plate(image: Image) -> void:
+	# Checker lives on the plate AND in enclosed gaps (armpit, body/staff).
+	# Seed from every matte pixel, not only the image edge.
 	var w := image.get_width()
 	var h := image.get_height()
 	var seen := PackedByteArray()
 	seen.resize(w * h)
 	seen.fill(0)
 	var stack: Array[Vector2i] = []
-	for x in range(w):
-		stack.append(Vector2i(x, 0))
-		stack.append(Vector2i(x, h - 1))
 	for y in range(h):
-		stack.append(Vector2i(0, y))
-		stack.append(Vector2i(w - 1, y))
+		for x in range(w):
+			var c := image.get_pixel(x, y)
+			if c.a < 0.08 or _is_checker_matte(c):
+				stack.append(Vector2i(x, y))
 	while not stack.is_empty():
 		var p: Vector2i = stack.pop_back()
 		if p.x < 0 or p.y < 0 or p.x >= w or p.y >= h:
@@ -143,6 +144,22 @@ func _defringe(image: Image) -> void:
 		image.set_pixel(p.x, p.y, c)
 
 
+func _strip_haze(image: Image) -> void:
+	# Lanczos leaves milky checker dust at low alpha. Solid cloth stays.
+	var w := image.get_width()
+	var h := image.get_height()
+	for y in range(h):
+		for x in range(w):
+			var c := image.get_pixel(x, y)
+			if c.a < 0.08 or c.a >= 0.88:
+				continue
+			var luma := c.r * 0.299 + c.g * 0.587 + c.b * 0.114
+			var chroma := maxf(c.r, maxf(c.g, c.b)) - minf(c.r, minf(c.g, c.b))
+			if luma > 0.52 and chroma < 0.14:
+				c.a = 0.0
+				image.set_pixel(x, y, c)
+
+
 func _near_clear(image: Image, x: int, y: int) -> bool:
 	var w := image.get_width()
 	var h := image.get_height()
@@ -171,8 +188,11 @@ func _fit(src: Image) -> Image:
 	var scaled := Image.new()
 	scaled.copy_from(cropped)
 	scaled.resize(tw, th, Image.INTERPOLATE_LANCZOS)
+	_key_plate(scaled)
 	var ox := int((FRAME_W - tw) / 2.0)
 	canvas.blit_rect(scaled, Rect2i(0, 0, tw, th), Vector2i(ox, FRAME_H - th))
+	_key_plate(canvas)
+	_strip_haze(canvas)
 	return canvas
 
 

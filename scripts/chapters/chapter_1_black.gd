@@ -4,7 +4,7 @@ extends "res://scripts/chapters/house_quest.gd"
 ## Same language as the tutorial and the hub: one painted 16:9 plate.
 ## Warm Guno Bong hall, Fun Kdungon by the loom, garden in the
 ## foreground. Work line on the far wall:
-##   1 Fun Kdungon (remember) → 2 garden/hall strands → 3 rack (sort) → 4 vat (resist and dye).
+##   1 Fun Kdungon (remember) → 2 garden/hall strands → 3 rack (sort) → 4 vat (join the abaca).
 
 const STRAND_TOTAL := 10
 const FIBER_SORTING := "res://scenes/minigames/FiberSorting.tscn"
@@ -144,11 +144,11 @@ func _build_work_line() -> void:
 	_mark_station("rack", _rack, "SORT")
 
 	_vat = _anchor("VatAnchor", _plate.vat_world())
-	_vat_trigger = place_interactable("Resist and dye the warp", _plate.vat_reach_world(), {
+	_vat_trigger = place_interactable("Weave the T'nalak", _plate.vat_reach_world(), {
 		"enabled": false,
 		"radius": 88.0,
 	})
-	_mark_station("vat", _vat, "DYE")
+	_mark_station("vat", _vat, "WEAVE")
 	if _color_anchor != null:
 		_color_anchor.global_position = _plate.vat_world()
 
@@ -338,13 +338,13 @@ func _run_chapter() -> void:
 
 	await say([
 		{"speaker": "Fun Kdungon", "text": "There. The fibre remembers you."},
-		{"speaker": "Fun Kdungon", "text": "The vat on the right. Bind cream on a row, then dip it. Four rows and you have a cloth."},
+		{"speaker": "Fun Kdungon", "text": "The vat on the right. The sorted fibre is waiting. Click a strand, then its match. Four pairs make a cloth."},
 	])
 
 	_set_steps(3)
 	_light_station("vat")
 	_vat_trigger.set_enabled(true)
-	objective("The vat on the right. Press [E] to weave a cloth, strand by strand.")
+	objective("The vat on the right. Press [E] to match the sorted abaca into a cloth.")
 	await _vat_trigger.interacted
 	_vat_trigger.set_enabled(false)
 
@@ -386,7 +386,7 @@ func _run_chapter() -> void:
 	await wait(1.6)
 
 	await complete_chapter([
-		"The cloth is on the loom. Each strand was bound, dyed, and woven in by hand.",
+		"The cloth is on the loom. Each sorted strand found its twin.",
 		{"speaker": "Fun Kdungon", "text": "The foundation is laid. A T'nalak remembers. I will not let this house forget again."},
 		{"speaker": "Fun Kdungon", "text": "Leave by the porch at the garden's edge. The House of Red Courage is next — something has grown across its door."},
 	])
