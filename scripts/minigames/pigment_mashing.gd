@@ -47,7 +47,7 @@ func _build_content(parent: Control) -> void:
 	_mash_label = Label.new()
 	_mash_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_mash_label.add_theme_font_size_override("font_size", 20)
-	_mash_label.add_theme_color_override("font_color", Color(0.92, 0.55, 0.42))
+	_mash_label.add_theme_color_override("font_color", Palette.RED_EMBER)
 	parent.add_child(_mash_label)
 
 	var spacer := Control.new()
@@ -67,18 +67,18 @@ func _build_content(parent: Control) -> void:
 	parent.add_child(_track)
 
 	var trough := ColorRect.new()
-	trough.color = Color(0.11, 0.09, 0.08, 0.95)
+	trough.color = Palette.alpha(Palette.BLACK_SOOT, 0.95)
 	trough.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	trough.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_track.add_child(trough)
 
 	_band = ColorRect.new()
-	_band.color = Color(0.72, 0.2, 0.16, 0.55)
+	_band.color = Palette.alpha(Palette.RED_SACRED, 0.55)
 	_band.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_track.add_child(_band)
 
 	_marker = ColorRect.new()
-	_marker.color = Color(0.95, 0.88, 0.6, 0.95)
+	_marker.color = Palette.GOLD_SACRED
 	_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_track.add_child(_marker)
 
@@ -133,7 +133,7 @@ func _attempt_strike(direction_index: int) -> void:
 		_hits += 1
 		GameState.add_score(20)
 		Audio.play_sfx(Audio.Sfx.HIT)
-		_flash_band(Color(0.95, 0.35, 0.22, 0.88))
+		_flash_band(Palette.alpha(Palette.RED_EMBER, 0.88))
 		_pulse_glyph(true)
 		# Each strike drives the pestle a little faster.
 		_speed = minf(1.5, _speed + 0.07)
@@ -194,7 +194,7 @@ func _flash_band(color: Color) -> void:
 		return
 	_band.color = color
 	var tween := create_tween()
-	tween.tween_property(_band, "color", Color(0.72, 0.2, 0.16, 0.55), 0.24)
+	tween.tween_property(_band, "color", Palette.alpha(Palette.RED_SACRED, 0.55), 0.24)
 
 
 func _refresh_labels() -> void:

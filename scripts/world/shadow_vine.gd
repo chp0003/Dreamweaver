@@ -10,6 +10,7 @@ signal cleared(vine: ShadowVine)
 @export var max_health := 100.0
 @export var sway_speed := 1.7
 @export var sway_degrees := 7.0
+@export var art_size := Vector2(40.0, 120.0)
 
 var health := 100.0
 
@@ -71,9 +72,10 @@ func _build_art() -> void:
 	_art.name = "Art"
 	_art.prop_label = "SHADOW VINE"
 	_art.texture_path = "res://assets/images/enemies/shadow_vine.png"
-	_art.prop_size = Vector2(40.0, 120.0)
+	_art.prop_size = art_size
 	_art.body_color = Color(0.11, 0.1, 0.13)
 	_art.accent_color = Color(0.3, 0.22, 0.3)
 	_art.show_label = false
 	_art.cast_shadow = false
+	_art.blocks_movement = false
 	add_child(_art)

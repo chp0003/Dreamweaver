@@ -193,6 +193,15 @@ func spawn_minion(cell: Vector2, config := {}) -> ShadowMinion:
 	return host.spawn_minion(map_cell(cell), config)
 
 
+func place_minion(world_pos: Vector2, config := {}) -> ShadowMinion:
+	if host == null:
+		return null
+	var minion := host.spawn_minion(Vector2.ZERO, config)
+	if minion != null:
+		minion.global_position = world_pos
+	return minion
+
+
 func add_room_bounds(origin_cell: Vector2i, cols: int, rows: int) -> void:
 	var shifted := Vector2i(
 		origin_cell.x + int(region_origin.x),
@@ -211,7 +220,7 @@ func _ensure_color_anchor() -> void:
 
 
 func house_restore_radius() -> float:
-	return 1400.0 if house_id == 1 else 820.0
+	return 1400.0 if uses_painted_plate() else 820.0
 
 
 func restore_local_color(anchor: Node2D, radius := -1.0, strength := 1.0,
