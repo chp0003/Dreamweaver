@@ -8,7 +8,7 @@ signal health_changed(current: float, maximum: float)
 signal damaged(amount: float, source: Node)
 
 const AGGRO_RANGE := 240.0
-const ATTACK_RANGE := 34.0
+const ATTACK_RANGE := 52.0
 const TOUCH_COOLDOWN := 1.1
 
 @export var max_health := 60.0
@@ -183,7 +183,7 @@ func _flash() -> void:
 func _build_visuals() -> void:
 	if not has_node("CollisionShape2D"):
 		var circle := CircleShape2D.new()
-		circle.radius = 13.0
+		circle.radius = 22.0
 		var shape := CollisionShape2D.new()
 		shape.shape = circle
 		add_child(shape)
@@ -192,7 +192,7 @@ func _build_visuals() -> void:
 	_art.name = "Art"
 	_art.prop_label = "SHADOW"
 	_art.texture_path = "res://assets/images/enemies/shadow_minion.png"
-	_art.prop_size = Vector2(40.0, 56.0)
+	_art.prop_size = Vector2(84.0, 118.0)
 	_art.body_color = Color(0.1, 0.09, 0.12)
 	_art.accent_color = Color(0.35, 0.3, 0.4)
 	_art.show_label = false
@@ -204,7 +204,7 @@ func _build_visuals() -> void:
 
 	_select_ring = Polygon2D.new()
 	_select_ring.name = "SelectRing"
-	_select_ring.polygon = Iso.diamond(Vector2(0.0, 4.0), 1.35)
+	_select_ring.polygon = Iso.diamond(Vector2(0.0, 6.0), 2.05)
 	_select_ring.color = Palette.alpha(Palette.GOLD_SUN, 0.55)
 	_select_ring.z_index = -1
 	_select_ring.visible = false
@@ -214,9 +214,9 @@ func _build_visuals() -> void:
 	_hp_bar = ProgressBar.new()
 	_hp_bar.name = "HpBar"
 	_hp_bar.show_percentage = false
-	_hp_bar.custom_minimum_size = Vector2(42.0, 6.0)
-	_hp_bar.size = Vector2(42.0, 6.0)
-	_hp_bar.position = Vector2(-21.0, -70.0)
+	_hp_bar.custom_minimum_size = Vector2(64.0, 7.0)
+	_hp_bar.size = Vector2(64.0, 7.0)
+	_hp_bar.position = Vector2(-32.0, -132.0)
 	_hp_bar.max_value = max_health
 	_hp_bar.value = health
 	_hp_bar.visible = false

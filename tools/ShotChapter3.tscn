@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://bwdwshot000c3"]
+
+[ext_resource type="Script" path="res://tools/shot_chapter3.gd" id="1_shot"]
+
+[node name="ShotChapter3" type="Node"]
+script = ExtResource("1_shot")

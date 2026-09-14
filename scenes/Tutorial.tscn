@@ -12,7 +12,7 @@ chapter_id = 0
 chapter_title = "S'lang's Awakening"
 register_as_current_chapter = false
 player_spawn_cell = Vector2(0, 3)
-camera_zoom = Vector2(1.06, 1.06)
+camera_zoom = Vector2(0.86, 0.86)
 starting_gray = 0.78
 simplify_hud = true
 
@@ -32,7 +32,7 @@ scatter_detail = false
 y_sort_enabled = true
 
 [node name="Camera" type="Camera2D" parent="."]
-zoom = Vector2(1.06, 1.06)
+zoom = Vector2(0.86, 0.86)
 
 [node name="UiLayer" type="CanvasLayer" parent="."]
 layer = 120

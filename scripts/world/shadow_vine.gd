@@ -10,7 +10,7 @@ signal cleared(vine: ShadowVine)
 @export var max_health := 100.0
 @export var sway_speed := 1.7
 @export var sway_degrees := 7.0
-@export var art_size := Vector2(40.0, 120.0)
+@export var art_size := Vector2(88.0, 248.0)
 
 var health := 100.0
 

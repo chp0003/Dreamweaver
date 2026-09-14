@@ -142,7 +142,7 @@ func _grow_vines() -> void:
 		var vine := ShadowVine.new()
 		vine.name = "ShadowVine_%d" % i
 		vine.max_health = 70.0
-		vine.art_size = Vector2(68.0, 196.0)
+		vine.art_size = Vector2(88.0, 248.0)
 		if world != null:
 			world.add_child(vine)
 		else:

@@ -7,6 +7,7 @@ const TEX_PATH := "res://assets/images/props/quest_mark.png"
 var _pulse := 0.0
 var _follow: Node2D
 var _art: Sprite2D
+var _pinned := false
 
 
 func _ready() -> void:
@@ -22,28 +23,35 @@ func _ready() -> void:
 		if loaded is Texture2D:
 			_art.texture = loaded
 	add_child(_art)
+	visible = false
 	set_process(true)
 
 
 func pin(target: Node2D, offset := Vector2(0.0, 10.0)) -> void:
 	_follow = target
-	visible = target != null
+	_pinned = target != null
+	visible = _pinned
 	if target != null:
 		global_position = target.global_position + offset
 
 
 func pin_world(world_pos: Vector2) -> void:
 	_follow = null
+	_pinned = true
 	visible = true
 	global_position = world_pos
 
 
 func clear() -> void:
 	_follow = null
+	_pinned = false
 	visible = false
 
 
 func _process(delta: float) -> void:
+	if not _pinned:
+		visible = false
+		return
 	_pulse += delta * 3.2
 	if _follow != null and is_instance_valid(_follow):
 		global_position = _follow.global_position + Vector2(0.0, 10.0)

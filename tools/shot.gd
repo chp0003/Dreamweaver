@@ -19,6 +19,7 @@ const TARGETS := [
 	{"name": "05_hub", "scene": "res://scenes/HubWorld.tscn"},
 	{"name": "06_chapter1", "scene": "res://scenes/Chapter1.tscn"},
 	{"name": "06b_chapter2", "scene": "res://scenes/Chapter2.tscn"},
+	{"name": "06c_chapter3", "scene": "res://scenes/Chapter3.tscn"},
 	{"name": "07_ending", "scene": "res://scenes/Ending.tscn"},
 ]
 

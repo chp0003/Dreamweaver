@@ -18,7 +18,7 @@ const CREEP_UVS: Array[Vector2] = [
 ]
 
 @export var plate_scale := 1.0
-@export var debug_draw_collision := true
+@export var debug_draw_collision := false
 
 var _sprite: Sprite2D
 var _tex_size := NATIVE
@@ -61,25 +61,37 @@ func world_rect() -> Rect2:
 	return Rect2(-size * 0.5, size)
 
 
+func global_world_rect() -> Rect2:
+	var rect := world_rect()
+	if is_inside_tree():
+		var top_left := to_global(rect.position)
+		return Rect2(top_left, rect.size * absf(scale.x))
+	return Rect2(global_position + rect.position * scale, rect.size * absf(scale.x))
+
+
 func uv_to_world(uv: Vector2) -> Vector2:
 	var size := displayed_size()
 	return Vector2((uv.x - 0.5) * size.x, (uv.y - 0.5) * size.y)
 
 
+func uv_to_global(uv: Vector2) -> Vector2:
+	return to_global(uv_to_world(uv)) if is_inside_tree() else global_position + uv_to_world(uv)
+
+
 func spawn_world() -> Vector2:
-	return uv_to_world(SPAWN_UV)
+	return uv_to_global(SPAWN_UV)
 
 
 func staff_world() -> Vector2:
-	return uv_to_world(STAFF_UV)
+	return uv_to_global(STAFF_UV)
 
 
 func staff_reach_world() -> Vector2:
-	return uv_to_world(STAFF_REACH_UV)
+	return uv_to_global(STAFF_REACH_UV)
 
 
 func goddess_world() -> Vector2:
-	return uv_to_world(GODDESS_UV)
+	return uv_to_global(GODDESS_UV)
 
 
 func attach_solids(_host: Node2D) -> void:
@@ -88,7 +100,7 @@ func attach_solids(_host: Node2D) -> void:
 
 func creep_world(index: int) -> Vector2:
 	var uv: Vector2 = CREEP_UVS[clampi(index, 0, CREEP_UVS.size() - 1)]
-	return uv_to_world(uv)
+	return uv_to_global(uv)
 
 
 func _load_disk_image() -> Image:

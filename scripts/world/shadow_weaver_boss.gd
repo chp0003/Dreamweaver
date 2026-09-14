@@ -201,7 +201,7 @@ func _build_visuals() -> void:
 	_art.name = "Art"
 	_art.prop_label = "SHADOW WEAVER BOSS"
 	_art.texture_path = "res://assets/images/enemies/shadow_weaver_boss.png"
-	_art.prop_size = Vector2(110.0, 168.0)
+	_art.prop_size = Vector2(156.0, 236.0)
 	_art.body_color = Color(0.12, 0.11, 0.15)
 	_art.accent_color = Color(0.42, 0.3, 0.42)
 	_art.float_amplitude = 6.0

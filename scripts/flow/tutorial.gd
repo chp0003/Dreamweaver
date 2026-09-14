@@ -14,7 +14,7 @@ var _plate: TutorialPlate
 
 func at_uv(uv: Vector2) -> Vector2:
 	if _plate != null:
-		return _plate.uv_to_world(uv)
+		return _plate.uv_to_global(uv)
 	return Iso.cell_to_world(uv)
 
 
@@ -41,6 +41,7 @@ func _build_world() -> void:
 		var spawn := _plate.spawn_world() if _plate != null else Iso.cell_to_world(player_spawn_cell)
 		player.global_position = spawn
 		_spawn_position = spawn
+	_bind_plate_camera()
 
 	_tutorial = TutorialManager.new()
 	_tutorial.name = "TutorialManager"
@@ -53,6 +54,14 @@ func _build_world() -> void:
 	_clamp_camera()
 
 
+func painted_player_scale() -> float:
+	return 2.6
+
+
+func plate_camera_zoom() -> float:
+	return 0.86
+
+
 func _mount_plate() -> void:
 	_plate = TutorialPlate.new()
 	_plate.name = "TutorialPlate"
@@ -60,6 +69,25 @@ func _mount_plate() -> void:
 	move_child(_plate, 0)
 	if world != null:
 		_plate.attach_solids(world)
+
+
+func _bind_plate_camera() -> void:
+	if _plate == null or camera == null:
+		return
+	camera_limit_rect = _plate.global_world_rect()
+	var z := plate_camera_zoom()
+	var rect := camera_limit_rect
+	camera.zoom = Vector2(z, z)
+	var view := get_viewport_rect().size / Vector2(z, z)
+	camera_follows_player = view.x < rect.size.x or view.y < rect.size.y
+	if camera_follows_player and player != null:
+		camera.global_position = player.global_position
+	else:
+		camera.global_position = rect.get_center()
+	if player != null and player.has_method("apply_depth_scale"):
+		player.apply_depth_scale(painted_player_scale())
+	apply_camera_world_limits()
+	_clamp_camera()
 
 
 func _place_staff() -> void:
@@ -144,7 +172,7 @@ func _reveal_fun_kdungon() -> void:
 	_goddess = spawn_prop("FUN KDUNGON", Vector2.ZERO, {
 		"position": where,
 		"texture_path": "res://assets/images/characters/fun_kdungon.png",
-		"prop_size": Vector2(92.0, 154.0),
+		"prop_size": Vector2(110.0, 188.0),
 		"body_color": Palette.BLACK_CHARCOAL,
 		"accent_color": Palette.GOLD_SACRED,
 		"float_amplitude": 0.0,
@@ -170,14 +198,15 @@ func _reveal_fun_kdungon() -> void:
 
 func apply_camera_world_limits(which: Node2D = null) -> void:
 	if _plate != null and camera != null:
-		_limit_camera_to_rect(_plate.world_rect())
+		camera_limit_rect = _plate.global_world_rect()
+		_limit_camera_to_rect(camera_limit_rect)
 		return
 	super.apply_camera_world_limits(which)
 
 
 func _clamp_camera() -> void:
 	if _plate != null and camera != null:
-		_clamp_camera_to_rect(_plate.world_rect())
+		_clamp_camera_to_rect(_plate.global_world_rect())
 		return
 	super._clamp_camera()
 
