@@ -273,6 +273,8 @@ func _portrait_path(speaker: String) -> String:
 	if "spirit" in key:
 		return "res://assets/images/characters/spirit_of_the_fiber.png"
 	if "master" in key:
+		if ResourceLoader.exists("res://assets/images/characters/master_weaver_ghost_portrait.png"):
+			return "res://assets/images/characters/master_weaver_ghost_portrait.png"
 		return "res://assets/images/characters/master_weaver_ghost.png"
 	if "shadow" in key:
 		return "res://assets/images/enemies/shadow_minion.png"

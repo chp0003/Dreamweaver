@@ -123,7 +123,7 @@ const LIST: Array[Dictionary] = [
 		"accent": Color(0.84, 0.78, 0.63),
 		"hub_cell": Vector2(-10.0, -4.0),
 		"hub_uv": Vector2(0.305, 0.368),
-		"hub_porch_uv": Vector2(0.305, 0.412),
+		"hub_porch_uv": Vector2(0.34, 0.445),
 		"hub_solid_centre_uv": Vector2(0.255, 0.335),
 		"hub_solid_size_uv": Vector2(0.102, 0.125),
 		"hub_roof_polygons_uv": [

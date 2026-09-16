@@ -19,7 +19,10 @@ func _ready() -> void:
 	var chapter := GameState.current_chapter
 	if chapter > 0:
 		reason_label.text = "The Pattern Loosened"
-		detail_label.text = "%s remains unwoven.\n\nYou keep every essence and every lore entry already earned. Your three lives return, and the House begins again." % Houses.name_for(chapter)
+		if chapter == 4:
+			detail_label.text = "%s remains unwoven.\n\nLore you have already remembered stays with you. The score of this attempt is unwoven. Your three lives return, and the House begins again." % Houses.name_for(chapter)
+		else:
+			detail_label.text = "%s remains unwoven.\n\nYou keep every essence and every lore entry already earned. Your three lives return, and the House begins again." % Houses.name_for(chapter)
 		retry_button.text = "Retake %s" % Houses.short_name_for(chapter)
 	else:
 		reason_label.text = "The Dream Slipped"
@@ -47,6 +50,8 @@ func _on_retry_pressed() -> void:
 	# wiped, progress in other Houses untouched.
 	GameState.refill_lives()
 	GameState.reset_quiz_mistakes()
+	if GameState.current_chapter == 4:
+		GameState.restore_house_score()
 	SceneFader.fade_to_scene(GameState.current_chapter_scene())
 
 

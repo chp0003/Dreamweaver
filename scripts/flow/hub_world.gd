@@ -67,6 +67,7 @@ var _leaving_house := false
 
 
 func _build_world() -> void:
+	GameState.sync_house_unlocks()
 	_ridge_floor = floor_node
 	if _ridge_floor != null:
 		_ridge_floor.visible = false
@@ -182,7 +183,7 @@ func _place_house_exit(house_id: int, origin: Vector2, accent: Color) -> void:
 
 
 func _add_house_floor(house_id: int, origin: Vector2) -> void:
-	if house_id == 1 or house_id == 2 or house_id == 3:
+	if house_id == 1 or house_id == 2 or house_id == 3 or house_id == 4:
 		return
 	var floor := Node2D.new()
 	floor.name = "FloorHouse%d" % house_id
@@ -493,7 +494,7 @@ func _build_door(house: Dictionary) -> void:
 	var trigger := add_interactable("Enter %s" % Houses.short_name_for(house_id),
 		Vector2.ZERO, {
 			"position": porch,
-			"radius": HOUSE_DOOR_RADIUS,
+			"radius": HOUSE_DOOR_RADIUS * (1.25 if house_id == 4 else 1.0),
 			"hub_door_priority": true,
 			"prompt_offset": Vector2(0.0, -120.0),
 		})
@@ -646,6 +647,7 @@ func _on_door_used(house_id: int) -> void:
 	if SceneFader.is_busy() or _active_house_id != 0:
 		return
 
+	GameState.sync_house_unlocks()
 	if not GameState.is_house_unlocked(house_id):
 		var house := Houses.get_house(house_id)
 		await say([

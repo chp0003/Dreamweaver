@@ -26,6 +26,8 @@ var score := 0
 var quiz_mistakes := 0
 var game_completed := false
 var objective := ""
+## Score when the current House began. Chapter 4 restores this on a failed retake.
+var house_score_mark := 0
 
 
 func _ready() -> void:
@@ -69,6 +71,7 @@ func load_from_account() -> void:
 	objective = ""
 	if unlocked_houses.is_empty():
 		unlocked_houses = [1]
+	sync_house_unlocks()
 	_announce_all()
 
 
@@ -157,6 +160,22 @@ func unlock_house(house_id: int) -> void:
 	unlocked_houses.append(house_id)
 	progress_changed.emit()
 	save()
+
+
+## If a House is restored, the next one must be enterable even when an older
+## save never wrote that unlock.
+func sync_house_unlocks() -> void:
+	var changed := false
+	if not is_house_unlocked(1):
+		unlocked_houses.append(1)
+		changed = true
+	for house_id in range(1, Houses.count()):
+		if is_house_completed(house_id) and not is_house_unlocked(house_id + 1):
+			unlocked_houses.append(house_id + 1)
+			changed = true
+	if changed:
+		progress_changed.emit()
+		save()
 
 
 ## Marks a House restored, banks its essence, and opens the next one.
@@ -281,6 +300,18 @@ func quiz_attempts_left() -> int:
 
 func reset_quiz_mistakes() -> void:
 	quiz_mistakes = 0
+
+
+func mark_house_score() -> void:
+	house_score_mark = score
+
+
+func restore_house_score() -> void:
+	if score == house_score_mark:
+		return
+	score = maxi(0, house_score_mark)
+	score_changed.emit(score)
+	save()
 
 
 ## Banks the victory once. Safe to call again - the ending screen calls it too,

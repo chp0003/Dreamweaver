@@ -99,6 +99,7 @@ polygon = PackedVector2Array(-444, -211, -339, -171, -367, -147, -460, -191)
 
 [node name="Roof_DreamAncestors_Porch" type="CollisionPolygon2D" parent="World/HubCollision" unique_id=1415392400]
 position = Vector2(-22, -36)
+disabled = true
 polygon = PackedVector2Array(-371.7, -179.2, -286, -128, -288, -105, -387.1, -158.7)
 
 [node name="Roof_SacredLoom_Main" type="CollisionPolygon2D" parent="World/HubCollision" unique_id=962188836]
