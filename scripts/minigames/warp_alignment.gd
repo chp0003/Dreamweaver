@@ -1,76 +1,78 @@
 extends MiniGameBase
-## Chapter 4 - Warp Alignment. A textile swap puzzle with three cloths.
+## Chapter 4 - Warp Alignment. Slide neighboring cloth sections
+## until the complete woven pattern is restored.
 ##
-## Easy: 2x2 T'boli woven cloth (4 pieces).
-## Medium: 3x2 Fu Kudong pattern (6 pieces).
-## Hard: 4x3 slices of the photographed T'nalak hanging
+## Easy: 3x3 of a complete T'boli cloth (9 pieces), light scramble.
+## Medium: 3x4 Fun Kdungon (12 pieces).
+## Hard: 5x4 slices of the photographed T'nalak hanging
 ## (`assets/images/props/tnalak_cloth.png`).
 ##
-## Click one section, then another, to swap. Match the dream pattern in
-## 8 moves and 90 seconds.
+## Drag a piece, or click it and then a neighbor, to slide them.
 
 enum Difficulty { Easy, Medium, Hard }
 
-const MOVE_BUDGET := 8
 const EASY_PATH := "res://assets/images/minigames/warp_pattern_easy.png"
-const MEDIUM_PATH := "res://assets/images/minigames/warp_pattern_medium.png"
+const MEDIUM_PATH := "res://assets/images/characters/fun_kdungon.png"
 const HARD_PATH := "res://assets/images/props/tnalak_cloth.png"
 ## Inner cloth of the hanging photograph, excluding the wooden wall and fringe.
 const HARD_CROP_UV := Rect2(0.08, 0.03, 0.84, 0.74)
+## Fun Kdungon sprite content, trimming empty transparent padding.
+const MEDIUM_CROP_UV := Rect2(0.02, 0.01, 0.96, 0.98)
 
 @export var difficulty := Difficulty.Easy
 
-var _moves_label: Label
-var _time_label: Label
 var _target_view: TextureRect
+var _board_frame: PanelContainer
 var _board: Control
 var _tiles: Array[TextureButton] = []
 var _target: Array[int] = []
 var _current: Array[int] = []
 var _selected := -1
 var _moves := 0
-var _swapping := false
-var _cols := 2
-var _rows := 2
-var _scramble := 3
+var _sliding := false
+var _drag_from := -1
+var _drag_start := Vector2.ZERO
+var _ignore_click := false
+var _cols := 3
+var _rows := 3
+var _scramble := 8
 var _cloth: Texture2D
 var _regions: Array[Rect2] = []
-var _board_size := Vector2(520.0, 360.0)
+var _board_size := Vector2(420.0, 420.0)
+var _cell := Vector2.ZERO
+var _gap := 4.0
 
 
 func _configure() -> void:
 	_apply_difficulty()
 	mini_game_title = "Warp Alignment"
 	mini_game_subtitle = _difficulty_title()
-	instructions = "Click two woven sections to swap them. Rebuild the dream pattern."
-	time_limit = 90.0
+	instructions = "Slide neighboring boxes — drag a piece, or click it and then the neighbor it should trade with."
+	time_limit = 0.0
 	max_attempts = 1
-	reward_score = 280 + _cols * _rows * 20
+	reward_score = 80 + _cols * _rows * 8
 
 
 func _apply_difficulty() -> void:
 	match difficulty:
 		Difficulty.Medium:
 			_cols = 3
-			_rows = 2
-			_scramble = 4
-			_board_size = Vector2(560.0, 340.0)
+			_rows = 4
+			_scramble = 18
 		Difficulty.Hard:
-			_cols = 4
-			_rows = 3
-			_scramble = 6
-			_board_size = Vector2(620.0, 400.0)
+			_cols = 5
+			_rows = 4
+			_scramble = 24
 		_:
-			_cols = 2
-			_rows = 2
-			_scramble = 3
-			_board_size = Vector2(420.0, 360.0)
+			_cols = 3
+			_rows = 3
+			_scramble = 8
 
 
 func _difficulty_title() -> String:
 	match difficulty:
 		Difficulty.Medium:
-			return "Fu Kudong"
+			return "Fun Kdungon"
 		Difficulty.Hard:
 			return "Master Cloth"
 		_:
@@ -80,23 +82,6 @@ func _difficulty_title() -> String:
 func _build_content(parent: Control) -> void:
 	if _timer_bar != null:
 		_timer_bar.visible = false
-
-	var hud := HBoxContainer.new()
-	hud.alignment = BoxContainer.ALIGNMENT_CENTER
-	hud.add_theme_constant_override("separation", 36)
-	parent.add_child(hud)
-
-	_moves_label = Label.new()
-	_moves_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_moves_label.add_theme_font_size_override("font_size", 20)
-	_moves_label.add_theme_color_override("font_color", Color(0.93, 0.86, 0.62))
-	hud.add_child(_moves_label)
-
-	_time_label = Label.new()
-	_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_time_label.add_theme_font_size_override("font_size", 20)
-	_time_label.add_theme_color_override("font_color", Color(0.93, 0.86, 0.62))
-	hud.add_child(_time_label)
 
 	var stage := HBoxContainer.new()
 	stage.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -117,9 +102,8 @@ func _build_content(parent: Control) -> void:
 
 	_target_view = TextureRect.new()
 	_target_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_target_view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_target_view.custom_minimum_size = Vector2(220.0, 300.0)
-	_target_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_target_view.stretch_mode = TextureRect.STRETCH_SCALE
+	_target_view.custom_minimum_size = Vector2(200.0, 260.0)
 	dream_col.add_child(_target_view)
 
 	var loom_col := VBoxContainer.new()
@@ -134,38 +118,39 @@ func _build_content(parent: Control) -> void:
 	loom_tag.theme_type_variation = &"FieldLabel"
 	loom_col.add_child(loom_tag)
 
-	var board_frame := PanelContainer.new()
-	board_frame.custom_minimum_size = _board_size + Vector2(16.0, 16.0)
-	board_frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_board_frame = PanelContainer.new()
+	_board_frame.custom_minimum_size = _board_size + Vector2(16.0, 16.0)
+	_board_frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var frame_style := StyleBoxFlat.new()
 	frame_style.bg_color = Color(0.12, 0.10, 0.08, 0.92)
 	frame_style.border_color = Color(0.84, 0.74, 0.46, 0.85)
 	frame_style.set_border_width_all(2)
 	frame_style.set_content_margin_all(8)
-	board_frame.add_theme_stylebox_override("panel", frame_style)
-	loom_col.add_child(board_frame)
+	_board_frame.add_theme_stylebox_override("panel", frame_style)
+	loom_col.add_child(_board_frame)
 
 	_board = Control.new()
 	_board.custom_minimum_size = _board_size
 	_board.size = _board_size
-	board_frame.add_child(_board)
+	_board_frame.add_child(_board)
 
 
 func _reset_round() -> void:
 	_moves = 0
 	_selected = -1
-	_swapping = false
+	_sliding = false
+	_drag_from = -1
+	_ignore_click = false
 	_load_cloth()
+	_fit_layout_to_cloth()
 	_deal()
 	_rebuild_tiles()
 	_refresh_hud()
-	set_status("Click a woven section, then the section it should trade places with.")
+	set_status("Slide neighboring sections until the complete cloth returns.")
 
 
 func _process(delta: float) -> void:
 	super._process(delta)
-	if _time_label != null and time_limit > 0.0:
-		_time_label.text = "Time: %ds" % ceili(time_left())
 
 
 func _load_cloth() -> void:
@@ -176,8 +161,36 @@ func _load_cloth() -> void:
 		Difficulty.Hard:
 			path = HARD_PATH
 	_cloth = _load_texture(path)
-	_target_view.texture = _cloth_preview()
 	_regions = _slice_regions()
+	if _target_view != null:
+		_target_view.texture = _cloth_preview()
+
+
+func _fit_layout_to_cloth() -> void:
+	var source := _cloth_source_rect()
+	if source.size.x <= 1.0 or source.size.y <= 1.0:
+		return
+	var aspect := source.size.x / source.size.y
+	var max_w := 520.0
+	var max_h := 480.0
+	var board_w := max_w
+	var board_h := board_w / aspect
+	if board_h > max_h:
+		board_h = max_h
+		board_w = board_h * aspect
+	_board_size = Vector2(board_w, board_h)
+
+	var preview_h := mini(340.0, board_h)
+	var preview_w := preview_h * aspect
+	if _target_view != null:
+		_target_view.custom_minimum_size = Vector2(preview_w, preview_h)
+		_target_view.size = Vector2(preview_w, preview_h)
+
+	if _board != null:
+		_board.custom_minimum_size = _board_size
+		_board.size = _board_size
+	if _board_frame != null:
+		_board_frame.custom_minimum_size = _board_size + Vector2(16.0, 16.0)
 
 
 func _load_texture(path: String) -> Texture2D:
@@ -202,13 +215,18 @@ func _cloth_source_rect() -> Rect2:
 			HARD_CROP_UV.position * size,
 			HARD_CROP_UV.size * size
 		)
+	if difficulty == Difficulty.Medium:
+		return Rect2(
+			MEDIUM_CROP_UV.position * size,
+			MEDIUM_CROP_UV.size * size
+		)
 	return Rect2(Vector2.ZERO, size)
 
 
 func _cloth_preview() -> Texture2D:
 	if _cloth == null:
 		return null
-	if difficulty != Difficulty.Hard:
+	if difficulty == Difficulty.Easy:
 		return _cloth
 	var atlas := AtlasTexture.new()
 	atlas.atlas = _cloth
@@ -227,19 +245,57 @@ func _slice_regions() -> Array[Rect2]:
 	return out
 
 
+func _matched_count() -> int:
+	var matched := 0
+	for i in range(_current.size()):
+		if int(_current[i]) == int(_target[i]):
+			matched += 1
+	return matched
+
+
+func _is_solved() -> bool:
+	return not _current.is_empty() and _matched_count() == _current.size()
+
+
 func _deal() -> void:
 	var count := _cols * _rows
 	_target.clear()
 	for i in range(count):
 		_target.append(i)
 	_current = _target.duplicate()
-	for _swap in range(_scramble):
-		var a := randi() % count
-		var b := randi() % count
-		if a != b:
-			_swap_values(a, b)
-	if _current == _target:
-		_swap_values(0, mini(1, count - 1))
+	var guard := 0
+	while guard < 80:
+		guard += 1
+		var index := randi() % count
+		var nbs := _neighbors(index)
+		if nbs.is_empty():
+			continue
+		_swap_values(index, nbs[randi() % nbs.size()])
+		if guard >= _scramble and _matched_count() <= count - 3:
+			break
+	if _is_solved():
+		_swap_values(0, 1)
+		if count > 2:
+			_swap_values(1, 2)
+
+
+func _neighbors(index: int) -> Array[int]:
+	var col := index % _cols
+	var row := int(index / _cols)
+	var out: Array[int] = []
+	if col > 0:
+		out.append(index - 1)
+	if col < _cols - 1:
+		out.append(index + 1)
+	if row > 0:
+		out.append(index - _cols)
+	if row < _rows - 1:
+		out.append(index + _cols)
+	return out
+
+
+func _is_adjacent(a: int, b: int) -> bool:
+	return _neighbors(a).has(b)
 
 
 func _swap_values(a: int, b: int) -> void:
@@ -248,27 +304,42 @@ func _swap_values(a: int, b: int) -> void:
 	_current[b] = held
 
 
+func _tile_position(index: int) -> Vector2:
+	var col := index % _cols
+	var row := int(index / _cols)
+	return Vector2(col * (_cell.x + _gap), row * (_cell.y + _gap))
+
+
 func _rebuild_tiles() -> void:
 	for child in _board.get_children():
 		child.queue_free()
 	_tiles.clear()
-	var count := _cols * _rows
-	var gap := 3.0
-	var cell := Vector2(
-		(_board_size.x - gap * float(_cols - 1)) / float(_cols),
-		(_board_size.y - gap * float(_rows - 1)) / float(_rows)
+	_cell = Vector2(
+		(_board_size.x - _gap * float(_cols - 1)) / float(_cols),
+		(_board_size.y - _gap * float(_rows - 1)) / float(_rows)
 	)
+	var count := _cols * _rows
 	for i in range(count):
 		var button := TextureButton.new()
 		button.ignore_texture_size = true
-		button.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_COVERED
+		button.stretch_mode = TextureButton.STRETCH_SCALE
 		button.focus_mode = Control.FOCUS_NONE
-		button.custom_minimum_size = cell
-		button.size = cell
-		var col := i % _cols
-		var row := int(i / _cols)
-		button.position = Vector2(col * (cell.x + gap), row * (cell.y + gap))
+		button.mouse_filter = Control.MOUSE_FILTER_STOP
+		button.custom_minimum_size = _cell
+		button.size = _cell
+		button.position = _tile_position(i)
+		button.gui_input.connect(_on_tile_gui_input.bind(i))
 		button.pressed.connect(_on_tile_pressed.bind(i))
+		var border := Panel.new()
+		border.name = "TileBorder"
+		border.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		border.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var border_style := StyleBoxFlat.new()
+		border_style.bg_color = Color(0.0, 0.0, 0.0, 0.0)
+		border_style.border_color = Color(0.92, 0.82, 0.48, 0.95)
+		border_style.set_border_width_all(2)
+		border.add_theme_stylebox_override("panel", border_style)
+		button.add_child(border)
 		_board.add_child(button)
 		_tiles.append(button)
 	_paint_tiles()
@@ -290,36 +361,93 @@ func _paint_tiles() -> void:
 		button.texture_normal = _tile_texture(_current[i])
 		var chosen := i == _selected
 		button.modulate = Color(1.18, 1.12, 0.88) if chosen else Color.WHITE
-		var ring := button.get_node_or_null("SelectRing") as ColorRect
-		if ring == null:
-			ring = ColorRect.new()
-			ring.name = "SelectRing"
-			ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			ring.color = Color(0.96, 0.86, 0.52, 0.0)
-			ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			button.add_child(ring)
-		ring.color = Color(0.98, 0.9, 0.55, 0.22) if chosen else Color(0.96, 0.86, 0.52, 0.0)
+		var border := button.get_node_or_null("TileBorder") as Panel
+		if border != null:
+			var style := border.get_theme_stylebox("panel") as StyleBoxFlat
+			if style != null:
+				style.border_color = Color(1.0, 0.92, 0.55, 1.0) if chosen else Color(0.92, 0.82, 0.48, 0.95)
+				style.set_border_width_all(3 if chosen else 2)
+
+
+func _neighbor_from_delta(index: int, delta: Vector2) -> int:
+	var col := index % _cols
+	var row := int(index / _cols)
+	if absf(delta.x) >= absf(delta.y):
+		if delta.x > 0.0 and col < _cols - 1:
+			return index + 1
+		if delta.x < 0.0 and col > 0:
+			return index - 1
+	else:
+		if delta.y > 0.0 and row < _rows - 1:
+			return index + _cols
+		if delta.y < 0.0 and row > 0:
+			return index - _cols
+	return -1
+
+
+func _on_tile_gui_input(event: InputEvent, index: int) -> void:
+	if not running or _sliding:
+		return
+	var mouse := event as InputEventMouseButton
+	if mouse == null or mouse.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if mouse.pressed:
+		_drag_from = index
+		_drag_start = mouse.global_position
+
+
+func _input(event: InputEvent) -> void:
+	if _drag_from < 0 or not running or _sliding:
+		return
+	var mouse := event as InputEventMouseButton
+	if mouse == null or mouse.pressed or mouse.button_index != MOUSE_BUTTON_LEFT:
+		return
+	var from := _drag_from
+	var start := _drag_start
+	_drag_from = -1
+	var delta := mouse.global_position - start
+	if delta.length() < 28.0:
+		return
+	var dest := _neighbor_from_delta(from, delta)
+	if dest < 0:
+		return
+	_ignore_click = true
+	_slide_animated(from, dest)
+	_clear_click_guard.call_deferred()
+
+
+func _clear_click_guard() -> void:
+	_ignore_click = false
 
 
 func _on_tile_pressed(index: int) -> void:
-	if not running or _swapping:
+	if _ignore_click:
+		_ignore_click = false
+		return
+	if not running or _sliding:
 		return
 	if _selected < 0:
 		_selected = index
 		Audio.play_sfx(Audio.Sfx.PICKUP)
 		_paint_tiles()
-		set_status("Holding a warp section. Click another to swap.")
+		set_status("Slide it into a neighboring section.")
 		return
 	if _selected == index:
 		_selected = -1
 		_paint_tiles()
 		set_status("Released.")
 		return
-	await _swap_animated(_selected, index)
+	if not _is_adjacent(_selected, index):
+		_selected = index
+		Audio.play_sfx(Audio.Sfx.PICKUP)
+		_paint_tiles()
+		set_status("Those warps do not touch. Slide a neighbor instead.")
+		return
+	await _slide_animated(_selected, index)
 
 
-func _swap_animated(a: int, b: int) -> void:
-	_swapping = true
+func _slide_animated(a: int, b: int) -> void:
+	_sliding = true
 	_selected = -1
 	var tile_a := _tiles[a]
 	var tile_b := _tiles[b]
@@ -331,8 +459,8 @@ func _swap_animated(a: int, b: int) -> void:
 	tile_b.visible = false
 	var tween := create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(fly_a, "position", pos_b, 0.28).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(fly_b, "position", pos_a, 0.28).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(fly_a, "position", pos_b, 0.22).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(fly_b, "position", pos_a, 0.22).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	await tween.finished
 	if is_instance_valid(fly_a):
 		fly_a.queue_free()
@@ -345,21 +473,18 @@ func _swap_animated(a: int, b: int) -> void:
 	tile_b.visible = true
 	_paint_tiles()
 	_refresh_hud()
-	_swapping = false
+	_sliding = false
 
-	if _current == _target:
+	if _is_solved():
 		await _celebrate()
-		succeed("The warp matches the dream. %d move%s — the cloth remembers itself." % [
-			_moves, "" if _moves == 1 else "s"])
-	elif _moves >= MOVE_BUDGET:
-		fail("The move budget is spent and the warp still fights the dream.")
+		succeed("The warp matches the dream. The cloth remembers itself.")
 
 
 func _make_fly(source: TextureButton) -> TextureRect:
 	var fly := TextureRect.new()
 	fly.texture = source.texture_normal
 	fly.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	fly.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	fly.stretch_mode = TextureRect.STRETCH_SCALE
 	fly.size = source.size
 	fly.position = source.position
 	fly.modulate = Color(1.12, 1.06, 0.9)
@@ -368,13 +493,7 @@ func _make_fly(source: TextureButton) -> TextureRect:
 
 
 func _refresh_hud() -> void:
-	var matched := 0
-	for i in range(_current.size()):
-		if _current[i] == _target[i]:
-			matched += 1
-	if _moves_label != null:
-		_moves_label.text = "Moves: %d / %d" % [_moves, MOVE_BUDGET]
-	set_status("Sections in place  %d / %d. Click two pieces to swap." % [matched, _current.size()])
+	set_status("Cloth in place  %d / %d. Slide neighboring boxes." % [_matched_count(), _current.size()])
 
 
 func _celebrate() -> void:

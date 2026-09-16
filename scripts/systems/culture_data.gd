@@ -17,7 +17,7 @@ const STATUE_QUIZZES: Array[Dictionary] = [
 			{
 				"prompt": "Where do T'boli weavers traditionally receive their T'nalak patterns?",
 				"options": [
-					"From dreams sent by Fun Dalu, the spirit of the abaca",
+					"From dreams sent by Fun Kdungon, the weaving goddess",
 					"From patterns copied out of trade catalogues",
 					"From designs assigned by the village council",
 					"From patterns invented freely by each weaver",
@@ -120,7 +120,7 @@ const LORE_ENTRIES: Array[Dictionary] = [
 	{
 		"id": "damgo",
 		"title": "Damgo - The Dream Given",
-		"text": "A T'boli weaver does not design her cloth. She is given it. The pattern arrives in a damgo, a dream, and the weaver's task is to carry it back into the waking world without losing a single thread of it. To forget a dream is to lose a pattern forever - which is exactly what the Shadow of Forgetfulness feeds on.",
+		"text": "A T'boli weaver does not design her cloth. She is given it. Fun Kdungon sends the pattern in a damgo, a dream, and the weaver's task is to carry it back into the waking world without losing a single thread of it. To forget a dream is to lose a pattern forever - which is exactly what the Shadow of Forgetfulness feeds on.",
 		"illustration": "res://assets/images/lore/lore_damgo.png",
 		"portrait": "res://assets/images/lore/lore_damgo.png",
 	},
@@ -165,7 +165,7 @@ const LORE_ENTRIES: Array[Dictionary] = [
 	{
 		"id": "fun_kdungon",
 		"title": "Fun Kdungon",
-		"text": "The weaving goddess of this story's telling. She does not fight the Shadow of Forgetfulness herself, because forgetting cannot be struck down - it can only be out-remembered. So she chooses a weaver instead of a warrior.",
+		"text": "The weaving goddess of this story's telling. She sends the damgo that carries each sacred pattern, and she is the one who chose S'lang and guides her through the five houses. She does not fight the Shadow of Forgetfulness herself, because forgetting cannot be struck down - it can only be out-remembered.",
 		"portrait": "res://assets/images/characters/fun_kdungon.png",
 	},
 	{

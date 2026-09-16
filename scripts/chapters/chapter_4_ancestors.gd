@@ -9,6 +9,7 @@ extends "res://scripts/chapters/house_quest.gd"
 
 const CULTURE_QUIZ := "res://scenes/minigames/CultureQuiz.tscn"
 const WARP_ALIGNMENT := "res://scenes/minigames/WarpAlignment.tscn"
+const COLLISION_SCENE := "res://scenes/world/House4Collision.tscn"
 
 var _plate: Chapter4Plate
 var _ghost: PlaceholderProp
@@ -97,50 +98,67 @@ func _mount_plate() -> void:
 
 
 func _mount_collision() -> void:
-	if _plate == null:
+	var packed := load(COLLISION_SCENE) as PackedScene
+	if packed == null:
+		if _plate != null:
+			_plate.add_fallback_solids()
+			if world != null:
+				_plate.attach_solids(world)
 		return
-	_plate.add_fallback_solids()
-	if world != null:
-		_plate.attach_solids(world)
+	var root := packed.instantiate() as Node2D
+	root.name = "House4Collision"
+	var hall := root.get_node_or_null("HallCollision") as StaticBody2D
+	if hall != null:
+		hall.set("show_collision_debug", false)
+	var host_node: Node2D = world if world != null else self
+	host_node.add_child(root)
+	if _plate != null:
+		root.global_transform = _plate.global_transform
+	if hall != null and hall.get_parent() != host_node:
+		var xf := hall.global_transform
+		hall.reparent(host_node)
+		hall.global_transform = xf
+		hall.name = "House4Collision"
+		root.queue_free()
 
 
 func _build_hall() -> void:
 	_ghost = place_prop("MASTER WEAVER", _plate.ghost_world(), {
-		"texture_path": "res://assets/images/characters/master_weaver_ghost.png",
-		"prop_size": Vector2(92.0, 156.0),
-		"body_color": Color(0.62, 0.66, 0.7),
-		"accent_color": Color(0.85, 0.88, 0.9),
-		"float_amplitude": 7.0,
+		"texture_path": "res://assets/images/characters/fun_kdungon.png",
+		"prop_size": Vector2(110.0, 188.0),
+		"body_color": Palette.BLACK_CHARCOAL,
+		"accent_color": Palette.GOLD_SACRED,
+		"float_amplitude": 4.0,
 		"float_speed": 0.85,
 		"blocks_movement": false,
 		"show_label": false,
 		"cast_shadow": false,
 	})
-	_ghost.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	_ghost.modulate = Color(0.92, 0.96, 1.05, 0.0)
 	_ghost_aura = AncestralAura.new()
 	_ghost_aura.aura_color = Color(0.86, 0.92, 1.0, 0.9)
 	_ghost_aura.mote_count = 26
 	_ghost.add_child(_ghost_aura)
-	_ghost_trigger = place_interactable("Listen to the Master Weaver", _plate.ghost_world() + Vector2(0.0, 18.0), {
+	_ghost_trigger = place_interactable("Listen to the Master Weaver", _plate.ghost_reach_world(), {
 		"enabled": false,
-		"radius": 88.0,
+		"radius": 120.0,
 	})
 
-	_loom_anchor = _anchor("AblunLoom", _plate.loom_world())
+	_loom_anchor = _anchor("AblunLoom", _plate.loom_reach_world())
 	_loom_aura = AncestralAura.new()
 	_loom_aura.aura_color = Color(0.96, 0.88, 0.62, 0.9)
 	_loom_aura.mote_count = 20
 	_loom_anchor.add_child(_loom_aura)
 	_loom_trigger = place_interactable("Sit at the Ablun loom", _plate.loom_reach_world(), {
 		"enabled": false,
-		"radius": 96.0,
+		"radius": 130.0,
 	})
 	if _color_anchor != null:
-		_color_anchor.global_position = _plate.loom_world()
+		_color_anchor.global_position = _plate.loom_reach_world()
 
 	for i in range(Chapter4Plate.STATUE_UVS.size()):
 		var statue_data := CultureData.statue(i)
-		var anchor := _anchor("Statue_%d" % i, _plate.statue_world(i))
+		var anchor := _anchor("Statue_%d" % i, _plate.statue_reach_world(i))
 		var aura := AncestralAura.new()
 		aura.aura_color = Color(0.94, 0.86, 0.58, 0.85)
 		aura.mote_count = 14
@@ -150,7 +168,7 @@ func _build_hall() -> void:
 		var trigger := place_interactable("Question %s" % str(statue_data.get("statue", "the statue")),
 			_plate.statue_reach_world(i), {
 				"enabled": false,
-				"radius": 78.0,
+				"radius": 110.0,
 			})
 		trigger.interacted.connect(_on_statue_interacted.bind(i))
 		_statue_triggers.append(trigger)
@@ -186,7 +204,7 @@ func _run_chapter() -> void:
 
 	_ghost_trigger.set_enabled(true)
 	objective("Hear the Master Weaver's riddle. [E]")
-	_point_beacon(_ghost)
+	_point_beacon(_ghost_trigger)
 	await _ghost_trigger.interacted
 	_ghost_trigger.set_enabled(false)
 
@@ -202,7 +220,7 @@ func _run_chapter() -> void:
 		trigger.set_enabled(true)
 	counter("Statues answered  0 / %d" % _statue_triggers.size())
 	objective("Question all four ancestor statues. [E]")
-	_point_beacon(_statue_anchors[0])
+	_point_beacon(_statue_triggers[0])
 
 	await until(func() -> bool:
 		return _answered >= _statue_triggers.size() or is_finished())
@@ -217,22 +235,11 @@ func _run_chapter() -> void:
 	await _awaken_loom()
 	_loom_trigger.set_enabled(true)
 	objective("Align the warp threads at the Ablun loom. [E]")
-	_point_beacon(_loom_anchor)
+	_point_beacon(_loom_trigger)
 	await _loom_trigger.interacted
 	_loom_trigger.set_enabled(false)
 
-	var difficulty := await _choose_dream()
-	if is_finished():
-		return
-
-	var aligned: bool = await run_mini_game(WARP_ALIGNMENT, {
-		"difficulty": difficulty,
-	})
-	if not aligned:
-		await say([
-			{"speaker": "Master Weaver", "text": "You forced it. A warp forced is a warp broken. Rest, and come back to it."},
-		])
-		await fail_chapter()
+	if not await _align_warps():
 		return
 
 	set_player_input(false)
@@ -277,17 +284,41 @@ func _awaken_loom() -> void:
 	await wait(1.7)
 
 
-func _choose_dream() -> int:
-	var choice := await ask(
-		"Which dream will you align on the Ablun loom?",
-		[
-			"The Simple Cloth — four woven pieces",
-			"Fu Kudong — six pieces of the spirit-pattern",
-			"The Master Cloth — twelve pieces of the photographed T'nalak",
-		],
-		"Master Weaver"
-	)
-	return clampi(choice, 0, 2)
+func _align_warps() -> bool:
+	var dreams: Array[Dictionary] = [
+		{
+			"difficulty": 0,
+			"banner": "First warp — the simple cloth",
+			"intro": "Begin with the whole cloth. Nine sections, barely out of place. Slide neighbors until the weave sits.",
+		},
+		{
+			"difficulty": 1,
+			"banner": "Second warp — Fun Kdungon",
+			"intro": "Fun Kdungon next. Her form is the pattern — slide neighbors until she stands whole again.",
+		},
+		{
+			"difficulty": 2,
+			"banner": "Third warp — the master cloth",
+			"intro": "Last: the photographed T'nalak. Slide it true, or the dream will not hold.",
+		},
+	]
+	for dream in dreams:
+		if is_finished():
+			return false
+		banner(str(dream["banner"]), 1.6)
+		await say([
+			{"speaker": "Master Weaver", "text": str(dream["intro"])},
+		])
+		var aligned: bool = await run_mini_game(WARP_ALIGNMENT, {
+			"difficulty": int(dream["difficulty"]),
+		})
+		if not aligned:
+			await say([
+				{"speaker": "Master Weaver", "text": "You forced it. A warp forced is a warp broken. Rest, and come back to it."},
+			])
+			await fail_chapter()
+			return false
+	return true
 
 
 func _on_statue_interacted(index: int) -> void:
@@ -409,11 +440,11 @@ func _refresh_statue_proximity() -> void:
 
 func _point_next_statue() -> void:
 	for i in range(_statue_done.size()):
-		if not _statue_done[i] and i < _statue_anchors.size():
-			_point_beacon(_statue_anchors[i])
+		if not _statue_done[i] and i < _statue_triggers.size():
+			_point_beacon(_statue_triggers[i])
 			return
-	if _loom_anchor != null:
-		_point_beacon(_loom_anchor)
+	if _loom_trigger != null:
+		_point_beacon(_loom_trigger)
 
 
 func _point_beacon(target: Node2D) -> void:

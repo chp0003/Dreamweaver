@@ -1,0 +1,49 @@
+[gd_scene format=3 uid="uid://5vqpp6m5lgg0"]
+
+[ext_resource type="Texture2D" path="res://assets/images/environments/house_ancestors/master_weaver_hall.png" id="1_hall"]
+[ext_resource type="Script" uid="uid://c282enk2jiljv" path="res://scripts/world/editor_plate_ref.gd" id="2_ref"]
+[ext_resource type="Script" uid="uid://clye7sh26pu3e" path="res://scripts/world/hub_collision_debug.gd" id="3_debug"]
+
+[node name="House4Collision" type="Node2D"]
+
+[node name="PlateRef" type="Sprite2D" parent="."]
+z_index = -120
+texture = ExtResource("1_hall")
+script = ExtResource("2_ref")
+
+[node name="HallCollision" type="StaticBody2D" parent="."]
+z_index = 50
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("3_debug")
+show_collision_debug = true
+
+[node name="BackWall" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(-520, -420, 520, -420, 520, -250, -520, -250)
+
+[node name="Loom" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(-70, -210, 70, -210, 70, -145, -70, -145)
+
+[node name="DreamerFeet" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(-168, -52, -108, -52, -108, -18, -168, -18)
+
+[node name="FibreFeet" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(-352, -12, -292, -12, -292, 22, -352, 22)
+
+[node name="DyeFeet" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(108, -52, 168, -52, 168, -18, 108, -18)
+
+[node name="MasterFeet" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(292, -12, 352, -12, 352, 22, 292, 22)
+
+[node name="LeftGarden" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(-576, 280, -220, 280, -220, 430, -576, 430)
+
+[node name="RightGarden" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(220, 280, 576, 280, 576, 430, 220, 430)
+
+[node name="LeftWall" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(-588, -430, -540, -430, -540, 430, -588, 430)
+
+[node name="RightWall" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(540, -430, 588, -430, 588, 430, 540, 430)

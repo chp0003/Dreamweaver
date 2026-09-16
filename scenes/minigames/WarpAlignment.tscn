@@ -10,6 +10,6 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_warp")
-time_limit = 90.0
+time_limit = 0.0
 max_attempts = 1
 reward_score = 360

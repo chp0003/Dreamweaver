@@ -248,10 +248,10 @@ func _set_portrait(speaker: String) -> void:
 		well.visible = tex != null
 	if tex != null:
 		var key := speaker.to_lower()
-		if "fun kdungon" in key:
+		if "fun kdungon" in key or "master" in key:
 			portrait.modulate = Color.WHITE
 			portrait.custom_minimum_size = Vector2(108, 148)
-		elif "spirit" in key or "master" in key:
+		elif "spirit" in key:
 			portrait.modulate = Color(0.92, 0.95, 1.05, 0.92)
 			portrait.custom_minimum_size = Vector2(92, 112)
 		elif "shadow" in key:
@@ -273,9 +273,7 @@ func _portrait_path(speaker: String) -> String:
 	if "spirit" in key:
 		return "res://assets/images/characters/spirit_of_the_fiber.png"
 	if "master" in key:
-		if ResourceLoader.exists("res://assets/images/characters/master_weaver_ghost_portrait.png"):
-			return "res://assets/images/characters/master_weaver_ghost_portrait.png"
-		return "res://assets/images/characters/master_weaver_ghost.png"
+		return "res://assets/images/characters/fun_kdungon.png"
 	if "shadow" in key:
 		return "res://assets/images/enemies/shadow_minion.png"
 	return "res://assets/images/characters/slang.png"

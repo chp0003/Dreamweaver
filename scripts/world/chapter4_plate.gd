@@ -8,25 +8,30 @@ const SHADER_PATH := "res://shaders/house_ancestors_plate.gdshader"
 const NATIVE := Vector2(1152.0, 864.0)
 const FIT_WIDTH := 1536.0
 
-const SPAWN_UV := Vector2(0.50, 0.74)
+const SPAWN_UV := Vector2(0.50, 0.78)
 const EXIT_UV := Vector2(0.50, 0.90)
-const LOOM_UV := Vector2(0.50, 0.38)
-const LOOM_REACH_UV := Vector2(0.50, 0.54)
-const GHOST_UV := Vector2(0.50, 0.48)
-const SCROLL_UV := Vector2(0.60, 0.62)
+## Loom sits on the back wall; reach is the open aisle in front of the statues.
+const LOOM_UV := Vector2(0.50, 0.30)
+const LOOM_REACH_UV := Vector2(0.50, 0.62)
+## Ghost stands near the loom; talk from the open aisle.
+const GHOST_UV := Vector2(0.50, 0.42)
+const GHOST_REACH_UV := Vector2(0.50, 0.60)
+const SCROLL_UV := Vector2(0.58, 0.70)
 
-## Dreamer, Fibre, Dye, Master — matching CultureData.STATUE_QUIZZES order.
+## CultureData order: Dreamer, Fibre, Dye, Master.
+## Painted hall left→right is Fibre, Dreamer, Dye, Master.
 const STATUE_UVS: Array[Vector2] = [
-	Vector2(0.30, 0.40),
-	Vector2(0.16, 0.54),
-	Vector2(0.72, 0.40),
-	Vector2(0.86, 0.54),
+	Vector2(0.38, 0.46),
+	Vector2(0.22, 0.50),
+	Vector2(0.62, 0.46),
+	Vector2(0.78, 0.50),
 ]
+## Stand south of each pedestal on clear floor.
 const STATUE_REACH_UVS: Array[Vector2] = [
-	Vector2(0.33, 0.52),
-	Vector2(0.22, 0.64),
-	Vector2(0.67, 0.52),
-	Vector2(0.78, 0.64),
+	Vector2(0.40, 0.60),
+	Vector2(0.26, 0.64),
+	Vector2(0.60, 0.60),
+	Vector2(0.74, 0.64),
 ]
 
 @export var plate_scale := 1.0
@@ -118,6 +123,10 @@ func loom_reach_world() -> Vector2:
 
 func ghost_world() -> Vector2:
 	return uv_to_global(GHOST_UV)
+
+
+func ghost_reach_world() -> Vector2:
+	return uv_to_global(GHOST_REACH_UV)
 
 
 func scroll_world() -> Vector2:
@@ -283,18 +292,17 @@ func _add_solids() -> void:
 	_solids.collision_layer = PhysicsLayers.LAYER_WORLD
 	_solids.collision_mask = PhysicsLayers.MASK_WORLD_STATIC
 	add_child(_solids)
-	_add_uv_box(Vector2(0.50, 0.10), Vector2(0.92, 0.16))
-	_add_uv_box(Vector2(0.50, 0.34), Vector2(0.20, 0.16))
-	_add_uv_box(Vector2(0.28, 0.36), Vector2(0.12, 0.18))
-	_add_uv_box(Vector2(0.14, 0.50), Vector2(0.12, 0.20))
-	_add_uv_box(Vector2(0.74, 0.36), Vector2(0.12, 0.18))
-	_add_uv_box(Vector2(0.88, 0.50), Vector2(0.12, 0.20))
-	_add_uv_box(Vector2(0.04, 0.50), Vector2(0.08, 0.92))
-	_add_uv_box(Vector2(0.96, 0.50), Vector2(0.08, 0.92))
-	_add_uv_box(Vector2(0.16, 0.84), Vector2(0.30, 0.26))
-	_add_uv_box(Vector2(0.84, 0.84), Vector2(0.30, 0.26))
-	_add_uv_box(Vector2(0.32, 0.70), Vector2(0.16, 0.07))
-	_add_uv_box(Vector2(0.68, 0.70), Vector2(0.16, 0.07))
+	# Same language as Chapter 1: walls and furniture only. Centre aisle stays open.
+	_add_uv_box(Vector2(0.50, 0.14), Vector2(0.70, 0.12))
+	_add_uv_box(Vector2(0.50, 0.28), Vector2(0.12, 0.08))
+	_add_uv_box(Vector2(0.38, 0.46), Vector2(0.05, 0.04))
+	_add_uv_box(Vector2(0.22, 0.50), Vector2(0.05, 0.04))
+	_add_uv_box(Vector2(0.62, 0.46), Vector2(0.05, 0.04))
+	_add_uv_box(Vector2(0.78, 0.50), Vector2(0.05, 0.04))
+	_add_uv_box(Vector2(0.14, 0.90), Vector2(0.20, 0.12))
+	_add_uv_box(Vector2(0.86, 0.90), Vector2(0.20, 0.12))
+	_add_uv_box(Vector2(0.04, 0.52), Vector2(0.06, 0.72))
+	_add_uv_box(Vector2(0.96, 0.52), Vector2(0.06, 0.72))
 
 
 func _add_uv_box(uv_centre: Vector2, uv_size: Vector2) -> void:
