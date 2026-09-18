@@ -88,6 +88,40 @@ static func fiber_burst(host: Node2D, color := Palette.CREAM_PAPER) -> void:
 	tween.tween_callback(particles.queue_free)
 
 
+static func light_burst(host: Node2D, color := Palette.GOLD_SUN) -> void:
+	if host == null or not host.is_inside_tree():
+		return
+	var flash := Sprite2D.new()
+	flash.texture = _soft_dot()
+	flash.modulate = Palette.alpha(color, 0.95)
+	flash.scale = Vector2(0.2, 0.2)
+	flash.z_index = 24
+	flash.position = Vector2(0.0, -48.0)
+	host.add_child(flash)
+	var tween := host.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(flash, "scale", Vector2(2.4, 1.6), 0.22)
+	tween.tween_property(flash, "modulate:a", 0.0, 0.28)
+	tween.chain().tween_callback(flash.queue_free)
+
+
+static func pool_rise(host: Node2D) -> void:
+	if host == null or not host.is_inside_tree():
+		return
+	fiber_burst(host, Color(0.18, 0.12, 0.22))
+	var ring := Sprite2D.new()
+	ring.texture = _soft_dot()
+	ring.modulate = Color(0.18, 0.1, 0.22, 0.7)
+	ring.scale = Vector2(0.15, 0.08)
+	ring.z_index = 6
+	host.add_child(ring)
+	var tween := host.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(ring, "scale", Vector2(1.4, 0.55), 0.4)
+	tween.tween_property(ring, "modulate:a", 0.0, 0.4)
+	tween.chain().tween_callback(ring.queue_free)
+
+
 static func punch(node: Node2D, amount := 0.12) -> void:
 	if node == null or not node.is_inside_tree():
 		return

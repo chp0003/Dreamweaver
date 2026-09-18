@@ -45,6 +45,12 @@ var _noise_lowpass := 0.0
 var _bell_interval := 0.0
 var _bell_timer := 0.0
 
+## Combat drum bed for Chapter 5 (ethnic pulse under the synth brass).
+var _drum_level := 0.0
+var _drum_period := 0.43
+var _drum_timer := 0.0
+var _drum_beat := 0
+
 ## Decaying sine voices: { freq, phase, amp, decay }
 var _voices: Array[Dictionary] = []
 
@@ -100,6 +106,7 @@ func _process(delta: float) -> void:
 		return
 	_update_gust(delta)
 	_update_bell(delta)
+	_update_drums(delta)
 	_fill_buffer()
 
 
@@ -182,6 +189,34 @@ func stop_music(immediate: bool = false) -> void:
 
 func is_music_playing() -> bool:
 	return _music_player != null and _music_player.playing and not _music_path.is_empty()
+
+
+## 0 = silent. Positive `bpm` drives a four-on-the-floor ethnic drum pulse.
+func set_combat_drums(level: float, bpm: float = 140.0) -> void:
+	_drum_level = clampf(level, 0.0, 1.0)
+	_drum_period = 60.0 / maxf(60.0, bpm)
+	if _drum_level <= 0.001:
+		_drum_timer = 0.0
+		_drum_beat = 0
+
+
+## Sharp wind whistle that telegraphs a Bleach Attack.
+func play_wind_whistle() -> void:
+	if not _enabled:
+		return
+	_add_voice(1480.0, 0.22, 9.0)
+	_add_voice(2100.0, 0.12, 14.0)
+	_add_voice(920.0, 0.10, 7.5)
+
+
+## Loud brass shockwave layered on staff strikes and the sonic chime.
+func play_brass_shock() -> void:
+	if not _enabled:
+		return
+	_add_voice(98.0, 0.40, 8.0)
+	_add_voice(196.0, 0.32, 10.0)
+	_add_voice(311.0, 0.18, 14.0)
+	_add_voice(523.0, 0.10, 18.0)
 
 
 func play_sfx(kind: Sfx) -> void:
@@ -300,6 +335,25 @@ func _update_bell(delta: float) -> void:
 	if _bell_timer <= 0.0:
 		_bell_timer = _bell_interval * randf_range(0.8, 1.3)
 		play_sfx(Sfx.BELL)
+
+
+func _update_drums(delta: float) -> void:
+	if _drum_level <= 0.001:
+		return
+	_drum_timer -= delta
+	if _drum_timer > 0.0:
+		return
+	_drum_timer = _drum_period
+	_drum_beat = (_drum_beat + 1) % 4
+	var amp := 0.26 * _drum_level
+	if _drum_beat == 0:
+		_add_voice(64.0, amp * 1.5, 12.0)
+		_add_voice(110.0, amp * 0.7, 16.0)
+	elif _drum_beat == 2:
+		_add_voice(78.0, amp * 1.1, 14.0)
+		_add_voice(156.0, amp * 0.45, 18.0)
+	else:
+		_add_voice(90.0, amp * 0.55, 20.0)
 
 
 func _add_voice(freq: float, amp: float, decay: float) -> void:

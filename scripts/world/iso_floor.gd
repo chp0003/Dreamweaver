@@ -37,6 +37,18 @@ func _ready() -> void:
 	queue_redraw()
 
 
+## Chapter 5 Color Burst: the hall floor goes living green.
+func restore_living_palette() -> void:
+	base_color = Color(0.18, 0.36, 0.20)
+	alt_color = Color(0.24, 0.44, 0.24)
+	grout_color = Color(0.12, 0.24, 0.12, 0.75)
+	weave_accent = Color(0.78, 0.58, 0.22, 0.5)
+	border_color = Color(0.42, 0.62, 0.30, 0.85)
+	_tiles.clear()
+	_bake_procedural()
+	queue_redraw()
+
+
 func _draw() -> void:
 	if _baked != null:
 		draw_texture(_baked, _bake_origin)

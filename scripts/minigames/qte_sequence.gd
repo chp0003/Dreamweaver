@@ -15,13 +15,16 @@ const PROMPTS := [
 	{"action": "move_right", "glyph": "D"},
 ]
 
-@export var prompt_count := 6
-@export var start_window := 1.15
-@export var end_window := 0.55
+@export var prompt_count := 8
+@export var start_window := 1.05
+@export var end_window := 0.48
+
+const OverlayScript := preload("res://scripts/ui/tnalak_overlay.gd")
 
 var _glyph_label: Label
 var _window_bar: ProgressBar
 var _step_label: Label
+var _overlay: Control
 
 var _step := 0
 var _required := 0
@@ -40,6 +43,13 @@ func _configure() -> void:
 
 
 func _build_content(parent: Control) -> void:
+	_overlay = OverlayScript.new()
+	_overlay.name = "TnalakOverlay"
+	add_child(_overlay)
+	move_child(_overlay, 0)
+	if _overlay.has_method("fade_in"):
+		_overlay.call("fade_in", 0.45)
+
 	_step_label = Label.new()
 	_step_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_step_label.theme_type_variation = &"FieldLabel"
@@ -96,9 +106,12 @@ func _answer(index: int) -> void:
 		return
 
 	prompt_resolved.emit(true)
+	Audio.play_sfx(Audio.Sfx.BELL)
 	Audio.play_sfx(Audio.Sfx.PARRY)
 	GameState.add_score(60)
-	_flash(Color(0.6, 0.85, 0.55))
+	_flash(Color(0.95, 0.86, 0.45))
+	if _overlay != null and _overlay.has_method("strike"):
+		_overlay.call("strike")
 	if _step >= prompt_count:
 		succeed("The last stitch closes. The pattern is whole.")
 		return
