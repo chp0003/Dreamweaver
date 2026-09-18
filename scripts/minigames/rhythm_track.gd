@@ -37,8 +37,8 @@ var _counter_label: Label
 
 func _configure() -> void:
 	compact = true
-	mini_game_title = "Weave Mode"
-	instructions = "Press W / A / S / D as each thread crosses the strike line."
+	mini_game_title = "Hit the notes"
+	instructions = "Press W A S D as each note reaches the glowing line."
 	time_limit = 0.0
 	max_attempts = 1
 	reward_score = 0
@@ -211,4 +211,4 @@ func _finish() -> void:
 
 func _refresh_counter() -> void:
 	if _counter_label != null:
-		_counter_label.text = "Threads struck  %d / %d" % [_hits, note_count]
+		_counter_label.text = "Hits  %d / %d" % [_hits, note_count]

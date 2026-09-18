@@ -281,8 +281,8 @@ func _run_chapter() -> void:
 		player.has_staff = true
 	Audio.set_ambience(0.38, 0.0)
 	_set_steps(0)
-	_light_station("vines", "[CLICK]")
-	objective("Shadow Vines across the step. Left-click to lock on and fire Lewet bolts.")
+	_light_station("vines", "[SPACE]")
+	objective("Vines block the step. Walk up and press [Space] to cut them.")
 	await wait(0.35)
 	await say([
 		"The porch is a garden, same as the last house. The hall beyond is not. Something has grown across the step — the shape of a plant, remembered wrongly.",
@@ -304,7 +304,7 @@ func _run_chapter() -> void:
 	_light_station("")
 	if _beacon != null:
 		_beacon.clear()
-	objective("Search the storage aisles. One Shadow Minion hunts you — left-click it to lock on.")
+	objective("Find 5 red roots in the hall. If a shadow runs at you, press [Space] to swing.")
 	_release_minion()
 	await until(func() -> bool: return _roots >= ROOT_TOTAL)
 	if _beacon != null:

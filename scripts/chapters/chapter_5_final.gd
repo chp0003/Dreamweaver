@@ -19,13 +19,13 @@ const QTE_SEQUENCE := "res://scenes/minigames/QteSequence.tscn"
 const COLLISION_SCENE := "res://scenes/world/House5Collision.tscn"
 
 const STEPS: Array[String] = [
-	"The Breach — clear the shadows",
-	"Duel of Rhythms — defend, then weave",
-	"The Finishing Stitch",
+	"Kill the shadows",
+	"Block, then use the loom",
+	"Press the letters",
 ]
 
-## Dozens of shadows across three rising waves.
-const WAVES: Array[int] = [8, 8, 10]
+## Three waves. Small enough to read the hall, large enough to feel like a siege.
+const WAVES: Array[int] = [5, 5, 6]
 
 const RHYTHM_DAMAGE := 9.0
 const LOOM_BLEACH_DAMAGE := 0.18
@@ -41,13 +41,18 @@ var _pools: Array[Node2D] = []
 var _boss: ShadowWeaverBoss
 var _ancestor: PlaceholderProp
 var _beacon: QuestBeacon
+var _loom_mark: StationMarker
+var _hint: TutorialPrompt
 var _shadows_alive := 0
 var _shadows_total := 0
+var _wave_index := 0
 var _loom_integrity := 1.0
 var _weave_mode := false
 var _in_weave_game := false
 var _duel_over := false
 var _phase := 0
+var _block_taught := false
+var _weave_taught := false
 
 
 func uses_painted_plate() -> bool:
@@ -151,11 +156,16 @@ func _build_hall() -> void:
 	_loom_aura.aura_color = Color(0.96, 0.82, 0.48, 0.9)
 	_loom_aura.mote_count = 22
 	_loom.add_child(_loom_aura)
-	_loom_trigger = place_interactable("Weave", _plate.loom_reach_world(), {
+	_loom_trigger = place_interactable("Use the loom", _plate.loom_reach_world(), {
 		"enabled": false,
 		"radius": 120.0,
 	})
 	_loom_trigger.interacted.connect(_on_loom_used)
+	_loom_mark = StationMarker.new()
+	_loom_mark.title = "THE LOOM"
+	_loom.add_child(_loom_mark)
+	_loom_mark.position = Vector2(0.0, -88.0)
+	_loom_mark.set_lit(false)
 	if _color_anchor != null:
 		_color_anchor.global_position = _plate.loom_reach_world()
 	_lock_loom_approach()
@@ -229,6 +239,36 @@ func _bind_player_combat() -> void:
 		player.chimed.connect(_on_player_chimed)
 	if not player.attack_hit.is_connected(_on_player_attack_hit):
 		player.attack_hit.connect(_on_player_attack_hit)
+	_ensure_hint()
+
+
+func _ensure_hint() -> void:
+	if _hint != null:
+		return
+	_hint = TutorialPrompt.new()
+	_hint.name = "ChapterCoach"
+	var layer: Node = ui_layer if ui_layer != null else self
+	layer.add_child(_hint)
+
+
+func _coach(title: String, body: String, keys: Array = []) -> void:
+	_ensure_hint()
+	_hint.show_hint(title, body, keys, 1, 1, "row", "WHAT TO DO")
+
+
+func _clear_coach() -> void:
+	if _hint != null:
+		_hint.hide_prompt()
+
+
+func _point_loom(lit: bool, action := "[E]") -> void:
+	if _beacon != null:
+		if lit:
+			_beacon.pin(_loom)
+		else:
+			_beacon.clear()
+	if _loom_mark != null:
+		_loom_mark.set_lit(lit, action)
 
 
 func apply_restored_color() -> void:
@@ -246,14 +286,11 @@ func apply_restored_color() -> void:
 func _run_chapter() -> void:
 	_bind_player_combat()
 	_set_steps(0)
-	banner("The Final Stand\nat the Sacred Loom", 2.8)
-	objective("Reach the Sacred Loom at the far end of the hall.")
+	objective("Kill the shadows on the floor.")
 	Audio.set_ambience(0.35, 0.0)
-	await wait(1.4)
 
 	await say([
-		"The great Guno Bong is one long hall, and at the end of it the Sacred Loom is still strung — half a cloth on it, the pattern stopping mid-figure like a sentence cut off.",
-		{"speaker": "S'lang", "text": "The floor is wrong. Those are not shadows. Shadows do not have a surface."},
+		"The Sacred Loom is the big wooden frame at the back of this hall. Shadows are climbing out of the floor. Kill them first. Then walk to the loom.",
 	])
 
 	if not await _phase_one_breach():
@@ -270,34 +307,46 @@ func _run_chapter() -> void:
 func _phase_one_breach() -> bool:
 	_phase = 1
 	_set_steps(0)
-	banner("Phase I  —  The Breach", 2.2)
-	objective("Pilot S'lang: [WASD] move, [Space] staff strike, [Q] soundwave.")
+	objective("Kill the dark figures. Press [Space] to swing.")
+	if hud != null and hud.has_method("set_mode"):
+		hud.call("set_mode", "SPACE  swing     Q  shockwave", Color(0.92, 0.82, 0.5))
 	Audio.set_combat_drums(0.85, 148.0)
 	Audio.set_ambience(0.55, 0.0)
 	if hud != null and hud.has_method("show_chime_meter"):
 		hud.call("show_chime_meter", true)
+	_coach(
+		"Kill the shadows",
+		"Walk with WASD. Press Space to swing the staff. Press Q if they pile on you.",
+		["SPACE", "Q"]
+	)
 
 	for wave_index in range(WAVES.size()):
 		if is_finished():
 			return false
+		_wave_index = wave_index
 		_spawn_wave(WAVES[wave_index])
 		await until(func() -> bool: return _shadows_alive <= 0 or is_finished())
 		if is_finished():
 			return false
 		if wave_index < WAVES.size() - 1:
-			banner("Another wave rises from the dark", 1.4)
-			await wait(1.15)
+			counter("More shadows  ·  wave %d of %d" % [wave_index + 2, WAVES.size()])
+			await wait(0.85)
 
+	_clear_coach()
 	counter("")
 	_unlock_loom_approach()
+	_point_loom(true, "WALK")
 	Audio.set_combat_drums(0.25, 110.0)
 	Audio.play_sfx(Audio.Sfx.CHIME)
+	if hud != null and hud.has_method("set_mode"):
+		hud.call("set_mode", "")
 	await say([
-		"The last of them comes apart, and for a moment the hall is only a hall.",
-		"The half-woven cloth on the Sacred Loom begins to unravel by itself. Walk to it.",
+		"The floor is clear. Walk to the big loom at the back of the hall.",
 	])
-	objective("Approach the Sacred Loom.")
+	objective("Walk to the big loom at the back.")
+	_coach("Walk to the loom", "Go to the gold mark in front of the loom.", [])
 	await until(func() -> bool: return _player_near_loom() or is_finished())
+	_clear_coach()
 	return not is_finished()
 
 
@@ -305,15 +354,15 @@ func _phase_one_breach() -> bool:
 func _phase_two_duel() -> bool:
 	_phase = 2
 	_set_steps(1)
+	_point_loom(false)
 	await _materialize_boss()
 
 	await say([
-		{"speaker": "The Shadow Weaver", "text": "I am not your enemy, weaver. I am only what is left when nobody remembers. You will be me. Everyone is, eventually."},
-		{"speaker": "S'lang", "text": "Not while I can still name the colours."},
+		{"speaker": "The Shadow Weaver", "text": "I am only what is left when nobody remembers."},
+		{"speaker": "S'lang", "text": "Then I will remember."},
 	])
 	GameState.unlock_lore("shadow_weaver")
 
-	banner("Phase II  —  The Duel of Rhythms", 2.4)
 	_play_boss_music()
 	Audio.set_combat_drums(0.7, 128.0)
 	if hud != null:
@@ -331,6 +380,11 @@ func _phase_two_duel() -> bool:
 		_boss.defeated.connect(_on_boss_defeated)
 
 	_enter_defend_mode()
+	_coach(
+		"Block the ring",
+		"A white ring shrinks around the boss. When it gets small, press Space.",
+		["SPACE"]
+	)
 	_boss.begin_duel()
 
 	await until(func() -> bool: return _duel_over or is_finished())
@@ -345,19 +399,19 @@ func _phase_three_finish() -> void:
 	if _boss.has_method("kneel"):
 		_boss.kneel()
 	counter("")
+	_clear_coach()
+	_point_loom(true, "[KEYS]")
 	if hud != null and hud.has_method("set_mode"):
 		hud.call("set_mode", "")
 	if hud != null and hud.has_method("show_loom_integrity"):
 		hud.call("show_loom_integrity", false)
 
-	banner("Phase III  —  The Finishing Stitch", 2.2)
-	objective("Finish the pattern. Match every prompt.")
+	objective("Press the letter on screen before the bar empties.")
 	Audio.set_combat_drums(0.4, 118.0)
 	if is_instance_valid(_loom):
 		focus_camera_on(_loom.global_position + Vector2(0.0, -40.0), Vector2(1.12, 1.12))
 	await say([
-		"The Shadow Weaver comes apart into loose thread and hangs there, still turning, waiting for someone to either tie it off or let it go.",
-		{"speaker": "S'lang", "text": "One stitch. Do not rush it."},
+		{"speaker": "S'lang", "text": "One last stitch. Hit the letters as they appear."},
 	])
 
 	# If the finale is fluffed entirely, the Shadow Weaver reforms rather than
@@ -372,7 +426,7 @@ func _phase_three_finish() -> void:
 			break
 		clear_camera_focus()
 		await say([
-			{"speaker": "The Shadow Weaver", "text": "You hesitated. I only need you to hesitate."},
+			{"speaker": "The Shadow Weaver", "text": "You missed a letter. Block again, then try the keys once more."},
 		])
 		if not await _reform_boss():
 			return
@@ -399,7 +453,7 @@ func _spawn_wave(count: int) -> void:
 			"max_health": 42.0,
 			"speed": 96.0,
 			"touch_damage": 11.0,
-			"spawn_delay": 0.32 + float(i) * 0.08,
+			"spawn_delay": 0.45 + float(i) * 0.16,
 		})
 		if minion == null:
 			continue
@@ -416,7 +470,7 @@ func _on_minion_died(_minion: ShadowMinion) -> void:
 
 
 func _refresh_shadow_counter() -> void:
-	counter("Shadows Remaining: %d" % _shadows_alive)
+	counter("Wave %d of %d   ·   %d left" % [_wave_index + 1, WAVES.size(), _shadows_alive])
 
 
 func _lock_loom_approach() -> void:
@@ -481,9 +535,11 @@ func _play_boss_music() -> void:
 func _enter_defend_mode() -> void:
 	_weave_mode = false
 	_loom_trigger.set_enabled(false)
-	objective("DEFEND: press [Space] as the ring tightens to parry the Bleach Attack.")
+	_point_loom(false)
+	objective("When the white ring gets small, press [Space].")
 	if hud != null and hud.has_method("set_mode"):
-		hud.call("set_mode", "DEFEND MODE", Color(0.9, 0.55, 0.42))
+		hud.call("set_mode", "SPACE when the ring is small", Color(0.94, 0.72, 0.48))
+	counter("Watch the ring around the boss.")
 	if _plate != null:
 		_plate.set_loom_energy(0.45)
 
@@ -491,9 +547,14 @@ func _enter_defend_mode() -> void:
 func _enter_weave_mode() -> void:
 	_weave_mode = true
 	_loom_trigger.set_enabled(true)
-	objective("WEAVE: reach the Sacred Loom and press [E] while the Shadow Weaver reels.")
+	_point_loom(true, "[E]")
+	objective("The boss is stunned. Run to the loom and press [E].")
 	if hud != null and hud.has_method("set_mode"):
-		hud.call("set_mode", "WEAVE MODE", Color(0.9, 0.82, 0.5))
+		hud.call("set_mode", "E at the loom  —  now", Color(0.92, 0.84, 0.5))
+	counter("Go to the loom. Press E.")
+	if not _weave_taught:
+		_weave_taught = true
+		_coach("Use the loom", "The boss is stunned. Run to the gold mark and press E.", ["E"])
 	if _plate != null:
 		_plate.set_loom_energy(1.4)
 	if _loom_aura != null:
@@ -518,51 +579,55 @@ func _on_player_chimed(_origin: Vector2, _radius: float) -> void:
 
 
 func _on_player_attack_hit(_hit: Node2D) -> void:
-	if _phase != 1:
-		return
-	Audio.play_brass_shock()
+	if _phase == 1:
+		_clear_coach()
+		Audio.play_brass_shock()
 
 
 func _on_telegraph_started(_window: float) -> void:
 	if _weave_mode:
 		return
+	if not _block_taught:
+		_block_taught = true
+		_clear_coach()
 	if _boss != null and _boss.is_heavy_attack():
-		counter("HEAVY Bleach Attack — parry!")
-		banner("It overextends", 0.9)
+		counter("NOW — Space  (big one)")
 	else:
-		counter("Bleach Attack incoming — parry!")
+		counter("NOW — press Space")
 
 
 func _on_telegraph_resolved(parried: bool) -> void:
 	if parried:
-		counter("Parried.")
+		counter("Blocked.")
+		_clear_coach()
 		return
 
 	var damage := _boss.bleach_damage
 	if _boss.is_heavy_attack():
 		damage *= 1.4
-	counter("Bleached!")
+	counter("Too early or too late. Wait until the ring is small.")
 	if player != null and is_instance_valid(player):
 		player.take_damage(damage, _boss)
 	_damage_loom(LOOM_BLEACH_DAMAGE * (1.35 if _boss.is_heavy_attack() else 1.0))
 
 
 func _on_boss_staggered(_duration: float) -> void:
-	banner("The Shadow Weaver reels", 1.4)
 	_enter_weave_mode()
 
 
 func _on_boss_recovered() -> void:
 	if _duel_over or _in_weave_game:
 		return
-	banner("It gathers itself", 1.2)
+	_clear_coach()
 	_enter_defend_mode()
 
 
 func _on_boss_health_changed(current: float, maximum: float) -> void:
 	if _weave_mode or _duel_over:
 		return
-	counter("Shadow Weaver  %d%%" % roundi(current / maximum * 100.0))
+	if _boss != null and _boss.is_telegraphing():
+		return
+	counter("Boss  %d%%" % roundi(current / maximum * 100.0))
 
 
 func _on_boss_defeated() -> void:
@@ -577,6 +642,9 @@ func _on_loom_used() -> void:
 		return
 	_in_weave_game = true
 	_loom_trigger.set_enabled(false)
+	_clear_coach()
+	_point_loom(false)
+	objective("Press W A S D as the notes hit the glowing line.")
 
 	await run_mini_game(RHYTHM_TRACK, {
 		"note_count": 12,
@@ -619,7 +687,7 @@ func _damage_loom(amount: float) -> void:
 		await fail_chapter()
 		return
 
-	banner("The loom nearly tore — a life spent holding it", 2.0)
+	banner("The loom took a hit. You lost a life.", 1.8)
 	_loom_integrity = 0.5
 	if hud != null and hud.has_method("set_loom_integrity"):
 		hud.call("set_loom_integrity", _loom_integrity)
@@ -638,7 +706,6 @@ func _reform_boss() -> bool:
 	_boss.health_changed.emit(_boss.health, _boss.max_health)
 	_boss.begin_duel()
 	_enter_defend_mode()
-	banner("The Shadow Weaver re-gathers", 2.0)
 	_set_steps(1)
 
 	await until(func() -> bool: return _duel_over or is_finished())
@@ -664,7 +731,7 @@ func _color_burst() -> void:
 	set_player_input(false)
 	counter("")
 	objective("")
-	banner("The Sacred Loom remembers", 2.2)
+	banner("Colour returns.")
 	Audio.play_sfx(Audio.Sfx.CHIME)
 	Audio.play_brass_shock()
 	shake_camera(10.0)
@@ -682,14 +749,12 @@ func _color_burst() -> void:
 
 	if _loom != null:
 		ColorRestoration.bloom_zone("color_burst", _loom, 280.0, 1.0, 1.1)
-		banner("Sacred patterns wake", 1.8)
 	await wait(1.0)
 
 	if _loom != null:
 		ColorRestoration.bloom_zone("color_burst", _loom, 720.0, 1.0, 1.4)
 	Audio.play_sfx(Audio.Sfx.SUCCESS)
 	Audio.play_sfx(Audio.Sfx.BELL)
-	banner("COLOUR", 2.6)
 
 	var burst := _make_burst()
 	burst.global_position = _loom.global_position if is_instance_valid(_loom) else Vector2.ZERO
@@ -771,8 +836,7 @@ func _closing_cutscene() -> void:
 	Audio.stop_music()
 
 	await say([
-		"The colour does not stop at the walls of the House. It runs out along the mountain paths, into the terraces, up the hills, into cloth that has been folded away in the dark for a generation.",
-		"The gray hush in the hall draws breath. Light returns to the cloth. Hands would remember work, if they were here to take it up.",
+		"Colour runs back into the cloth, the hall, the mountain paths.",
 	])
 
 	if is_instance_valid(_ancestor):
@@ -791,9 +855,8 @@ func _closing_cutscene() -> void:
 	await wait(0.6)
 
 	await say([
-		{"speaker": "Master Weaver", "text": "..."},
-		"The Master Weaver's ghost is standing at the back of the hall, in colour now, and solid enough to be somebody's grandmother. She looks at the loom. She looks at S'lang. She inclines her head, once.",
-		{"speaker": "S'lang", "text": "I will teach it. All of it. To anyone who will sit still and learn."},
+		"The Master Weaver nods once, then is only light.",
+		{"speaker": "S'lang", "text": "I will teach it. To anyone who will sit still and learn."},
 	])
 
 	objective("")

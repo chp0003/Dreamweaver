@@ -35,8 +35,8 @@ var _waiting := false
 
 func _configure() -> void:
 	compact = true
-	mini_game_title = "The Finishing Stitch"
-	instructions = "Press each key before its window closes."
+	mini_game_title = "Last stitch"
+	instructions = "Press the big letter before the bar runs out."
 	time_limit = 0.0
 	max_attempts = 3
 	reward_score = 400
@@ -84,7 +84,7 @@ func _process(delta: float) -> void:
 	if _window_left <= 0.0:
 		_waiting = false
 		prompt_resolved.emit(false)
-		fail("The window closed on step %d. The stitch did not take." % (_step))
+		fail("Too slow on letter %d. Try again." % (_step))
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -102,7 +102,7 @@ func _answer(index: int) -> void:
 	if index != _required:
 		prompt_resolved.emit(false)
 		Audio.play_sfx(Audio.Sfx.FAIL)
-		fail("Wrong thread on step %d." % _step)
+		fail("Wrong key on letter %d. Try again." % _step)
 		return
 
 	prompt_resolved.emit(true)
@@ -113,7 +113,7 @@ func _answer(index: int) -> void:
 	if _overlay != null and _overlay.has_method("strike"):
 		_overlay.call("strike")
 	if _step >= prompt_count:
-		succeed("The last stitch closes. The pattern is whole.")
+		succeed("Done. The cloth holds.")
 		return
 	await get_tree().create_timer(0.18).timeout
 	if running and is_inside_tree():
@@ -134,7 +134,7 @@ func _next_prompt() -> void:
 	var tween := create_tween()
 	tween.tween_property(_glyph_label, "scale", Vector2.ONE, 0.14)
 
-	_step_label.text = "Stitch %d of %d" % [_step, prompt_count]
+	_step_label.text = "Press this key   ·   %d / %d" % [_step, prompt_count]
 	_window_bar.value = 1.0
 	set_status("")
 	_waiting = true

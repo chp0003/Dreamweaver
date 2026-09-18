@@ -95,8 +95,11 @@ func _ready() -> void:
 
 
 func show_hint(title: String, body: String, keys: Array = [],
-		step := 1, total := 3, layout := "row") -> void:
-	_eyebrow.text = "the house   ·   %d  of  %d" % [step, total]
+		step := 1, total := 3, layout := "row", eyebrow := "") -> void:
+	if eyebrow.is_empty():
+		_eyebrow.text = "the house   ·   %d  of  %d" % [step, total]
+	else:
+		_eyebrow.text = eyebrow.to_upper()
 	_title.text = title
 	_body.text = body
 	_body.visible = not body.is_empty()

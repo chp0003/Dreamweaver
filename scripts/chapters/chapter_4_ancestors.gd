@@ -186,12 +186,10 @@ func _build_hall() -> void:
 
 func _run_chapter() -> void:
 	GameState.mark_house_score()
-	banner("Chapter IV\nHall of the Master Weaver", 2.6)
-	objective("Enter the hall of the Master Weaver.")
-	await wait(1.2)
+	objective("Talk to the woman by the loom. Press [E].")
 
 	await say([
-		"Cream stone faces stand around a loom the size of a doorway. None of them were carved. They were people, and then they were remembered, and then they were forgotten into stone.",
+		"Four stone ancestors stand around a loom. Talk to the Master Weaver first. Then question each statue.",
 	])
 
 	await _appear_ghost()
