@@ -4,8 +4,7 @@ extends MiniGameBase
 ##
 ## Easy: 3x3 of a complete T'boli cloth (9 pieces), light scramble.
 ## Medium: 3x4 Fun Kdungon (12 pieces).
-## Hard: 5x4 slices of the Golden Era village
-## (`assets/images/story/intro_01_golden_era.png`).
+## Hard: 5x4 slices of the Golden Era village (prologue panel).
 ##
 ## Drag a piece, or click it and then a neighbor, to slide them.
 
@@ -13,11 +12,14 @@ enum Difficulty { Easy, Medium, Hard }
 
 const EASY_PATH := "res://assets/images/minigames/warp_pattern_easy.png"
 const MEDIUM_PATH := "res://assets/images/characters/fun_kdungon.png"
-const HARD_PATH := "res://assets/images/story/intro_01_golden_era.png"
+const HARD_PATH := "res://assets/images/minigames/warp_pattern_hard.png"
+const HARD_FALLBACK_PATH := "res://assets/images/story/intro_01_golden_era.png"
 ## Fun Kdungon sprite content, trimming empty transparent padding.
 const MEDIUM_CROP_UV := Rect2(0.02, 0.01, 0.96, 0.98)
 
 @export var difficulty := Difficulty.Easy
+## Optional override. Chapter 4 passes the Golden Era panel for Hard.
+@export var cloth_path := ""
 
 var _target_view: TextureRect
 var _board_frame: PanelContainer
@@ -152,16 +154,28 @@ func _process(delta: float) -> void:
 
 
 func _load_cloth() -> void:
-	var path := EASY_PATH
-	match difficulty:
-		Difficulty.Medium:
-			path = MEDIUM_PATH
-		Difficulty.Hard:
-			path = HARD_PATH
+	var path := cloth_path.strip_edges()
+	if path.is_empty():
+		path = _default_cloth_path()
 	_cloth = _load_texture(path)
+	if _cloth == null and difficulty == Difficulty.Hard:
+		_cloth = _load_texture(HARD_FALLBACK_PATH)
 	_regions = _slice_regions()
 	if _target_view != null:
 		_target_view.texture = _cloth_preview()
+	mini_game_subtitle = _difficulty_title()
+	if _subtitle_label != null:
+		_subtitle_label.text = mini_game_subtitle
+
+
+func _default_cloth_path() -> String:
+	match difficulty:
+		Difficulty.Medium:
+			return MEDIUM_PATH
+		Difficulty.Hard:
+			return HARD_PATH
+		_:
+			return EASY_PATH
 
 
 func _fit_layout_to_cloth() -> void:
