@@ -298,8 +298,8 @@ func _align_warps() -> bool:
 		},
 		{
 			"difficulty": 2,
-			"banner": "Third warp — the master cloth",
-			"intro": "Last: the photographed T'nalak. Slide it true, or the dream will not hold.",
+			"banner": "Third warp — the Golden Era",
+			"intro": "Last: the village as it was dreamed, whole and in colour. Slide every section home, or the dream will not hold.",
 		},
 	]
 	for dream in dreams:
