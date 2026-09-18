@@ -32,6 +32,8 @@ const WeaveBoltScene := preload("res://scripts/world/weave_bolt.gd")
 const ATTACK_COOLDOWN := 0.95
 const ATTACK_ANIM := 0.70
 const ATTACK_DAMAGE := 34.0
+const MELEE_REACH := 92.0
+const MELEE_ARC := 1.35
 const BOLT_DELAY := 0.36
 const AUTO_ATTACK_RANGE := 380.0
 const CLICK_PICK_RADIUS := 96.0
@@ -291,12 +293,17 @@ func _cast_bolt_at(target: Node2D, world_point: Vector2) -> bool:
 	Audio.play_sfx(Audio.Sfx.HIT)
 	_play_cast_pose()
 	_play_cast_flash()
-	Fx.staff_trail(self, facing, 64.0)
+	Fx.staff_trail(self, facing, 72.0)
 	Fx.punch(self, 0.05)
 	var swing_point := global_position + facing * 48.0
-	var fire := get_tree().create_timer(BOLT_DELAY)
-	fire.timeout.connect(_fire_weave_bolt, CONNECT_ONE_SHOT)
 	attacked.emit(swing_point, facing)
+	# Close-range staff sweep is the primary strike. Bolts only fly when the
+	# arc does not connect, so Chapter 5 plays as melee + Q shockwave.
+	if _staff_melee() <= 0:
+		var fire := get_tree().create_timer(BOLT_DELAY)
+		fire.timeout.connect(_fire_weave_bolt, CONNECT_ONE_SHOT)
+	else:
+		_bolt_target = null
 	return true
 
 
@@ -504,6 +511,28 @@ func set_input_enabled(value: bool) -> void:
 # --------------------------------------------------------------------------
 # Internals
 # --------------------------------------------------------------------------
+
+## Lewet Staff melee: hit every nearby enemy inside a facing cone.
+func _staff_melee() -> int:
+	if not has_staff or _dead:
+		return 0
+	var hits := 0
+	var origin := global_position
+	var aim := facing if facing != Vector2.ZERO else Vector2(0, 1)
+	for target in _targets_in_range(origin, MELEE_REACH):
+		var to_target := target.global_position - origin
+		if to_target.length() > 14.0:
+			var aligned := aim.normalized().dot(to_target.normalized())
+			if aligned < cos(MELEE_ARC):
+				continue
+		if target.has_method("take_damage"):
+			target.take_damage(ATTACK_DAMAGE, self)
+			Fx.hit_flash(target, Palette.GOLD_SUN)
+			Fx.punch(target, 0.1)
+			attack_hit.emit(target)
+			hits += 1
+	return hits
+
 
 func _targets_in_range(origin: Vector2, radius: float) -> Array[Node2D]:
 	var found: Array[Node2D] = []
