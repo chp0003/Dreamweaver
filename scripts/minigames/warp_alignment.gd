@@ -4,8 +4,8 @@ extends MiniGameBase
 ##
 ## Easy: 3x3 of a complete T'boli cloth (9 pieces), light scramble.
 ## Medium: 3x4 Fun Kdungon (12 pieces).
-## Hard: 5x4 slices of the photographed T'nalak hanging
-## (`assets/images/props/tnalak_cloth.png`).
+## Hard: 5x4 slices of the Golden Era village
+## (`assets/images/story/intro_01_golden_era.png`).
 ##
 ## Drag a piece, or click it and then a neighbor, to slide them.
 
@@ -13,9 +13,7 @@ enum Difficulty { Easy, Medium, Hard }
 
 const EASY_PATH := "res://assets/images/minigames/warp_pattern_easy.png"
 const MEDIUM_PATH := "res://assets/images/characters/fun_kdungon.png"
-const HARD_PATH := "res://assets/images/props/tnalak_cloth.png"
-## Inner cloth of the hanging photograph, excluding the wooden wall and fringe.
-const HARD_CROP_UV := Rect2(0.08, 0.03, 0.84, 0.74)
+const HARD_PATH := "res://assets/images/story/intro_01_golden_era.png"
 ## Fun Kdungon sprite content, trimming empty transparent padding.
 const MEDIUM_CROP_UV := Rect2(0.02, 0.01, 0.96, 0.98)
 
@@ -74,7 +72,7 @@ func _difficulty_title() -> String:
 		Difficulty.Medium:
 			return "Fun Kdungon"
 		Difficulty.Hard:
-			return "Master Cloth"
+			return "The Golden Era"
 		_:
 			return "T'boli Woven Cloth"
 
@@ -171,8 +169,10 @@ func _fit_layout_to_cloth() -> void:
 	if source.size.x <= 1.0 or source.size.y <= 1.0:
 		return
 	var aspect := source.size.x / source.size.y
-	var max_w := 520.0
-	var max_h := 480.0
+	# The Golden Era panel is a wide landscape; give the loom board more width
+	# so houses, river and weavers stay readable as 5×4 slices.
+	var max_w := 640.0 if difficulty == Difficulty.Hard else 520.0
+	var max_h := 420.0 if difficulty == Difficulty.Hard else 480.0
 	var board_w := max_w
 	var board_h := board_w / aspect
 	if board_h > max_h:
@@ -180,7 +180,7 @@ func _fit_layout_to_cloth() -> void:
 		board_w = board_h * aspect
 	_board_size = Vector2(board_w, board_h)
 
-	var preview_h := mini(340.0, board_h)
+	var preview_h := mini(260.0 if difficulty == Difficulty.Hard else 340.0, board_h)
 	var preview_w := preview_h * aspect
 	if _target_view != null:
 		_target_view.custom_minimum_size = Vector2(preview_w, preview_h)
@@ -210,11 +210,6 @@ func _cloth_source_rect() -> Rect2:
 	if _cloth == null:
 		return Rect2()
 	var size := _cloth.get_size()
-	if difficulty == Difficulty.Hard:
-		return Rect2(
-			HARD_CROP_UV.position * size,
-			HARD_CROP_UV.size * size
-		)
 	if difficulty == Difficulty.Medium:
 		return Rect2(
 			MEDIUM_CROP_UV.position * size,
@@ -226,7 +221,7 @@ func _cloth_source_rect() -> Rect2:
 func _cloth_preview() -> Texture2D:
 	if _cloth == null:
 		return null
-	if difficulty == Difficulty.Easy:
+	if difficulty != Difficulty.Medium:
 		return _cloth
 	var atlas := AtlasTexture.new()
 	atlas.atlas = _cloth
