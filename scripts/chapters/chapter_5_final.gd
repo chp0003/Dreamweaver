@@ -75,9 +75,11 @@ func _build_world() -> void:
 
 	_loom = spawn_prop("THE SACRED LOOM", Vector2(0.0, -6.0), {
 		"texture_path": "res://assets/images/props/sacred_loom.png",
-		"prop_size": Vector2(230.0, 160.0),
+		"prop_size": Vector2(240.0, 180.0),
 		"body_color": Color(0.32, 0.28, 0.22),
 		"accent_color": Color(0.82, 0.7, 0.4),
+		"show_label": false,
+		"nearest_filter": true,
 	})
 	_loom_trigger = add_interactable("Weave", Vector2(0.0, -4.8), {
 		"enabled": false,
