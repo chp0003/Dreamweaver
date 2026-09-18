@@ -300,11 +300,12 @@ func kneel() -> void:
 	_hide_tell()
 	if _smoke != null:
 		_smoke.emitting = false
+	var home := scale
 	var tween := create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(self, "rotation_degrees", 16.0, 0.55)\
 		.set_ease(Tween.EASE_IN)
-	tween.tween_property(self, "scale", Vector2(1.05, 0.82), 0.55)
+	tween.tween_property(self, "scale", Vector2(home.x * 1.05, home.y * 0.82), 0.55)
 
 
 ## Color Burst: the sprite unravels into light.
@@ -315,10 +316,11 @@ func dissolve_into_light() -> void:
 	if _smoke != null:
 		_smoke.emitting = false
 	Fx.fiber_burst(self, Palette.GOLD_SUN)
+	var home := scale
 	var tween := create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(self, "modulate", Color(1.6, 1.5, 1.1, 0.0), 1.25)
-	tween.tween_property(self, "scale", Vector2(1.8, 0.12), 1.25)
+	tween.tween_property(self, "scale", Vector2(home.x * 1.8, home.y * 0.12), 1.25)
 
 
 func _flash(tint: Color) -> void:

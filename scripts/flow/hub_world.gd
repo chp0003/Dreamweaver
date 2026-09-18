@@ -183,7 +183,7 @@ func _place_house_exit(house_id: int, origin: Vector2, accent: Color) -> void:
 
 
 func _add_house_floor(house_id: int, origin: Vector2) -> void:
-	if house_id == 1 or house_id == 2 or house_id == 3 or house_id == 4:
+	if house_id == 1 or house_id == 2 or house_id == 3 or house_id == 4 or house_id == 5:
 		return
 	var floor := Node2D.new()
 	floor.name = "FloorHouse%d" % house_id

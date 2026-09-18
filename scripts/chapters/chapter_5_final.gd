@@ -16,6 +16,7 @@ extends "res://scripts/chapters/house_quest.gd"
 
 const RHYTHM_TRACK := "res://scenes/minigames/RhythmTrack.tscn"
 const QTE_SEQUENCE := "res://scenes/minigames/QteSequence.tscn"
+const COLLISION_SCENE := "res://scenes/world/House5Collision.tscn"
 
 const STEPS: Array[String] = [
 	"The Breach — clear the shadows",
@@ -25,38 +26,21 @@ const STEPS: Array[String] = [
 
 ## Dozens of shadows across three rising waves.
 const WAVES: Array[int] = [8, 8, 10]
-const SPAWN_CELLS: Array[Vector2] = [
-	Vector2(-6.0, -2.0),
-	Vector2(6.0, -2.0),
-	Vector2(-5.0, 4.0),
-	Vector2(5.0, 4.0),
-	Vector2(0.0, 6.0),
-	Vector2(-3.0, 0.0),
-	Vector2(3.0, 0.0),
-	Vector2(-4.0, 2.5),
-	Vector2(4.0, 2.5),
-	Vector2(0.0, 2.0),
-]
-
-const VILLAGER_NAMES: Array[String] = [
-	"T'BOLI WEAVER",
-	"T'BOLI DYER",
-	"T'BOLI SPINNER",
-	"T'BOLI CHILD",
-	"T'BOLI ELDER",
-]
 
 const RHYTHM_DAMAGE := 9.0
 const LOOM_BLEACH_DAMAGE := 0.18
-const APPROACH_RADIUS := 150.0
+const APPROACH_RADIUS := 220.0
 const BOSS_MUSIC := "res://assets/audio/music/boss_shadow_weaver.ogg"
 
-var _loom: PlaceholderProp
+var _plate: Chapter5Plate
+var _loom: Node2D
 var _loom_trigger: Interactable
-var _loom_gates: Array[PlaceholderProp] = []
-var _pools: Array[PlaceholderProp] = []
+var _loom_aura: AncestralAura
+var _veil_barrier: StaticBody2D
+var _pools: Array[Node2D] = []
 var _boss: ShadowWeaverBoss
 var _ancestor: PlaceholderProp
+var _beacon: QuestBeacon
 var _shadows_alive := 0
 var _shadows_total := 0
 var _loom_integrity := 1.0
@@ -64,116 +48,195 @@ var _weave_mode := false
 var _in_weave_game := false
 var _duel_over := false
 var _phase := 0
-var _gray_people: Array[PlaceholderProp] = []
-var _living_grass: Array[PlaceholderProp] = []
+
+
+func uses_painted_plate() -> bool:
+	return true
+
+
+func player_spawn_world() -> Vector2:
+	if _plate != null:
+		return _plate.spawn_world()
+	return super.player_spawn_world()
+
+
+func threshold_world() -> Vector2:
+	if _plate != null:
+		return _plate.exit_world()
+	return Vector2.ZERO
+
+
+func plate_world_rect() -> Rect2:
+	if _plate != null:
+		return _plate.global_world_rect()
+	return Rect2()
+
+
+func plate_camera_zoom() -> float:
+	return 0.86
+
+
+func painted_player_scale() -> float:
+	return 2.6
+
+
+func _process(_delta: float) -> void:
+	if _plate != null and player != null and is_instance_valid(player):
+		_plate.set_player_world(player.global_position)
 
 
 func _build_world() -> void:
 	if host != null:
 		host.max_shadows_alive = 18
-	add_room_bounds(Vector2i(-8, -8), 17, 17)
+	_mount_plate()
+	_build_hall()
+	_beacon = QuestBeacon.new()
+	_beacon.name = "QuestBeacon"
+	if world != null:
+		world.add_child(_beacon)
+	else:
+		add_child(_beacon)
+	if host != null and host.register_as_current_chapter:
+		_bind_host_camera()
 
-	_loom = spawn_prop("THE SACRED LOOM", Vector2(0.0, -6.0), {
-		"texture_path": "res://assets/images/props/sacred_loom.png",
-		"prop_size": Vector2(240.0, 180.0),
-		"body_color": Color(0.32, 0.28, 0.22),
-		"accent_color": Color(0.82, 0.7, 0.4),
-		"show_label": false,
-		"nearest_filter": true,
-	})
-	_loom_trigger = add_interactable("Weave", Vector2(0.0, -4.8), {
+
+func _mount_plate() -> void:
+	var standalone := host != null and host.register_as_current_chapter
+	if standalone:
+		if host.floor_node != null:
+			host.floor_node.visible = false
+		if host.stage != null:
+			host.stage.visible = false
+	_plate = Chapter5Plate.new()
+	_plate.name = "Chapter5Plate"
+	_plate.position = Iso.cell_to_world(region_origin)
+	add_child(_plate)
+	if world != null:
+		_plate.attach_solids(world)
+	_mount_collision()
+	if standalone and player != null:
+		var spawn := _plate.spawn_world()
+		player.global_position = spawn
+		host._spawn_position = spawn
+
+
+func _mount_collision() -> void:
+	var packed := load(COLLISION_SCENE) as PackedScene
+	if packed == null:
+		if _plate != null:
+			_plate.add_fallback_solids()
+			if world != null:
+				_plate.attach_solids(world)
+		return
+	var root := packed.instantiate() as Node2D
+	root.name = "House5Collision"
+	var hall := root.get_node_or_null("HallCollision") as StaticBody2D
+	if hall != null:
+		hall.set("show_collision_debug", false)
+	var host_node: Node2D = world if world != null else self
+	host_node.add_child(root)
+	if _plate != null:
+		root.global_transform = _plate.global_transform
+	if hall != null and hall.get_parent() != host_node:
+		var xf := hall.global_transform
+		hall.reparent(host_node)
+		hall.global_transform = xf
+		hall.name = "House5Collision"
+		root.queue_free()
+
+
+func _build_hall() -> void:
+	_loom = _anchor("SacredLoom", _plate.loom_reach_world())
+	_loom_aura = AncestralAura.new()
+	_loom_aura.aura_color = Color(0.96, 0.82, 0.48, 0.9)
+	_loom_aura.mote_count = 22
+	_loom.add_child(_loom_aura)
+	_loom_trigger = place_interactable("Weave", _plate.loom_reach_world(), {
 		"enabled": false,
-		"radius": 108.0,
+		"radius": 120.0,
 	})
 	_loom_trigger.interacted.connect(_on_loom_used)
-	_attach_loom_light()
+	if _color_anchor != null:
+		_color_anchor.global_position = _plate.loom_reach_world()
 	_lock_loom_approach()
 
-	# Gray statues wait in the hall. The Color Burst returns them to life.
-	for i in range(5):
-		var figure := spawn_prop("GRAY STATUE", Vector2(-6.0 + float(i) * 3.0, -1.0), {
-			"texture_path": "res://assets/images/characters/villager_%d.png" % (i + 1),
-			"prop_size": Vector2(30.0, 56.0),
-			"body_color": Color(0.42, 0.41, 0.4),
-			"accent_color": Color(0.55, 0.54, 0.52),
-			"show_label": false,
-		})
-		figure.set_tint(Color(0.72, 0.72, 0.74))
-		_gray_people.append(figure)
+	for i in range(Chapter5Plate.SPAWN_UVS.size()):
+		_pools.append(_anchor("ShadowPool_%d" % i, _plate.spawn_point(i)))
 
-	# Darkness pools: the minion spawn points, visible from the start.
-	for i in range(SPAWN_CELLS.size()):
-		var pool := spawn_prop("DARKNESS POOL", SPAWN_CELLS[i], {
-			"prop_size": Vector2(78.0, 12.0),
-			"body_color": Color(0.06, 0.05, 0.07),
-			"accent_color": Color(0.2, 0.16, 0.22),
-			"show_label": i == 0,
-			"cast_shadow": true,
-			"float_amplitude": 2.0,
-			"float_speed": 1.8,
-		})
-		_pools.append(pool)
-
-	for i in range(5):
-		spawn_prop("ANCESTOR BANNER", Vector2(-7.0 + float(i) * 3.5, -7.5), {
-			"texture_path": "res://assets/images/environments/highland/ancestor_banner_3d.png",
-			"prop_size": Vector2(48.0, 132.0),
-			"body_color": Color(0.22, 0.2, 0.19),
-			"accent_color": Color(0.5, 0.4, 0.3),
-			"show_label": false,
-			"nearest_filter": true,
-			"cast_shadow": false,
-		})
-
-	_ancestor = spawn_prop("ANCESTOR SPIRIT", Vector2(5.5, -6.2), {
+	_ancestor = place_prop("MASTER WEAVER", _plate.ghost_world(), {
 		"texture_path": "res://assets/images/characters/master_weaver_ghost.png",
-		"prop_size": Vector2(44.0, 92.0),
+		"prop_size": Vector2(110.0, 188.0),
 		"body_color": Color(0.55, 0.52, 0.48),
 		"accent_color": Color(0.82, 0.74, 0.5),
 		"show_label": false,
-		"float_amplitude": 7.0,
-		"float_speed": 1.05,
+		"float_amplitude": 5.0,
+		"float_speed": 0.9,
 		"blocks_movement": false,
+		"cast_shadow": false,
 	})
 	_ancestor.modulate.a = 0.0
 	_ancestor.visible = false
 
 	_boss = ShadowWeaverBoss.new()
-	_boss.position = Iso.cell_to_world(map_cell(Vector2(0.0, -3.6)))
 	_boss.max_health = 100.0
-	world.add_child(_boss)
+	if world != null:
+		world.add_child(_boss)
+	else:
+		add_child(_boss)
+	_boss.global_position = _plate.boss_world()
+	_boss.scale = Vector2(2.15, 2.15)
 	_boss.modulate = Color(1, 1, 1, 0)
 	_boss.visible = false
+
+
+func _anchor(anchor_name: String, world_pos: Vector2) -> Node2D:
+	var node := Node2D.new()
+	node.name = anchor_name
+	if world != null:
+		world.add_child(node)
+	else:
+		add_child(node)
+	node.global_position = world_pos
+	return node
+
+
+func _bind_host_camera() -> void:
+	if host == null or _plate == null:
+		return
+	host.camera_limit_rect = _plate.global_world_rect()
+	var z := plate_camera_zoom()
+	var rect := _plate.global_world_rect()
+	if host.camera != null:
+		host.camera.zoom = Vector2(z, z)
+		var view := host.get_viewport_rect().size / Vector2(z, z)
+		host.camera_follows_player = view.x < rect.size.x or view.y < rect.size.y
+		if host.camera_follows_player and player != null:
+			host.camera.global_position = player.global_position
+		else:
+			host.camera.global_position = rect.get_center()
+		if player != null and player.has_method("apply_depth_scale"):
+			player.apply_depth_scale(painted_player_scale())
+	host.apply_camera_world_limits()
+	host._clamp_camera()
 
 
 func _bind_player_combat() -> void:
 	if player == null or not is_instance_valid(player):
 		return
+	if not player.has_staff:
+		player.equip_staff()
 	if not player.chimed.is_connected(_on_player_chimed):
 		player.chimed.connect(_on_player_chimed)
 	if not player.attack_hit.is_connected(_on_player_attack_hit):
 		player.attack_hit.connect(_on_player_attack_hit)
 
 
-func _attach_loom_light() -> void:
-	var loom_light := PointLight2D.new()
-	loom_light.name = "LoomLight"
-	loom_light.color = Color(1.0, 0.86, 0.52)
-	loom_light.energy = 1.15
-	loom_light.texture_scale = 3.4
-	loom_light.position = Vector2(0.0, -70.0)
-	var loom_tex := GradientTexture2D.new()
-	var loom_grad := Gradient.new()
-	loom_grad.set_color(0, Color(1, 1, 1, 1))
-	loom_grad.set_color(1, Color(1, 1, 1, 0))
-	loom_tex.gradient = loom_grad
-	loom_tex.width = 256
-	loom_tex.height = 256
-	loom_tex.fill = GradientTexture2D.FILL_RADIAL
-	loom_tex.fill_from = Vector2(0.5, 0.5)
-	loom_tex.fill_to = Vector2(1.0, 0.5)
-	loom_light.texture = loom_tex
-	_loom.add_child(loom_light)
+func apply_restored_color() -> void:
+	super.apply_restored_color()
+	if _plate != null:
+		_plate.set_restore(1.0)
+		_plate.set_sanctity(1.0)
+		_plate.set_loom_energy(1.2)
 
 
 # --------------------------------------------------------------------------
@@ -291,7 +354,7 @@ func _phase_three_finish() -> void:
 	objective("Finish the pattern. Match every prompt.")
 	Audio.set_combat_drums(0.4, 118.0)
 	if is_instance_valid(_loom):
-		focus_camera_on(_loom.global_position + Vector2(0.0, 28.0), Vector2(1.55, 1.55))
+		focus_camera_on(_loom.global_position + Vector2(0.0, -40.0), Vector2(1.12, 1.12))
 	await say([
 		"The Shadow Weaver comes apart into loose thread and hangs there, still turning, waiting for someone to either tie it off or let it go.",
 		{"speaker": "S'lang", "text": "One stitch. Do not rush it."},
@@ -314,7 +377,7 @@ func _phase_three_finish() -> void:
 		if not await _reform_boss():
 			return
 		if is_instance_valid(_loom):
-			focus_camera_on(_loom.global_position + Vector2(0.0, 28.0), Vector2(1.55, 1.55))
+			focus_camera_on(_loom.global_position + Vector2(0.0, -40.0), Vector2(1.12, 1.12))
 
 	await _color_burst()
 	await _closing_cutscene()
@@ -325,13 +388,14 @@ func _phase_three_finish() -> void:
 # --------------------------------------------------------------------------
 
 func _spawn_wave(count: int) -> void:
+	var slots := Chapter5Plate.SPAWN_UVS.size()
 	for i in range(count):
-		var cell: Vector2 = SPAWN_CELLS[i % SPAWN_CELLS.size()]
-		var jitter := Vector2(randf_range(-0.55, 0.55), randf_range(-0.55, 0.55))
-		var pool_index := i % _pools.size() if not _pools.is_empty() else -1
-		if pool_index >= 0 and is_instance_valid(_pools[pool_index]):
+		var pool_index := i % slots
+		var origin := _plate.spawn_point(pool_index) if _plate != null else Vector2.ZERO
+		origin += Vector2(randf_range(-28.0, 28.0), randf_range(-18.0, 18.0))
+		if pool_index < _pools.size() and is_instance_valid(_pools[pool_index]):
 			Fx.pool_rise(_pools[pool_index])
-		var minion := spawn_minion(cell + jitter, {
+		var minion := place_minion(origin, {
 			"max_health": 42.0,
 			"speed": 96.0,
 			"touch_damage": 11.0,
@@ -339,6 +403,7 @@ func _spawn_wave(count: int) -> void:
 		})
 		if minion == null:
 			continue
+		minion.scale = Vector2(2.15, 2.15)
 		minion.died.connect(_on_minion_died)
 		_shadows_alive += 1
 		_shadows_total += 1
@@ -356,30 +421,35 @@ func _refresh_shadow_counter() -> void:
 
 func _lock_loom_approach() -> void:
 	_loom_trigger.set_enabled(false)
-	var cells: Array[Vector2] = [
-		Vector2(-2.2, -4.4),
-		Vector2(0.0, -4.4),
-		Vector2(2.2, -4.4),
-	]
-	for cell in cells:
-		var veil := spawn_prop("SHADOW VEIL", cell, {
-			"prop_size": Vector2(70.0, 88.0),
-			"body_color": Color(0.08, 0.07, 0.1, 0.85),
-			"accent_color": Color(0.28, 0.18, 0.3),
-			"show_label": false,
-			"blocks_movement": true,
-			"float_amplitude": 3.0,
-		})
-		_loom_gates.append(veil)
+	if _veil_barrier != null and is_instance_valid(_veil_barrier):
+		return
+	_veil_barrier = StaticBody2D.new()
+	_veil_barrier.name = "ShadowVeil"
+	_veil_barrier.collision_layer = PhysicsLayers.LAYER_WORLD
+	_veil_barrier.collision_mask = PhysicsLayers.MASK_WORLD_STATIC
+	var shape := CollisionShape2D.new()
+	var box := RectangleShape2D.new()
+	box.size = Vector2(460.0, 36.0)
+	shape.shape = box
+	_veil_barrier.add_child(shape)
+	if world != null:
+		world.add_child(_veil_barrier)
+	else:
+		add_child(_veil_barrier)
+	if _plate != null:
+		_veil_barrier.global_position = _plate.veil_world()
 
 
 func _unlock_loom_approach() -> void:
-	for veil in _loom_gates:
-		if veil != null and is_instance_valid(veil):
-			var fade := create_tween()
-			fade.tween_property(veil, "modulate:a", 0.0, 0.4)
-			fade.tween_callback(veil.queue_free)
-	_loom_gates.clear()
+	if _veil_barrier != null and is_instance_valid(_veil_barrier):
+		var fade := create_tween()
+		fade.tween_property(_veil_barrier, "modulate:a", 0.0, 0.35)
+		fade.tween_callback(_veil_barrier.queue_free)
+	_veil_barrier = null
+	if _plate != null:
+		_plate.set_loom_energy(0.9)
+	if _loom_aura != null:
+		_loom_aura.set_energy(0.85, 0.8)
 
 
 func _player_near_loom() -> bool:
@@ -414,6 +484,8 @@ func _enter_defend_mode() -> void:
 	objective("DEFEND: press [Space] as the ring tightens to parry the Bleach Attack.")
 	if hud != null and hud.has_method("set_mode"):
 		hud.call("set_mode", "DEFEND MODE", Color(0.9, 0.55, 0.42))
+	if _plate != null:
+		_plate.set_loom_energy(0.45)
 
 
 func _enter_weave_mode() -> void:
@@ -422,6 +494,11 @@ func _enter_weave_mode() -> void:
 	objective("WEAVE: reach the Sacred Loom and press [E] while the Shadow Weaver reels.")
 	if hud != null and hud.has_method("set_mode"):
 		hud.call("set_mode", "WEAVE MODE", Color(0.9, 0.82, 0.5))
+	if _plate != null:
+		_plate.set_loom_energy(1.4)
+	if _loom_aura != null:
+		_loom_aura.set_energy(1.3, 0.4)
+		_loom_aura.burst()
 
 
 ## Every staff swing during a wind-up is a parry attempt.
@@ -522,9 +599,10 @@ func _on_rhythm_note(hit: bool) -> void:
 		return
 	_boss.take_damage(RHYTHM_DAMAGE, player)
 	Fx.light_burst(_boss, Palette.GOLD_SUN)
-	if is_instance_valid(_loom):
-		Fx.light_burst(_loom, Palette.GOLD_SACRED)
+	if _loom != null:
 		ColorRestoration.bloom_zone("rhythm_hit", _loom, 160.0, 0.55, 0.28)
+	if _plate != null:
+		_plate.set_loom_energy(1.2)
 	shake_camera(5.0)
 
 
@@ -554,7 +632,7 @@ func _reform_boss() -> bool:
 	_duel_over = false
 	_phase = 2
 	_boss.rotation_degrees = 0.0
-	_boss.scale = Vector2.ONE
+	_boss.scale = Vector2(2.15, 2.15)
 	_boss.modulate = Color.WHITE
 	_boss.health = _boss.max_health * 0.25
 	_boss.health_changed.emit(_boss.health, _boss.max_health)
@@ -614,7 +692,7 @@ func _color_burst() -> void:
 	banner("COLOUR", 2.6)
 
 	var burst := _make_burst()
-	burst.position = _loom.position if is_instance_valid(_loom) else Vector2.ZERO
+	burst.global_position = _loom.global_position if is_instance_valid(_loom) else Vector2.ZERO
 	world.add_child(burst)
 	burst.emitting = true
 	shake_camera(16.0)
@@ -631,64 +709,21 @@ func _color_burst() -> void:
 
 	# The moment the whole world comes back.
 	ColorRestoration.restore_world(2.4)
-	_restore_hall_green()
+	if _plate != null:
+		_plate.bloom_restore(2.6)
+		_plate.bloom_sanctity(1.0, 2.2)
+		_plate.set_loom_energy(1.8)
 	GameState.complete_house(house_id)
 	GameState.complete_game()
-	_awaken_people()
-	_sprout_living_world()
+	if _loom_aura != null:
+		_loom_aura.set_energy(1.6, 0.6)
+		_loom_aura.burst()
 
 	var fade := create_tween()
 	fade.tween_property(flash, "color:a", 0.0, 1.8)
 	await fade.finished
 	flash.queue_free()
 	await wait(1.0)
-
-
-func _restore_hall_green() -> void:
-	if host == null:
-		return
-	for node in host.get_children():
-		if node.visible and node.has_method("restore_living_palette"):
-			node.call("restore_living_palette")
-
-
-func _sprout_living_world() -> void:
-	var cells: Array[Vector2] = [
-		Vector2(-6.5, 3.5), Vector2(6.5, 3.5), Vector2(-3.0, 5.5),
-		Vector2(3.0, 5.5), Vector2(-7.0, 0.5), Vector2(7.0, 0.5),
-		Vector2(0.0, 4.5), Vector2(-5.0, 6.5), Vector2(5.0, 6.5),
-	]
-	for i in range(cells.size()):
-		var tuft := spawn_prop("HIGHLAND GRASS", cells[i], {
-			"texture_path": "res://assets/images/environments/highland/highland_grass_tuft.png",
-			"prop_size": Vector2(36.0, 22.0),
-			"body_color": Color(0.28, 0.48, 0.24),
-			"accent_color": Color(0.42, 0.62, 0.28),
-			"show_label": false,
-			"blocks_movement": false,
-			"cast_shadow": false,
-		})
-		tuft.modulate.a = 0.0
-		_living_grass.append(tuft)
-		var wake := create_tween()
-		wake.tween_property(tuft, "modulate:a", 1.0, 0.55).set_delay(float(i) * 0.08)
-
-
-func _awaken_people() -> void:
-	for i in range(_gray_people.size()):
-		var person := _gray_people[i]
-		if person == null or not is_instance_valid(person):
-			continue
-		person.prop_label = VILLAGER_NAMES[i % VILLAGER_NAMES.size()]
-		person.show_label = false
-		person.set_tint(Color.WHITE)
-		person.body_color = Color(0.66, 0.5, 0.36)
-		person.accent_color = Color(0.8, 0.24, 0.2)
-		person.queue_redraw()
-		var wake := create_tween()
-		wake.tween_property(person, "modulate", Color(1.15, 1.08, 0.95), 0.7)\
-			.set_delay(float(i) * 0.16)
-		wake.tween_property(person, "modulate", Color.WHITE, 0.4)
 
 
 func _make_burst() -> GPUParticles2D:
@@ -737,7 +772,7 @@ func _closing_cutscene() -> void:
 
 	await say([
 		"The colour does not stop at the walls of the House. It runs out along the mountain paths, into the terraces, up the hills, into cloth that has been folded away in the dark for a generation.",
-		"The gray figures in the hall draw breath. Faces return. Hands remember work.",
+		"The gray hush in the hall draws breath. Light returns to the cloth. Hands would remember work, if they were here to take it up.",
 	])
 
 	if is_instance_valid(_ancestor):

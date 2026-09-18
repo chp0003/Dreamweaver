@@ -1,0 +1,43 @@
+[gd_scene format=3 uid="uid://c5h0use5collis"]
+
+[ext_resource type="Texture2D" path="res://assets/images/environments/house_sacred/sacred_loom_hall.png" id="1_hall"]
+[ext_resource type="Script" uid="uid://c282enk2jiljv" path="res://scripts/world/editor_plate_ref.gd" id="2_ref"]
+[ext_resource type="Script" uid="uid://clye7sh26pu3e" path="res://scripts/world/hub_collision_debug.gd" id="3_debug"]
+
+[node name="House5Collision" type="Node2D"]
+
+[node name="PlateRef" type="Sprite2D" parent="."]
+z_index = -120
+texture = ExtResource("1_hall")
+script = ExtResource("2_ref")
+
+[node name="HallCollision" type="StaticBody2D" parent="."]
+z_index = 50
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("3_debug")
+show_collision_debug = false
+
+[node name="BackWall" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(-520, -420, 520, -420, 520, -268, -520, -268)
+
+[node name="Loom" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(-168, -210, 168, -210, 168, -78, -168, -78)
+
+[node name="LeftGarden" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(-576, 173, -207, 173, -207, 415, -576, 415)
+
+[node name="RightGarden" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(219, 138, 564, 138, 564, 415, 219, 415)
+
+[node name="LeftWall" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(-588, -430, -518, -430, -518, 430, -588, 430)
+
+[node name="RightWall" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(518, -430, 588, -430, 588, 430, 518, 430)
+
+[node name="LeftRail" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(-311, 73, -104, 73, -104, 134, -311, 134)
+
+[node name="RightRail" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(104, 73, 311, 73, 311, 134, 104, 134)
