@@ -29,6 +29,9 @@ const PARRY_GRACE := 0.12
 ## Parries needed before the boss overextends into a stagger.
 @export var parries_to_stagger := 3
 @export var stagger_duration := 7.0
+## Every Nth Bleach Attack is a heavy overextend that always opens Weave Mode
+## when parried, matching the "heavy attack then stun" beat.
+@export var heavy_every := 4
 
 var health := 100.0
 
@@ -41,9 +44,13 @@ var _parry_streak := 0
 var _staggered := false
 var _stagger_left := 0.0
 var _dead := false
+var _attack_index := 0
+var _heavy := false
+var _current_window := 1.05
 
 var _art: PlaceholderProp
 var _tell: Node2D
+var _smoke: GPUParticles2D
 
 
 func _ready() -> void:
@@ -68,7 +75,7 @@ func _process(delta: float) -> void:
 
 	if _telegraphing:
 		_window_left -= delta
-		_update_tell(1.0 - clampf(_window_left / telegraph_window, 0.0, 1.0))
+		_update_tell(1.0 - clampf(_window_left / maxf(0.001, _current_window), 0.0, 1.0))
 		if _window_left <= -PARRY_GRACE and not _resolved:
 			_resolve_telegraph(false)
 		return
@@ -84,13 +91,19 @@ func _process(delta: float) -> void:
 
 func begin_duel() -> void:
 	_active = true
+	_dead = false
+	_staggered = false
 	_timer = attack_interval
+	if _smoke != null:
+		_smoke.emitting = true
 
 
 func end_duel() -> void:
 	_active = false
 	_telegraphing = false
 	_hide_tell()
+	if _smoke != null:
+		_smoke.emitting = false
 
 
 func is_staggered() -> bool:
@@ -106,7 +119,7 @@ func try_parry() -> bool:
 	if not is_telegraphing():
 		return false
 	# The window is generous right at the end of the wind-up.
-	if _window_left > telegraph_window * 0.55:
+	if _window_left > _current_window * 0.55:
 		return false
 	_resolve_telegraph(true)
 	return true
@@ -161,9 +174,13 @@ func health_ratio() -> float:
 func _begin_telegraph() -> void:
 	_telegraphing = true
 	_resolved = false
-	_window_left = telegraph_window
+	_attack_index += 1
+	_heavy = heavy_every > 0 and (_attack_index % heavy_every) == 0
+	_window_left = telegraph_window * (1.35 if _heavy else 1.0)
+	_current_window = _window_left
 	_show_tell()
-	telegraph_started.emit(telegraph_window)
+	Audio.play_wind_whistle()
+	telegraph_started.emit(_window_left)
 
 
 func _resolve_telegraph(parried: bool) -> void:
@@ -175,10 +192,11 @@ func _resolve_telegraph(parried: bool) -> void:
 	if parried:
 		_parry_streak += 1
 		Audio.play_sfx(Audio.Sfx.PARRY)
-		take_damage(4.0)
-		GameState.add_score(30)
-		if _parry_streak >= parries_to_stagger:
-			# Deferred so the chapter sees `telegraph_resolved` first.
+		take_damage(6.0 if _heavy else 4.0)
+		GameState.add_score(40 if _heavy else 30)
+		# A clean parry of a heavy overextend, or a run of light parries,
+		# staggers the Weaver into Weave Mode.
+		if _heavy or _parry_streak >= parries_to_stagger:
 			telegraph_resolved.emit(true)
 			stagger()
 			return
@@ -207,6 +225,28 @@ func _build_visuals() -> void:
 	_art.float_amplitude = 6.0
 	_art.float_speed = 1.1
 	add_child(_art)
+
+	_smoke = GPUParticles2D.new()
+	_smoke.name = "Smoke"
+	_smoke.amount = 28
+	_smoke.lifetime = 1.6
+	_smoke.preprocess = 0.4
+	_smoke.emitting = false
+	_smoke.position = Vector2(0.0, -70.0)
+	_smoke.z_index = -1
+	var smoke_mat := ParticleProcessMaterial.new()
+	smoke_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	smoke_mat.emission_sphere_radius = 22.0
+	smoke_mat.direction = Vector3(0.0, -1.0, 0.0)
+	smoke_mat.spread = 80.0
+	smoke_mat.initial_velocity_min = 8.0
+	smoke_mat.initial_velocity_max = 28.0
+	smoke_mat.gravity = Vector3(0.0, -12.0, 0.0)
+	smoke_mat.scale_min = 0.5
+	smoke_mat.scale_max = 1.4
+	smoke_mat.color = Color(0.12, 0.1, 0.14, 0.55)
+	_smoke.process_material = smoke_mat
+	add_child(_smoke)
 
 	_tell = Node2D.new()
 	_tell.name = "Telegraph"
@@ -246,6 +286,39 @@ func _update_tell(progress: float) -> void:
 	if ring != null:
 		ring.color = Color(0.95, 0.88, 0.8).lerp(Color(0.95, 0.4, 0.35), progress)
 		ring.color.a = 0.3 + progress * 0.4
+
+
+func is_heavy_attack() -> bool:
+	return _heavy
+
+
+## Phase 3: the Weaver drops to its knees, waiting for the last stitch.
+func kneel() -> void:
+	_active = false
+	_telegraphing = false
+	_staggered = false
+	_hide_tell()
+	if _smoke != null:
+		_smoke.emitting = false
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(self, "rotation_degrees", 16.0, 0.55)\
+		.set_ease(Tween.EASE_IN)
+	tween.tween_property(self, "scale", Vector2(1.05, 0.82), 0.55)
+
+
+## Color Burst: the sprite unravels into light.
+func dissolve_into_light() -> void:
+	_active = false
+	_dead = true
+	_hide_tell()
+	if _smoke != null:
+		_smoke.emitting = false
+	Fx.fiber_burst(self, Palette.GOLD_SUN)
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(self, "modulate", Color(1.6, 1.5, 1.1, 0.0), 1.25)
+	tween.tween_property(self, "scale", Vector2(1.8, 0.12), 1.25)
 
 
 func _flash(tint: Color) -> void:

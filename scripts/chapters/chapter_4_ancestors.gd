@@ -298,8 +298,9 @@ func _align_warps() -> bool:
 		},
 		{
 			"difficulty": 2,
-			"banner": "Third warp — the master cloth",
-			"intro": "Last: the photographed T'nalak. Slide it true, or the dream will not hold.",
+			"banner": "Third warp — the Golden Era",
+			"intro": "Last: the village as it was dreamed, whole and in colour. Slide every section home, or the dream will not hold.",
+			"cloth_path": "res://assets/images/minigames/warp_pattern_hard.png",
 		},
 	]
 	for dream in dreams:
@@ -309,9 +310,12 @@ func _align_warps() -> bool:
 		await say([
 			{"speaker": "Master Weaver", "text": str(dream["intro"])},
 		])
-		var aligned: bool = await run_mini_game(WARP_ALIGNMENT, {
+		var setup := {
 			"difficulty": int(dream["difficulty"]),
-		})
+		}
+		if dream.has("cloth_path"):
+			setup["cloth_path"] = str(dream["cloth_path"])
+		var aligned: bool = await run_mini_game(WARP_ALIGNMENT, setup)
 		if not aligned:
 			await say([
 				{"speaker": "Master Weaver", "text": "You forced it. A warp forced is a warp broken. Rest, and come back to it."},

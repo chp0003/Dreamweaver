@@ -248,6 +248,16 @@ func shake_camera(amount := 10.0) -> void:
 		host.shake_camera(amount)
 
 
+func focus_camera_on(world_pos: Vector2, zoom := Vector2.ZERO) -> void:
+	if host != null:
+		host.focus_camera_on(world_pos, zoom)
+
+
+func clear_camera_focus() -> void:
+	if host != null:
+		host.clear_camera_focus()
+
+
 func fail_chapter() -> void:
 	_quest_finished = true
 	_quest_running = false

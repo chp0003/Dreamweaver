@@ -39,8 +39,12 @@ const PLAYER_SCENE := "res://scenes/world/Player.tscn"
 @export var simplify_hud := false
 ## When false (the open ridge), finishing a House does not freeze S'lang forever.
 @export var lock_input_when_finished := true
+## Hard cap on simultaneous Shadow Minions. Chapter 5 raises this for the Breach.
+@export var max_shadows_alive := 4
 ## When set, camera limits use this world rect instead of the iso floor diamond.
 var camera_limit_rect := Rect2()
+var _focus_active := false
+var _focus_point := Vector2.ZERO
 
 var player: Slang
 var floor_node: Node2D
@@ -103,11 +107,27 @@ func shake_camera(amount := 10.0) -> void:
 	_shake = maxf(_shake, amount)
 
 
+## Pin the camera on a world point (close-up on the loom, a kneel, a burst).
+func focus_camera_on(world_pos: Vector2, zoom := Vector2.ZERO) -> void:
+	_focus_active = true
+	_focus_point = world_pos
+	if camera != null and zoom != Vector2.ZERO:
+		camera.zoom = zoom
+
+
+func clear_camera_focus() -> void:
+	_focus_active = false
+	if camera != null:
+		camera.zoom = camera_zoom
+
+
 func _update_camera(delta: float) -> void:
 	if camera == null:
 		return
 	var target := camera.global_position
-	if camera_follows_player and player != null and is_instance_valid(player):
+	if _focus_active:
+		target = _focus_point
+	elif camera_follows_player and player != null and is_instance_valid(player):
 		target = player.global_position
 		# Painted plates set camera_limit_rect and their own player scale.
 		# Don't stomp that with the ridge's near/far depth lerp.
@@ -375,7 +395,8 @@ func spawn_collectible(label: String, cell: Vector2, config := {}) -> Collectibl
 func spawn_minion(cell: Vector2, config := {}) -> ShadowMinion:
 	# Hard cap so a stuck chapter loop can never flood the floor.
 	var alive := get_tree().get_nodes_in_group("shadow_minion").size()
-	if alive >= 4:
+	var cap := maxi(1, max_shadows_alive)
+	if alive >= cap:
 		push_warning("spawn_minion blocked — already %d shadows alive" % alive)
 		return null
 	var minion := ShadowMinion.new()

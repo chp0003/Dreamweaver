@@ -21,7 +21,7 @@ const HIT_TOLERANCE := 44.0
 
 @export var note_count := 12
 @export var note_speed := 300.0
-@export var spawn_interval := 0.62
+@export var spawn_interval := 0.46875
 ## Fraction of notes that must land for the track to count as a success.
 @export var required_ratio := 0.5
 
@@ -184,6 +184,7 @@ func _resolve(index: int, hit: bool) -> void:
 	if hit:
 		_hits += 1
 		Audio.play_sfx(Audio.Sfx.PARRY)
+		Audio.play_sfx(Audio.Sfx.BELL)
 		GameState.add_score(35)
 		set_status("Struck true.")
 	else:
