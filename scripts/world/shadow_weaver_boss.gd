@@ -20,6 +20,8 @@ signal recovered
 signal defeated
 
 const PARRY_GRACE := 0.12
+const SHEET_PATH := "res://assets/images/enemies/shadow_weaver_boss_sheet.png"
+const FRAME_SIZE := Vector2i(320, 320)
 
 @export var max_health := 100.0
 ## Seconds of telegraph before a Bleach Attack lands. Shrinks as the boss weakens.
@@ -49,6 +51,7 @@ var _heavy := false
 var _current_window := 1.05
 
 var _art: PlaceholderProp
+var _sprite: AnimatedSprite2D
 var _tell: Node2D
 var _smoke: GPUParticles2D
 
@@ -94,6 +97,7 @@ func begin_duel() -> void:
 	_dead = false
 	_staggered = false
 	_timer = attack_interval
+	_play_visual("idle")
 	if _smoke != null:
 		_smoke.emitting = true
 
@@ -155,6 +159,7 @@ func stagger(duration: float = -1.0) -> void:
 	_parry_streak = 0
 	Audio.play_sfx(Audio.Sfx.SUCCESS)
 	_flash(Color(1.4, 1.3, 0.9))
+	_play_visual("stagger")
 	staggered.emit(_stagger_left)
 
 
@@ -179,6 +184,7 @@ func _begin_telegraph() -> void:
 	_window_left = telegraph_window * (1.35 if _heavy else 1.0)
 	_current_window = _window_left
 	_show_tell()
+	_play_visual("cast" if _heavy else "windup")
 	Audio.play_wind_whistle()
 	telegraph_started.emit(_window_left)
 
@@ -203,6 +209,7 @@ func _resolve_telegraph(parried: bool) -> void:
 	else:
 		_parry_streak = 0
 		Audio.play_sfx(Audio.Sfx.FAIL)
+		_play_visual("attack")
 
 	telegraph_resolved.emit(parried)
 
@@ -211,20 +218,36 @@ func _end_stagger() -> void:
 	_staggered = false
 	_stagger_left = 0.0
 	_timer = attack_interval * 0.8
+	_play_visual("recover")
 	recovered.emit()
 
 
 func _build_visuals() -> void:
-	_art = PlaceholderProp.new()
-	_art.name = "Art"
-	_art.prop_label = "SHADOW WEAVER BOSS"
-	_art.texture_path = "res://assets/images/enemies/shadow_weaver_boss.png"
-	_art.prop_size = Vector2(156.0, 236.0)
-	_art.body_color = Color(0.12, 0.11, 0.15)
-	_art.accent_color = Color(0.42, 0.3, 0.42)
-	_art.float_amplitude = 6.0
-	_art.float_speed = 1.1
-	add_child(_art)
+	var boss_frames := _build_sprite_frames()
+	if boss_frames != null:
+		_sprite = AnimatedSprite2D.new()
+		_sprite.name = "ShadowWeaverArt"
+		_sprite.sprite_frames = boss_frames
+		_sprite.centered = true
+		_sprite.position = Vector2(0.0, -FRAME_SIZE.y * 0.5)
+		# Chapter 5 applies a 1.25 world scale. This keeps the boss roughly
+		# twice S'lang's height while its lowered arena anchor prevents clipping.
+		_sprite.scale = Vector2(0.8, 0.8)
+		_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		_sprite.animation_finished.connect(_on_visual_finished)
+		add_child(_sprite)
+		_sprite.play("idle")
+	else:
+		_art = PlaceholderProp.new()
+		_art.name = "Art"
+		_art.prop_label = "SHADOW WEAVER BOSS"
+		_art.prop_size = Vector2(156.0, 236.0)
+		_art.body_color = Color(0.12, 0.11, 0.15)
+		_art.accent_color = Color(0.42, 0.3, 0.42)
+		_art.float_amplitude = 6.0
+		_art.float_speed = 1.1
+		_art.blocks_movement = false
+		add_child(_art)
 
 	_smoke = GPUParticles2D.new()
 	_smoke.name = "Smoke"
@@ -254,14 +277,16 @@ func _build_visuals() -> void:
 	_tell.z_index = 12
 	add_child(_tell)
 
-	var ring := Polygon2D.new()
+	var ring := Line2D.new()
 	ring.name = "Ring"
 	var points := PackedVector2Array()
-	for i in range(20):
-		var a := TAU * float(i) / 20.0
+	for i in range(33):
+		var a := TAU * float(i) / 32.0
 		points.append(Vector2(cos(a) * 78.0, sin(a) * 40.0))
-	ring.polygon = points
-	ring.color = Color(0.9, 0.85, 0.8, 0.35)
+	ring.points = points
+	ring.width = 3.0
+	ring.default_color = Color(0.95, 0.9, 0.75, 0.85)
+	ring.antialiased = true
 	_tell.add_child(ring)
 
 
@@ -282,10 +307,15 @@ func _update_tell(progress: float) -> void:
 		return
 	var s := lerpf(1.6, 0.85, clampf(progress, 0.0, 1.0))
 	_tell.scale = Vector2(s, s)
-	var ring := _tell.get_node_or_null("Ring") as Polygon2D
+	var ring := _tell.get_node_or_null("Ring") as Line2D
 	if ring != null:
-		ring.color = Color(0.95, 0.88, 0.8).lerp(Color(0.95, 0.4, 0.35), progress)
-		ring.color.a = 0.3 + progress * 0.4
+		var tell_color := Color(0.95, 0.88, 0.8).lerp(
+			Color(1.0, 0.24, 0.22),
+			progress
+		)
+		tell_color.a = 0.72 + progress * 0.28
+		ring.default_color = tell_color
+		ring.width = 3.0 + progress * 2.0
 
 
 func is_heavy_attack() -> bool:
@@ -300,6 +330,7 @@ func kneel() -> void:
 	_hide_tell()
 	if _smoke != null:
 		_smoke.emitting = false
+	_play_visual("stagger")
 	var home := scale
 	var tween := create_tween()
 	tween.set_parallel(true)
@@ -324,11 +355,139 @@ func dissolve_into_light() -> void:
 
 
 func _flash(tint: Color) -> void:
-	if _art == null:
+	if _art == null and _sprite == null:
 		return
-	_art.set_tint(tint)
+	if _art != null:
+		_art.set_tint(tint)
+	if _sprite != null:
+		_sprite.modulate = tint
 	var tween := create_tween()
 	tween.tween_interval(0.1)
 	tween.tween_callback(func() -> void:
 		if is_instance_valid(_art):
-			_art.set_tint(Color.WHITE))
+			_art.set_tint(Color.WHITE)
+		if is_instance_valid(_sprite):
+			_sprite.modulate = Color.WHITE
+	)
+
+
+func _play_visual(anim: StringName) -> void:
+	if _sprite != null and _sprite.sprite_frames.has_animation(anim):
+		_sprite.play(anim)
+
+
+func _on_visual_finished() -> void:
+	if _sprite == null or _dead or _staggered or not _active:
+		return
+	if _sprite.animation != &"idle":
+		_sprite.play("idle")
+
+
+func _build_sprite_frames() -> SpriteFrames:
+	var image := Image.new()
+	if image.load(ProjectSettings.globalize_path(SHEET_PATH)) != OK:
+		push_warning("ShadowWeaverBoss: missing %s" % SHEET_PATH)
+		return null
+	if image.get_format() != Image.FORMAT_RGBA8:
+		image.convert(Image.FORMAT_RGBA8)
+	var cell_w := int(image.get_width() / 4)
+	var cell_h := int(image.get_height() / 2)
+	if cell_w < 8 or cell_h < 8:
+		return null
+	var textures: Array[Texture2D] = []
+	for i in range(8):
+		var cell := image.get_region(Rect2i(
+			(i % 4) * cell_w,
+			int(i / 4) * cell_h,
+			cell_w,
+			cell_h
+		))
+		_key_boss_plate(cell)
+		textures.append(_fit_boss_frame(cell))
+	var frames := SpriteFrames.new()
+	frames.remove_animation(&"default")
+	_add_visual_anim(frames, &"idle", [textures[0], textures[1], textures[2], textures[1]], 3.5, true)
+	_add_visual_anim(frames, &"windup", [textures[3]], 1.0, false)
+	_add_visual_anim(frames, &"attack", [textures[4]], 1.0, false)
+	_add_visual_anim(frames, &"cast", [textures[5]], 1.0, false)
+	_add_visual_anim(frames, &"stagger", [textures[6]], 1.0, false)
+	_add_visual_anim(frames, &"recover", [textures[7], textures[0]], 5.0, false)
+	return frames
+
+
+func _add_visual_anim(
+		frames: SpriteFrames,
+		anim: StringName,
+		textures: Array,
+		fps: float,
+		loop: bool
+) -> void:
+	frames.add_animation(anim)
+	frames.set_animation_speed(anim, fps)
+	frames.set_animation_loop(anim, loop)
+	for texture in textures:
+		frames.add_frame(anim, texture as Texture2D)
+
+
+func _key_boss_plate(image: Image) -> void:
+	var w := image.get_width()
+	var h := image.get_height()
+	var seen := PackedByteArray()
+	seen.resize(w * h)
+	var pending: Array[Vector2i] = []
+	for x in range(w):
+		pending.append(Vector2i(x, 0))
+		pending.append(Vector2i(x, h - 1))
+	for y in range(h):
+		pending.append(Vector2i(0, y))
+		pending.append(Vector2i(w - 1, y))
+	while not pending.is_empty():
+		var point: Vector2i = pending.pop_back()
+		if point.x < 0 or point.y < 0 or point.x >= w or point.y >= h:
+			continue
+		var index: int = point.y * w + point.x
+		if seen[index] == 1:
+			continue
+		seen[index] = 1
+		var color: Color = image.get_pixelv(point)
+		if not _is_boss_plate(color):
+			continue
+		image.set_pixelv(point, Color.TRANSPARENT)
+		pending.append(point + Vector2i.RIGHT)
+		pending.append(point + Vector2i.LEFT)
+		pending.append(point + Vector2i.DOWN)
+		pending.append(point + Vector2i.UP)
+
+
+func _is_boss_plate(color: Color) -> bool:
+	if color.a < 0.08:
+		return true
+	# Generated plate ranges from hot magenta to violet. Flooding only from the
+	# cell edge preserves the enclosed violet eye/core and rim lighting.
+	return color.r > 0.32 and color.b > 0.38 and color.g < 0.28 \
+		and (color.r + color.b) > color.g * 3.2
+
+
+func _fit_boss_frame(source: Image) -> Texture2D:
+	var used := source.get_used_rect()
+	var canvas := Image.create(FRAME_SIZE.x, FRAME_SIZE.y, false, Image.FORMAT_RGBA8)
+	canvas.fill(Color.TRANSPARENT)
+	if used.size.x < 1 or used.size.y < 1:
+		return ImageTexture.create_from_image(canvas)
+	var crop := source.get_region(used)
+	var available := FRAME_SIZE - Vector2i(24, 24)
+	var scale_factor := minf(
+		float(available.x) / float(crop.get_width()),
+		float(available.y) / float(crop.get_height())
+	)
+	var target := Vector2i(
+		maxi(1, int(round(crop.get_width() * scale_factor))),
+		maxi(1, int(round(crop.get_height() * scale_factor)))
+	)
+	crop.resize(target.x, target.y, Image.INTERPOLATE_LANCZOS)
+	var origin := Vector2i(
+		(FRAME_SIZE.x - target.x) / 2,
+		FRAME_SIZE.y - 12 - target.y
+	)
+	canvas.blit_rect(crop, Rect2i(Vector2i.ZERO, target), origin)
+	return ImageTexture.create_from_image(canvas)

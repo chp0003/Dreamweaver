@@ -25,6 +25,9 @@ signal finished(success: bool)
 ## Compact mini-games dock to the bottom of the screen and let the world show
 ## through, for in-combat use (Chapter 5's rhythm track and QTE).
 @export var compact := false
+## Compact combat overlays need enough height for four rhythm lanes at 16:9.
+@export var compact_height := 330.0
+@export var compact_side_margin := 48
 
 ## Filled by subclasses.
 var content: VBoxContainer
@@ -174,10 +177,10 @@ func _build_chrome() -> void:
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if compact:
 		holder.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-		holder.offset_top = -230.0
-		holder.add_theme_constant_override("margin_left", 120)
-		holder.add_theme_constant_override("margin_right", 120)
-		holder.add_theme_constant_override("margin_bottom", 24)
+		holder.offset_top = -compact_height
+		holder.add_theme_constant_override("margin_left", compact_side_margin)
+		holder.add_theme_constant_override("margin_right", compact_side_margin)
+		holder.add_theme_constant_override("margin_bottom", 16)
 	else:
 		holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		holder.add_theme_constant_override("margin_left", 90)

@@ -24,8 +24,8 @@ const STEPS: Array[String] = [
 	"Press the letters",
 ]
 
-## Three waves. Small enough to read the hall, large enough to feel like a siege.
-const WAVES: Array[int] = [5, 5, 6]
+## Thirty shadows across three escalating waves: a readable but genuine siege.
+const WAVES: Array[int] = [8, 10, 12]
 
 const RHYTHM_DAMAGE := 9.0
 const LOOM_BLEACH_DAMAGE := 0.18
@@ -194,7 +194,9 @@ func _build_hall() -> void:
 	else:
 		add_child(_boss)
 	_boss.global_position = _plate.boss_world()
-	_boss.scale = Vector2(2.15, 2.15)
+	# The generated boss already fills a 320px frame. At 2.15x most of its
+	# upper body was outside the camera; 1.25x remains imposing but readable.
+	_boss.scale = Vector2(1.25, 1.25)
 	_boss.modulate = Color(1, 1, 1, 0)
 	_boss.visible = false
 
@@ -306,6 +308,10 @@ func _run_chapter() -> void:
 ## PHASE 1 - clear every shadow before the Loom can be approached.
 func _phase_one_breach() -> bool:
 	_phase = 1
+	_shadows_alive = 0
+	_shadows_total = 0
+	for wave_size in WAVES:
+		_shadows_total += wave_size
 	_set_steps(0)
 	objective("Kill the dark figures. Press [Space] to swing.")
 	if hud != null and hud.has_method("set_mode"):
@@ -443,34 +449,42 @@ func _phase_three_finish() -> void:
 
 func _spawn_wave(count: int) -> void:
 	var slots := Chapter5Plate.SPAWN_UVS.size()
+	var styles: Array[String] = ["chaser", "stalker", "dasher", "caster"]
 	for i in range(count):
 		var pool_index := i % slots
 		var origin := _plate.spawn_point(pool_index) if _plate != null else Vector2.ZERO
 		origin += Vector2(randf_range(-28.0, 28.0), randf_range(-18.0, 18.0))
 		if pool_index < _pools.size() and is_instance_valid(_pools[pool_index]):
 			Fx.pool_rise(_pools[pool_index])
+		var style := styles[(i + _wave_index) % styles.size()]
 		var minion := place_minion(origin, {
-			"max_health": 42.0,
-			"speed": 96.0,
-			"touch_damage": 11.0,
+			"combat_style": style,
+			"max_health": 38.0 if style == "caster" else 42.0,
+			"speed": 84.0 if style == "caster" else (108.0 if style == "dasher" else 96.0),
+			"touch_damage": 9.0 if style == "caster" else 11.0,
 			"spawn_delay": 0.45 + float(i) * 0.16,
 		})
 		if minion == null:
+			_shadows_total = maxi(0, _shadows_total - 1)
 			continue
 		minion.scale = Vector2(2.15, 2.15)
 		minion.died.connect(_on_minion_died)
 		_shadows_alive += 1
-		_shadows_total += 1
 	_refresh_shadow_counter()
 
 
 func _on_minion_died(_minion: ShadowMinion) -> void:
 	_shadows_alive = maxi(0, _shadows_alive - 1)
+	_shadows_total = maxi(0, _shadows_total - 1)
 	_refresh_shadow_counter()
 
 
 func _refresh_shadow_counter() -> void:
-	counter("Wave %d of %d   ·   %d left" % [_wave_index + 1, WAVES.size(), _shadows_alive])
+	counter("Shadows Remaining: %d   ·   Wave %d of %d" % [
+		_shadows_total,
+		_wave_index + 1,
+		WAVES.size(),
+	])
 
 
 func _lock_loom_approach() -> void:
@@ -602,7 +616,7 @@ func _on_telegraph_resolved(parried: bool) -> void:
 		_clear_coach()
 		return
 
-	var damage := _boss.bleach_damage
+	var damage: float = _boss.bleach_damage
 	if _boss.is_heavy_attack():
 		damage *= 1.4
 	counter("Too early or too late. Wait until the ring is small.")
@@ -647,9 +661,10 @@ func _on_loom_used() -> void:
 	objective("Press W A S D as the notes hit the glowing line.")
 
 	await run_mini_game(RHYTHM_TRACK, {
-		"note_count": 12,
-		"note_speed": 320.0,
-		"spawn_interval": 0.46875,
+		"note_count": 8,
+		"note_speed": 210.0,
+		"spawn_interval": 0.85,
+		"required_ratio": 0.5,
 	}, func(game: Node) -> void:
 		if game.has_signal("note_resolved"):
 			game.note_resolved.connect(_on_rhythm_note))
@@ -700,7 +715,7 @@ func _reform_boss() -> bool:
 	_duel_over = false
 	_phase = 2
 	_boss.rotation_degrees = 0.0
-	_boss.scale = Vector2(2.15, 2.15)
+	_boss.scale = Vector2(1.25, 1.25)
 	_boss.modulate = Color.WHITE
 	_boss.health = _boss.max_health * 0.25
 	_boss.health_changed.emit(_boss.health, _boss.max_health)

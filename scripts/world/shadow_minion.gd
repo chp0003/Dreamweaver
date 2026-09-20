@@ -10,11 +10,14 @@ signal damaged(amount: float, source: Node)
 const AGGRO_RANGE := 240.0
 const ATTACK_RANGE := 52.0
 const TOUCH_COOLDOWN := 1.1
+const SPECIAL_RANGE := 210.0
 
 @export var max_health := 60.0
 @export var touch_damage := 14.0
 @export var speed := 88.0
 @export var spawn_delay := 0.35
+## Chapter 5 mixes these roles. Other chapters retain the classic chaser.
+@export_enum("chaser", "stalker", "dasher", "caster") var combat_style := "chaser"
 
 var health := 60.0
 
@@ -26,7 +29,13 @@ var _hurt_lock := 0.0
 var _art: PlaceholderProp
 var _hp_bar: ProgressBar
 var _select_ring: Polygon2D
+var _action_tell: Polygon2D
 var _facing_left := false
+var _action_timer := 1.4
+var _windup_left := 0.0
+var _dash_left := 0.0
+var _dash_velocity := Vector2.ZERO
+var _strafe_sign := 1.0
 
 
 func _ready() -> void:
@@ -39,6 +48,8 @@ func _ready() -> void:
 	# Stop the grayscale veil from leaving afterimage trails on this body.
 	z_as_relative = true
 	_build_visuals()
+	_action_timer = randf_range(0.8, 1.8)
+	_strafe_sign = -1.0 if randf() < 0.5 else 1.0
 	_rise_from_the_floor()
 	health_changed.emit(health, max_health)
 
@@ -49,6 +60,7 @@ func _physics_process(delta: float) -> void:
 		return
 	_touch_timer = maxf(0.0, _touch_timer - delta)
 	_hurt_lock = maxf(0.0, _hurt_lock - delta)
+	_action_timer = maxf(0.0, _action_timer - delta)
 
 	if _player == null or not is_instance_valid(_player):
 		_player = get_tree().get_first_node_in_group("player") as Slang
@@ -59,7 +71,26 @@ func _physics_process(delta: float) -> void:
 
 	var away := global_position - _player.global_position
 	if _hurt_lock > 0.0:
+		_cancel_special()
 		velocity = away.normalized() * 150.0 if away.length() > 0.01 else Vector2.ZERO
+		move_and_slide()
+		return
+
+	if _dash_left > 0.0:
+		_dash_left -= delta
+		velocity = _dash_velocity
+		move_and_slide()
+		if Iso.iso_distance(global_position, _player.global_position) <= ATTACK_RANGE * 1.25:
+			_try_touch()
+			_dash_left = 0.0
+		return
+
+	if _windup_left > 0.0:
+		_windup_left -= delta
+		velocity = Vector2.ZERO
+		_pulse_action_tell()
+		if _windup_left <= 0.0:
+			_commit_special()
 		move_and_slide()
 		return
 
@@ -71,6 +102,19 @@ func _physics_process(delta: float) -> void:
 
 	_face_toward(_player.global_position)
 
+	if combat_style == "caster":
+		_move_caster(dist)
+		move_and_slide()
+		return
+	if combat_style == "dasher" and _action_timer <= 0.0 and dist < SPECIAL_RANGE:
+		_begin_special(0.48)
+		move_and_slide()
+		return
+	if combat_style == "stalker":
+		_move_stalker(dist)
+		move_and_slide()
+		return
+
 	if dist <= ATTACK_RANGE:
 		velocity = Vector2.ZERO
 		move_and_slide()
@@ -80,6 +124,89 @@ func _physics_process(delta: float) -> void:
 	var to_player := (_player.global_position - global_position).normalized()
 	velocity = to_player * speed
 	move_and_slide()
+
+
+func _move_caster(dist: float) -> void:
+	var toward := (_player.global_position - global_position).normalized()
+	var tangent := Vector2(-toward.y, toward.x) * _strafe_sign
+	if dist < 105.0:
+		velocity = -toward * speed
+	elif dist > 175.0:
+		velocity = toward * speed * 0.72
+	else:
+		velocity = tangent * speed * 0.62
+	if _action_timer <= 0.0 and dist <= SPECIAL_RANGE:
+		_begin_special(0.72)
+
+
+func _move_stalker(dist: float) -> void:
+	var toward := (_player.global_position - global_position).normalized()
+	var tangent := Vector2(-toward.y, toward.x) * _strafe_sign
+	if dist > 125.0:
+		velocity = (toward * 0.76 + tangent * 0.36).normalized() * speed
+	elif dist < 68.0:
+		velocity = -toward * speed * 0.7
+	else:
+		velocity = tangent * speed * 0.82
+		if _action_timer <= 0.0:
+			_strafe_sign *= -1.0
+			_begin_special(0.34)
+
+
+func _begin_special(duration: float) -> void:
+	_windup_left = duration
+	_action_timer = randf_range(2.0, 3.2)
+	velocity = Vector2.ZERO
+	if _action_tell != null:
+		_action_tell.visible = true
+		_action_tell.scale = Vector2(1.8, 1.8)
+
+
+func _commit_special() -> void:
+	if _action_tell != null:
+		_action_tell.visible = false
+	if _player == null or not is_instance_valid(_player):
+		return
+	var toward := (_player.global_position - global_position).normalized()
+	match combat_style:
+		"caster":
+			_cast_thread_bolt()
+		"stalker":
+			_dash_velocity = toward * speed * 2.25
+			_dash_left = 0.24
+		"dasher":
+			_dash_velocity = toward * speed * 3.0
+			_dash_left = 0.34
+
+
+func _cast_thread_bolt() -> void:
+	var thread := Line2D.new()
+	thread.name = "ShadowThread"
+	thread.width = 4.0
+	thread.default_color = Color(0.68, 0.24, 0.9, 0.9)
+	thread.points = PackedVector2Array([Vector2(0.0, -56.0), to_local(_player.global_position)])
+	thread.z_index = 18
+	add_child(thread)
+	var tween := create_tween()
+	tween.tween_property(thread, "modulate:a", 0.0, 0.18)
+	tween.tween_callback(thread.queue_free)
+	if Iso.iso_distance(global_position, _player.global_position) <= SPECIAL_RANGE + 25.0:
+		_player.take_damage(touch_damage * 0.7, self)
+		Fx.hit_flash(_player, Color(0.62, 0.28, 0.82))
+
+
+func _pulse_action_tell() -> void:
+	if _action_tell == null:
+		return
+	var pulse := 1.0 + 0.16 * sin(Time.get_ticks_msec() * 0.025)
+	_action_tell.scale = Vector2(pulse, pulse)
+
+
+func _cancel_special() -> void:
+	_windup_left = 0.0
+	_dash_left = 0.0
+	if _action_tell != null:
+		_action_tell.visible = false
 
 
 func is_defeated() -> bool:
@@ -136,6 +263,7 @@ func _die() -> void:
 	if _dying:
 		return
 	_dying = true
+	_cancel_special()
 	velocity = Vector2.ZERO
 	collision_layer = 0
 	remove_from_group("hittable")
@@ -210,6 +338,19 @@ func _build_visuals() -> void:
 	_select_ring.visible = false
 	add_child(_select_ring)
 	move_child(_select_ring, 0)
+
+	_action_tell = Polygon2D.new()
+	_action_tell.name = "ActionTell"
+	_action_tell.polygon = Iso.diamond(Vector2.ZERO, 2.7)
+	_action_tell.color = (
+		Color(0.65, 0.22, 0.86, 0.48)
+		if combat_style == "caster"
+		else Color(0.95, 0.28, 0.22, 0.44)
+	)
+	_action_tell.z_index = -2
+	_action_tell.visible = false
+	add_child(_action_tell)
+	move_child(_action_tell, 0)
 
 	_hp_bar = ProgressBar.new()
 	_hp_bar.name = "HpBar"

@@ -179,9 +179,13 @@ func _octant_name(dir: Vector2) -> String:
 
 func _play_facing(prefix: String) -> void:
 	var flip := FLIP_SHEET.has(last_direction)
-	var sheet: String = FLIP_SHEET[last_direction] if flip else last_direction
 	_animated.flip_h = flip
-	_play_anim("%s_%s" % [prefix, sheet])
+	# The generated directional sheets depict noticeably different versions
+	# of S'lang and changing octants also restarts their unrelated walk cycles.
+	# Use one coherent three-quarter model for every state and mirror it west.
+	# This keeps stride phase, proportions, costume, and scale stable while
+	# moving diagonally or changing direction.
+	_play_anim("%s_down_right" % prefix)
 
 
 func _play_anim(anim_name: String) -> void:
@@ -576,13 +580,12 @@ func _build_visuals() -> void:
 	_animated.sprite_frames = SlangFrames.load_or_build()
 	_animated.centered = true
 	# Locked for every animation — see SlangFrames header comments.
-	# Frame canvas: 128×192 px, feet at bottom-centre.
+	# Frame canvas: 256×192 px, feet at bottom-centre. Keep a uniform scale:
+	# scaling X by canvas width would squash S'lang after widening attack cells.
 	# offset (0,-46) places those feet on this CharacterBody2D origin.
 	_base_sprite_offset = Vector2(0.0, -46.0)
-	_base_sprite_scale = Vector2(
-		56.0 / float(SlangFrames.FRAME_W),
-		92.0 / float(SlangFrames.FRAME_H)
-	)
+	var art_scale := 92.0 / float(SlangFrames.FRAME_H)
+	_base_sprite_scale = Vector2(art_scale, art_scale)
 	_animated.offset = _base_sprite_offset
 	_animated.scale = _base_sprite_scale
 	_animated.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR

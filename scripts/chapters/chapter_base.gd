@@ -95,7 +95,12 @@ func _ready() -> void:
 		stage.dress_foreground(world, floor_node.origin_cell, floor_node.cols, floor_node.rows)
 	ColorRestoration.sync_essences()
 	# One frame so containers and the camera settle before the first line plays.
-	await get_tree().process_frame
+	var tree := get_tree()
+	if tree == null:
+		return
+	await tree.process_frame
+	if not is_inside_tree():
+		return
 	_run_chapter()
 
 
@@ -302,19 +307,28 @@ func set_player_input(enabled: bool) -> void:
 ## True once the chapter has handed off to the Hub or the retry screen. Wait
 ## loops should check this so they cannot spin forever after a failure.
 func is_finished() -> bool:
-	return _chapter_finished
+	return _chapter_finished or not is_inside_tree()
 
 
 ## Waits until `condition` returns true. Used for "collect them all" phases.
 func until(condition: Callable) -> void:
 	while not bool(condition.call()):
-		await get_tree().process_frame
 		if not is_inside_tree():
 			return
+		var tree := get_tree()
+		if tree == null:
+			return
+		await tree.process_frame
 
 
 func wait(seconds: float) -> void:
-	await get_tree().create_timer(seconds).timeout
+	if not is_inside_tree():
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	var timer := tree.create_timer(seconds)
+	await timer.timeout
 
 
 # --------------------------------------------------------------------------

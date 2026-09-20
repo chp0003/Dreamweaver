@@ -126,9 +126,12 @@ func _show_line(speaker: String, body: String, wait_for_input := true) -> void:
 	_advance_requested = false
 
 	while true:
-		await get_tree().process_frame
 		if not is_inside_tree():
 			return
+		var tree := get_tree()
+		if tree == null:
+			return
+		await tree.process_frame
 		if _advance_requested:
 			_advance_requested = false
 			if text_label.visible_characters >= 0 and text_label.visible_characters < _line_length:
@@ -146,9 +149,12 @@ func _show_line(speaker: String, body: String, wait_for_input := true) -> void:
 
 func _wait_for_typing() -> void:
 	while _typing != null:
-		await get_tree().process_frame
 		if not is_inside_tree():
 			return
+		var tree := get_tree()
+		if tree == null:
+			return
+		await tree.process_frame
 
 
 func _start_typing() -> void:

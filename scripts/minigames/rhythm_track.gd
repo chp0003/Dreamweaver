@@ -17,11 +17,12 @@ const LANES := [
 
 const LANE_HEIGHT := 34.0
 const STRIKE_X := 96.0
-const HIT_TOLERANCE := 44.0
+## At 210 px/s this gives a forgiving ~0.67 second total hit window.
+const HIT_TOLERANCE := 70.0
 
-@export var note_count := 12
-@export var note_speed := 300.0
-@export var spawn_interval := 0.46875
+@export var note_count := 8
+@export var note_speed := 210.0
+@export var spawn_interval := 0.85
 ## Fraction of notes that must land for the track to count as a success.
 @export var required_ratio := 0.5
 
@@ -38,7 +39,7 @@ var _counter_label: Label
 func _configure() -> void:
 	compact = true
 	mini_game_title = "Hit the notes"
-	instructions = "Press W A S D as each note reaches the glowing line."
+	instructions = "Press the matching key while its note overlaps the wide glowing zone."
 	time_limit = 0.0
 	max_attempts = 1
 	reward_score = 0
@@ -71,12 +72,19 @@ func _build_content(parent: Control) -> void:
 		bed.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(bed)
 
-		var strike := ColorRect.new()
-		strike.color = Color(LANES[i]["color"], 0.55)
-		strike.position = Vector2(STRIKE_X - 4.0, 0.0)
-		strike.size = Vector2(8.0, LANE_HEIGHT - 4.0)
-		strike.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(strike)
+		var hit_zone := ColorRect.new()
+		hit_zone.color = Color(LANES[i]["color"], 0.16)
+		hit_zone.position = Vector2(STRIKE_X - HIT_TOLERANCE, 0.0)
+		hit_zone.size = Vector2(HIT_TOLERANCE * 2.0, LANE_HEIGHT - 4.0)
+		hit_zone.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(hit_zone)
+
+		var strike_line := ColorRect.new()
+		strike_line.color = Color(LANES[i]["color"], 0.9)
+		strike_line.position = Vector2(STRIKE_X - 3.0, 0.0)
+		strike_line.size = Vector2(6.0, LANE_HEIGHT - 4.0)
+		strike_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(strike_line)
 
 		var glyph := Label.new()
 		glyph.text = str(LANES[i]["glyph"])
@@ -143,7 +151,7 @@ func _spawn_note() -> void:
 	var lane := randi() % LANES.size()
 	var rect := ColorRect.new()
 	rect.color = LANES[lane]["color"]
-	rect.size = Vector2(26.0, LANE_HEIGHT - 10.0)
+	rect.size = Vector2(34.0, LANE_HEIGHT - 8.0)
 	rect.position = Vector2(maxf(_lane_area.size.x, 480.0), 3.0)
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_lane_rows[lane].add_child(rect)

@@ -1,26 +1,26 @@
 class_name SlangFrames
 extends RefCounted
-## SpriteFrames builder for S'lang — 8-direction idle / walk.
+## SpriteFrames builder for S'lang — 8-direction idle / walk / attack.
 ##
 ## CANVAS (every frame, every animation):
-##   Frame size:  128 x 192 px
+##   Frame size:  256 x 192 px (wide enough for staff swings)
 ##   Anchor:      feet at bottom-centre of the canvas
 ##   Node offset: AnimatedSprite2D.offset = (0, -46)
 ##   Node scale:  (56/128, 92/192)
 ##
 ## Unique sheets: down, down_right, right, up_right, up.
 ## West facings (left, up_left, down_left) use the east sheet + flip_h.
-## Art lives in res://assets/images/characters/slang_8dir/
+## Packed strips are 8 frames (2048x192). Art lives in slang_8dir/.
 
 const BASE_PATH := "res://assets/images/characters/slang.png"
 const WALK_CYCLE_PATH := "res://assets/images/characters/slang_walk_cycle.png"
 const ATTACK_CYCLE_PATH := "res://assets/images/characters/slang_attack_swing.png"
 const DIR8_PATH := "res://assets/images/characters/slang_8dir/"
 
-const FRAME_W := 128
+const FRAME_W := 256
 const FRAME_H := 192
-const WALK_FPS := 12.0
-const ATTACK_FPS := 14.0
+const WALK_FPS := 10.0
+const ATTACK_FPS := 12.0
 
 const UNIQUE_DIRS := ["down", "down_right", "right", "up_right", "up"]
 
@@ -44,15 +44,26 @@ static func load_or_build() -> SpriteFrames:
 		var idle := _load_idle_dir(dir)
 		if idle == null:
 			idle = idle_fallback
-		var walk := _load_packed_strip(DIR8_PATH + "walk_%s.png" % dir, 4)
+		var walk := _load_packed_strip_auto(DIR8_PATH + "walk_%s.png" % dir)
+		if walk.is_empty() or not _frames_differ(walk):
+			walk = _load_packed_strip(DIR8_PATH + "walk_%s.png" % dir, 4)
 		if walk.is_empty() or not _frames_differ(walk):
 			if dir == "right" and not walk_fallback.is_empty():
 				walk = walk_fallback
 			else:
 				walk = _walk_cycle_from_idle(idle)
+		# Idle must remain the dedicated feet-planted standing artwork. Never
+		# replace it with a walk frame, or S'lang freezes in a mid-step pose.
+		var dir_attack := _load_packed_strip_auto(DIR8_PATH + "attack_%s.png" % dir)
+		if dir_attack.is_empty() or not _frames_differ(dir_attack):
+			dir_attack = attack
+		elif dir_attack.size() >= 2:
+			# Keep attack transitions on-model at both ends.
+			dir_attack[0] = idle
+			dir_attack[dir_attack.size() - 1] = idle
 		_add_anim(frames, "idle_" + dir, [idle], true, 1.0)
 		_add_anim(frames, "walk_" + dir, walk, true, WALK_FPS)
-		_add_anim(frames, "attack_" + dir, attack, false, ATTACK_FPS)
+		_add_anim(frames, "attack_" + dir, dir_attack, false, ATTACK_FPS)
 	return frames
 
 
@@ -65,6 +76,21 @@ static func _load_idle_dir(dir: String) -> Texture2D:
 	return tex
 
 
+static func _load_packed_strip_auto(path: String) -> Array:
+	var sheet := _load_texture(path)
+	if sheet == null:
+		return []
+	var img := _texture_to_image(sheet)
+	if img == null:
+		return []
+	var count := 1
+	if img.get_width() >= FRAME_W * 2 and img.get_width() % FRAME_W == 0:
+		count = int(img.get_width() / FRAME_W)
+	elif img.get_width() > img.get_height():
+		count = clampi(int(round(float(img.get_width()) / float(FRAME_W))), 2, 8)
+	return _slice_strip(img, count)
+
+
 static func _load_packed_strip(path: String, count: int) -> Array:
 	var sheet := _load_texture(path)
 	if sheet == null:
@@ -72,8 +98,12 @@ static func _load_packed_strip(path: String, count: int) -> Array:
 	var img := _texture_to_image(sheet)
 	if img == null:
 		return []
+	return _slice_strip(img, count)
+
+
+static func _slice_strip(img: Image, count: int) -> Array:
 	var fw := int(img.get_width() / float(count))
-	if fw < 8:
+	if fw < 8 or count < 1:
 		return []
 	var out: Array = []
 	for i in range(count):

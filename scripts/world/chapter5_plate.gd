@@ -13,7 +13,8 @@ const EXIT_UV := Vector2(0.50, 0.90)
 const LOOM_UV := Vector2(0.50, 0.34)
 const LOOM_REACH_UV := Vector2(0.50, 0.54)
 const GHOST_UV := Vector2(0.76, 0.42)
-const BOSS_UV := Vector2(0.50, 0.48)
+## Low enough that the tall six-armed silhouette remains inside the camera.
+const BOSS_UV := Vector2(0.50, 0.58)
 const VEIL_UV := Vector2(0.50, 0.46)
 
 ## Open wooden aisle and the ink-stain pools already painted on the floor.
