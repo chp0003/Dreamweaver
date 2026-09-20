@@ -3,11 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c1mul7hsmh1ui"
-valid=false
+path="res://.godot/imported/master_weaver_ghost_portrait.png-63b2f51524f0a910712f22ceebc98921.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/characters/master_weaver_ghost_portrait.png"
+dest_files=["res://.godot/imported/master_weaver_ghost_portrait.png-63b2f51524f0a910712f22ceebc98921.ctex"]
 
 [params]
 

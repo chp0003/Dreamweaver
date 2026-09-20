@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://c5h0use5collis"]
+[gd_scene format=3 uid="uid://bus31y51kjpko"]
 
 [ext_resource type="Texture2D" path="res://assets/images/environments/house_sacred/sacred_loom_hall.png" id="1_hall"]
 [ext_resource type="Script" uid="uid://c282enk2jiljv" path="res://scripts/world/editor_plate_ref.gd" id="2_ref"]

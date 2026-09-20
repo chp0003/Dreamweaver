@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b8sacredloomch5k"
-path="res://.godot/imported/sacred_loom.png-a1c5finalstand0001.ctex"
+uid="uid://y8nh7pd1me1"
+path="res://.godot/imported/sacred_loom.png-386f1d706df86180144380b145e3609f.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://assets/images/props/sacred_loom.png"
-dest_files=["res://.godot/imported/sacred_loom.png-a1c5finalstand0001.ctex"]
+dest_files=["res://.godot/imported/sacred_loom.png-386f1d706df86180144380b145e3609f.ctex"]
 
 [params]
 
