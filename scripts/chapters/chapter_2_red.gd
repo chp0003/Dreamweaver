@@ -142,7 +142,7 @@ func _grow_vines() -> void:
 		var vine := ShadowVine.new()
 		vine.name = "ShadowVine_%d" % i
 		vine.max_health = 70.0
-		vine.art_size = Vector2(88.0, 248.0)
+		vine.art_size = Vector2(110.0, 200.0)
 		if world != null:
 			world.add_child(vine)
 		else:
@@ -159,14 +159,14 @@ func _raise_vine_barrier() -> void:
 	_vine_barrier.collision_mask = PhysicsLayers.MASK_WORLD_STATIC
 	var shape := CollisionShape2D.new()
 	var box := RectangleShape2D.new()
-	box.size = Vector2(420.0, 42.0)
+	box.size = Vector2(460.0, 48.0)
 	shape.shape = box
 	_vine_barrier.add_child(shape)
 	if world != null:
 		world.add_child(_vine_barrier)
 	else:
 		add_child(_vine_barrier)
-	_vine_barrier.global_position = _plate.barrier_world() + Vector2(0.0, 8.0)
+	_vine_barrier.global_position = _plate.barrier_world() + Vector2(0.0, 6.0)
 
 
 func _drop_vine_barrier() -> void:

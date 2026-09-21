@@ -58,6 +58,7 @@ var facing := Vector2(0.0, 1.0)
 var input_enabled := true
 ## Last facing used for idle / walk animation names (8-dir).
 var last_direction := "down"
+var _octant_idx := 2
 
 const OCTANTS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
 const FLIP_SHEET := {
@@ -147,6 +148,7 @@ func _physics_process(delta: float) -> void:
 		collision_mask = PhysicsLayers.MASK_PLAYER_MOVES
 	_update_hurt_flash()
 	_update_idle_breathe(delta, input_vector)
+	_sync_walk_stride()
 	_sync_body_shadow()
 
 
@@ -188,25 +190,38 @@ func _update_animation(input_vector: Vector2) -> void:
 func _octant_name(dir: Vector2) -> String:
 	if dir == Vector2.ZERO:
 		return last_direction
-	return OCTANTS[posmod(int(round(dir.angle() / (PI * 0.25))), 8)]
+	var idx := posmod(int(round(dir.angle() / (PI * 0.25))), 8)
+	# Stay on the current octant until the stick is clearly in a neighbour.
+	# Stops left/right flip_h from flickering on a noisy down-ish walk.
+	if idx != _octant_idx:
+		var current_angle := float(_octant_idx) * PI * 0.25
+		if absf(angle_difference(dir.angle(), current_angle)) > PI * 0.20:
+			_octant_idx = idx
+	return OCTANTS[_octant_idx]
 
 
 func _play_facing(prefix: String) -> void:
-	var flip := FLIP_SHEET.has(last_direction)
-	_animated.flip_h = flip
-	# The generated directional sheets depict noticeably different versions
-	# of S'lang and changing octants also restarts their unrelated walk cycles.
-	# Use one coherent three-quarter model for every state and mirror it west.
-	# This keeps stride phase, proportions, costume, and scale stable while
-	# moving diagonally or changing direction.
+	# One three-quarter model for every facing. The directional sheets are
+	# different drawings of S'lang, so swapping octants popped costume, scale,
+	# and stride. West still mirrors the east sheet.
+	_animated.flip_h = FLIP_SHEET.has(last_direction)
 	_play_anim("%s_down_right" % prefix)
 
 
 func _play_anim(anim_name: String) -> void:
 	if _animated.sprite_frames == null or not _animated.sprite_frames.has_animation(anim_name):
 		return
-	if _animated.animation != anim_name or not _animated.is_playing():
-		_animated.play(anim_name)
+	if _animated.animation == anim_name and _animated.is_playing():
+		return
+	var keep_stride := _animated.animation.begins_with("walk_") and anim_name.begins_with("walk_")
+	var frame := _animated.frame
+	var progress := _animated.frame_progress
+	_animated.play(anim_name)
+	if keep_stride:
+		var count := _animated.sprite_frames.get_frame_count(anim_name)
+		if count > 0:
+			_animated.frame = frame % count
+			_animated.frame_progress = progress
 
 
 func apply_depth_scale(ratio: float) -> void:
@@ -225,6 +240,20 @@ func _update_idle_breathe(delta: float, input_vector: Vector2) -> void:
 	_idle_time += delta
 	var bob := sin(_idle_time * 2.2) * 1.4
 	_animated.offset = _base_sprite_offset + Vector2(0.0, bob)
+	_animated.speed_scale = 1.0
+
+
+func _sync_walk_stride() -> void:
+	if _animated == null or _dead:
+		return
+	var anim := _animated.animation
+	if anim.begins_with("walk"):
+		var spd := velocity.length()
+		_animated.speed_scale = clampf(spd / maxf(speed, 1.0), 0.82, 1.06)
+		_animated.offset = _base_sprite_offset
+		return
+	if not anim.begins_with("attack"):
+		_animated.speed_scale = 1.0
 
 
 func _update_hurt_flash() -> void:
@@ -453,7 +482,8 @@ func _face_vector(dir: Vector2) -> void:
 	if dir == Vector2.ZERO:
 		return
 	facing = dir.normalized()
-	last_direction = _octant_name(facing)
+	_octant_idx = posmod(int(round(facing.angle() / (PI * 0.25))), 8)
+	last_direction = OCTANTS[_octant_idx]
 
 
 func _play_cast_pose() -> void:
@@ -647,7 +677,7 @@ func _build_visuals() -> void:
 	_animated.offset = _base_sprite_offset
 	_animated.scale = _base_sprite_scale
 	_animated.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	_animated.play("idle_down")
+	_animated.play("idle_down_right")
 	_build_shadow()
 	_build_staff_gem()
 

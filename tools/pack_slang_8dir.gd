@@ -11,7 +11,11 @@ const FRAME_W := 256
 const FRAME_H := 192
 const FRAME_PAD := 12
 const UNIQUE_DIRS := ["down", "down_right", "right", "up_right", "up"]
-const PLATE_DIST := 0.28
+const PLATE_DIST := 0.42
+## Walk plant sheets first. Idle / attack rebuild from the 8f sources.
+const PACK_IDLES_AND_ATTACKS := false
+## Real plant-cycle walks. Idle-puppet strips tore the hem and looked worse.
+const PACK_GENERATED_WALKS := true
 
 var _plate := Color(0.85, 0.08, 0.45)
 var _plates: Array[Color] = []
@@ -21,27 +25,43 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT))
 	var ok := true
 	for dir in UNIQUE_DIRS:
-		# Use the restrained low-step cycles. The generated "stride" variants
-		# raise a knee to waist height and read as repeated kicks.
-		var walk_src := "slang_walk_%s_8f.png" % dir
-		ok = _pack_sheet(walk_src, "walk_%s.png" % dir, "", 8) and ok
-		ok = _pack_sheet(
-			"slang_attack_%s_8f.png" % dir,
-			"attack_%s.png" % dir,
-			"",
-			8
-		) and ok
-		ok = _pack_sheet(
-			"slang_idle_%s_8f.png" % dir,
-			"idle_%s_loop.png" % dir,
-			"idle_%s.png" % dir,
-			8
-		) and ok
-	ok = _heal_folder(OUT) and ok
-	ok = _copy_out("walk_right.png", FALLBACK + "slang_walk_cycle.png") and ok
-	ok = _copy_out("attack_right.png", FALLBACK + "slang_attack_swing.png") and ok
+		if PACK_GENERATED_WALKS:
+			ok = _pack_walk_dir(dir) and ok
+			ok = _heal_path(OUT + "walk_%s.png" % dir) and ok
+		if PACK_IDLES_AND_ATTACKS:
+			ok = _pack_sheet(
+				"slang_attack_%s_8f.png" % dir,
+				"attack_%s.png" % dir,
+				"",
+				8
+			) and ok
+			ok = _pack_sheet(
+				"slang_idle_%s_8f.png" % dir,
+				"idle_%s_loop.png" % dir,
+				"idle_%s.png" % dir,
+				8
+			) and ok
+	if PACK_IDLES_AND_ATTACKS:
+		ok = _heal_folder(OUT) and ok
+		ok = _copy_out("attack_right.png", FALLBACK + "slang_attack_swing.png") and ok
+	ok = _copy_out("walk_down_right.png", FALLBACK + "slang_walk_cycle.png") and ok
 	print("PackSlang8Dir %s" % ("ok" if ok else "failed"))
 	get_tree().quit(0 if ok else 1)
+
+
+func _pack_walk_dir(dir: String) -> bool:
+	var plant_12 := "slang_walk_%s_plant_12f.png" % dir
+	var plant_8 := "slang_walk_%s_plant_8f.png" % dir
+	var legacy := "slang_walk_%s_8f.png" % dir
+	if _src_exists(plant_8):
+		return _pack_sheet(plant_8, "walk_%s.png" % dir, "", 8, Vector2i(4, 2))
+	if _src_exists(plant_12):
+		return _pack_sheet(plant_12, "walk_%s.png" % dir, "", 12, Vector2i(4, 3))
+	return _pack_sheet(legacy, "walk_%s.png" % dir, "", 8, Vector2i(4, 2))
+
+
+func _src_exists(src_name: String) -> bool:
+	return FileAccess.file_exists(ProjectSettings.globalize_path(SRC + src_name))
 
 
 ## Proven 8-frame side walk (feet actually swap). Overwrites walk_right.
@@ -64,11 +84,11 @@ func _pack_ready_walk_right() -> bool:
 	return _save(strip, OUT + "walk_right.png")
 
 
-func _pack_sheet(src_name: String, out_strip: String, out_idle: String, want: int) -> bool:
+func _pack_sheet(src_name: String, out_strip: String, out_idle: String, want: int, grid_override := Vector2i.ZERO) -> bool:
 	var image := _load_keyed(SRC + src_name)
 	if image == null:
 		return false
-	var grid := _best_grid(image)
+	var grid := grid_override if grid_override != Vector2i.ZERO else _best_grid(image)
 	var cells := _even_grid(image, grid.x, grid.y)
 	print("%s  grid=%dx%d cells=%d" % [src_name, grid.x, grid.y, cells.size()])
 	if cells.size() < 2:
@@ -84,7 +104,14 @@ func _pack_sheet(src_name: String, out_strip: String, out_idle: String, want: in
 		shared_h = maxi(shared_h, cell.size.y)
 	# Include the extraction bleed and leave real transparent head/foot room.
 	# Scaling content to the full 192px height made staffs touch the top edge.
-	var scale := float(FRAME_H - FRAME_PAD * 2) / float(shared_h + 16)
+	var default_scale := float(FRAME_H - FRAME_PAD * 2) / float(shared_h + 16)
+	var scale := default_scale
+	var idle_h := _idle_opaque_height(out_strip)
+	if idle_h > 8:
+		var matched := float(idle_h) / float(shared_h)
+		# Failed magenta keying makes shared_h the whole cell and matched tiny.
+		if matched >= default_scale * 0.72:
+			scale = matched
 	var strip := Image.create(FRAME_W * cells.size(), FRAME_H, false, Image.FORMAT_RGBA8)
 	strip.fill(Color(0, 0, 0, 0))
 	for i in range(cells.size()):
@@ -96,6 +123,19 @@ func _pack_sheet(src_name: String, out_strip: String, out_idle: String, want: in
 	if out_strip.is_empty():
 		return true
 	return _save(strip, OUT + out_strip)
+
+
+func _idle_opaque_height(out_strip: String) -> int:
+	if not out_strip.begins_with("walk_"):
+		return 0
+	var dir := out_strip.trim_prefix("walk_").trim_suffix(".png")
+	dir = dir.trim_suffix("_12f")
+	var idle := Image.new()
+	if idle.load(ProjectSettings.globalize_path(OUT + "idle_%s.png" % dir)) != OK:
+		return 0
+	if idle.get_format() != Image.FORMAT_RGBA8:
+		idle.convert(Image.FORMAT_RGBA8)
+	return _opaque_rect(idle).size.y
 
 
 func _fit_rect(src: Image, rect: Rect2i, scale: float) -> Image:
@@ -205,8 +245,8 @@ func _runs(hit: PackedByteArray, merge_gap: int, min_size: int) -> Array[Vector2
 func _even_grid(image: Image, cols: int, rows: int) -> Array[Rect2i]:
 	var cw := int(image.get_width() / float(cols))
 	var ch := int(image.get_height() / float(rows))
-	var inset_x := maxi(4, int(cw * 0.04))
-	var inset_y := maxi(4, int(ch * 0.05))
+	var inset_x := maxi(2, int(cw * 0.02))
+	var inset_y := maxi(2, int(ch * 0.03))
 	var cells: Array[Rect2i] = []
 	for row in range(rows):
 		for col in range(cols):
@@ -342,6 +382,9 @@ func _is_plate(c: Color, plate: Color) -> bool:
 	var dist := absf(c.r - plate.r) + absf(c.g - plate.g) + absf(c.b - plate.b)
 	if dist < PLATE_DIST:
 		return true
+	# JPEG-compressed hot magenta / pink studio plates.
+	if c.r > 0.52 and c.b > 0.22 and c.g < 0.38 and (c.r - c.g) > 0.22:
+		return true
 	var plate_light := plate.r > 0.72 and plate.g > 0.72 and plate.b > 0.72
 	var c_light := c.r > 0.72 and c.g > 0.72 and c.b > 0.72
 	return plate_light and c_light
@@ -436,6 +479,10 @@ func _heal_white(image: Image) -> void:
 			if seen[idx] == 1 or outside[idx] == 1:
 				continue
 			var c := image.get_pixel(x, y)
+			# Real holes (staff/body gap) stay transparent. Only paint leftover
+			# opaque studio-white that is trapped inside the silhouette.
+			if c.a < 0.18:
+				continue
 			if not _is_studio_white(c):
 				continue
 			var blob: Array[Vector2i] = []
@@ -448,7 +495,7 @@ func _heal_white(image: Image) -> void:
 				if seen[i2] == 1:
 					continue
 				var pc := image.get_pixel(p.x, p.y)
-				if not _is_studio_white(pc):
+				if pc.a < 0.18 or not _is_studio_white(pc):
 					continue
 				seen[i2] = 1
 				blob.append(p)
@@ -494,8 +541,8 @@ func _blob_fill_color(image: Image, blob: Array[Vector2i]) -> Color:
 
 
 func _is_studio_white(c: Color) -> bool:
-	if c.a < 0.08:
-		return true
+	if c.a < 0.18:
+		return false
 	var luma := c.r * 0.299 + c.g * 0.587 + c.b * 0.114
 	var chroma := maxf(c.r, maxf(c.g, c.b)) - minf(c.r, minf(c.g, c.b))
 	return luma > 0.88 and chroma < 0.10

@@ -19,31 +19,28 @@ script = ExtResource("3_debug")
 show_collision_debug = true
 
 [node name="BackWall" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-518, -406, 518, -406, 518, -268, -518, -268)
+polygon = PackedVector2Array(-576, -432, 576, -432, 576, -198, 95, -155, -95, -155, -576, -198)
 
-[node name="Spindle" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-81, -199, 81, -199, 81, -78, -81, -78)
+[node name="SpindleStand" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(-85, -150, 85, -150, 110, -65, 55, -55, -55, -55, -110, -65)
 
 [node name="BellRack" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-461, -181, -276, -181, -276, 9, -461, 9)
+polygon = PackedVector2Array(-530, -108, -142, -68, -108, 54, -505, 64)
 
-[node name="Spools" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(311, -216, 518, -216, 518, 9, 311, 9)
+[node name="RightShelves" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(318, -168, 568, -168, 568, -8, 338, 10)
+
+[node name="Chest" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(205, -16, 448, -20, 470, 64, 214, 68)
 
 [node name="LeftGarden" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-576, 173, -207, 173, -207, 415, -576, 415)
+polygon = PackedVector2Array(-576, 32, -175, 44, -138, 70, -132, 118, -122, 175, -112, 245, -102, 310, -94, 358, -118, 402, -154, 432, -576, 432)
 
 [node name="RightGarden" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(219, 138, 564, 138, 564, 415, 219, 415)
+polygon = PackedVector2Array(576, 32, 175, 44, 138, 70, 132, 118, 122, 175, 112, 245, 102, 310, 94, 358, 118, 402, 154, 432, 576, 432)
 
 [node name="LeftWall" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-588, -415, -518, -415, -518, 415, -588, 415)
+polygon = PackedVector2Array(-576, -432, -292, -432, -292, -112, -438, -112, -438, 58, -576, 58)
 
 [node name="RightWall" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(518, -415, 588, -415, 588, 415, 518, 415)
-
-[node name="LeftRail" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-311, 73, -104, 73, -104, 134, -311, 134)
-
-[node name="RightRail" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(104, 73, 311, 73, 311, 134, 104, 134)
+polygon = PackedVector2Array(292, -432, 576, -432, 576, 58, 438, 58, 438, -112, 292, -112)

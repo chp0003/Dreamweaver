@@ -1,55 +1,33 @@
-[gd_scene format=3 uid="uid://c2r3ig45xredc2"]
+[gd_scene format=3 uid="uid://c1bmbr3v7jc5p"]
 
-[ext_resource type="Texture2D" path="res://assets/images/environments/house_red/red_courage_hall.png" id="1_hall"]
+[ext_resource type="Texture2D" uid="uid://c1o5ntn5jkl17" path="res://assets/images/environments/house_red/red_courage_hall.png" id="1_hall"]
 [ext_resource type="Script" uid="uid://c282enk2jiljv" path="res://scripts/world/editor_plate_ref.gd" id="2_ref"]
 [ext_resource type="Script" uid="uid://clye7sh26pu3e" path="res://scripts/world/hub_collision_debug.gd" id="3_debug"]
 
-[node name="House2Collision" type="Node2D"]
+[node name="House2Collision" type="Node2D" unique_id=1185672617]
 
-[node name="PlateRef" type="Sprite2D" parent="."]
+[node name="PlateRef" type="Sprite2D" parent="." unique_id=69214292]
 z_index = -120
 texture = ExtResource("1_hall")
 script = ExtResource("2_ref")
 
-[node name="HallCollision" type="StaticBody2D" parent="."]
+[node name="HallCollision" type="StaticBody2D" parent="." unique_id=620326548]
 z_index = 50
 collision_layer = 4
 collision_mask = 0
 script = ExtResource("3_debug")
 show_collision_debug = true
 
-[node name="BackWall" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-691, -518, 691, -518, 691, -357, -691, -357)
+[node name="BackWall2" type="CollisionPolygon2D" parent="HallCollision" unique_id=277825394]
+polygon = PackedVector2Array(-768, -576, 768, -576, 768, -250, -247, -576, -228, -230, -300, -95, -375, 46, -510, 40, -444, -61, -344, -230)
 
-[node name="Mortar" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-123, -300, 123, -300, 123, -161, -123, -161)
+[node name="BackWall" type="CollisionPolygon2D" parent="HallCollision" unique_id=1821801090]
+polygon = PackedVector2Array(-768, -576, 768, -576, 592.3849, -428.70993, 334, -212, 438, 33, 299, 33, 230, -199, -83, -177, -247, -576, -250, -425, -228, -230, -300, -95, -375, 46, -510, 40, -444, -61, -344, -230)
 
-[node name="LeftCrates" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-338, -138, -154, -138, -154, 46, -338, 46)
+[node name="RightCrates2" type="CollisionPolygon2D" parent="HallCollision" unique_id=1228705341]
+position = Vector2(-920, 260)
+polygon = PackedVector2Array(140, -801, 140, -836, 193, -155, 507, -142, 620, -155, 667, -57, 582, 269, 165, 322)
 
-[node name="RightCrates" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(154, -138, 338, -138, 338, 46, 154, 46)
-
-[node name="LeftPots" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-707, -276, -461, -276, -461, 0, -707, 0)
-
-[node name="RightJars" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(461, -276, 707, -276, 707, 46, 461, 46)
-
-[node name="LeftGarden" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-768, 230, -276, 230, -276, 553, -768, 553)
-
-[node name="RightGarden" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(292, 150, 753, 150, 753, 541, 292, 541)
-
-[node name="LeftWall" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-783, -553, -691, -553, -691, 553, -783, 553)
-
-[node name="RightWall" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(691, -553, 783, -553, 783, 553, 691, 553)
-
-[node name="LeftRail" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-476, 98, -200, 98, -200, 179, -476, 179)
-
-[node name="RightRail" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(200, 98, 476, 98, 476, 179, 200, 179)
+[node name="RightCrates" type="CollisionPolygon2D" parent="HallCollision" unique_id=1537401846]
+position = Vector2(128, 260)
+polygon = PackedVector2Array(187, -142, 203, -132, 193, -155, 507, -142, 620, -155, 667, -57, 582, 269, 165, 322)

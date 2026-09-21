@@ -66,6 +66,8 @@ func _ready() -> void:
 	add_child(_sprite)
 	_add_edge_walls()
 	_push_torch_uvs()
+	# Interior solids are drawn in scenes/world/House3Collision.tscn — same as
+	# House1Collision / HubCollision: traced polygons, not axis-aligned boxes.
 	queue_redraw()
 
 

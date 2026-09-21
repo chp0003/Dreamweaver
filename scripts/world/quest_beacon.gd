@@ -11,7 +11,8 @@ var _pinned := false
 
 
 func _ready() -> void:
-	z_index = 6
+	# Floor mark. z above the player turned this diamond into a hat.
+	z_index = -2
 	z_as_relative = true
 	add_to_group("world_chrome")
 	_art = Sprite2D.new()
@@ -27,7 +28,7 @@ func _ready() -> void:
 	set_process(true)
 
 
-func pin(target: Node2D, offset := Vector2(0.0, 10.0)) -> void:
+func pin(target: Node2D, offset := Vector2(0.0, 18.0)) -> void:
 	_follow = target
 	_pinned = target != null
 	visible = _pinned
@@ -54,7 +55,7 @@ func _process(delta: float) -> void:
 		return
 	_pulse += delta * 3.2
 	if _follow != null and is_instance_valid(_follow):
-		global_position = _follow.global_position + Vector2(0.0, 10.0)
+		global_position = _follow.global_position + Vector2(0.0, 18.0)
 	var t := 0.82 + 0.18 * sin(_pulse)
 	if _art != null:
 		_art.scale = Vector2(t, t)

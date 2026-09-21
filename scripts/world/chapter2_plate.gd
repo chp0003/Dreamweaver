@@ -7,20 +7,21 @@ const TEXTURE_PATH := "res://assets/images/environments/house_red/red_courage_ha
 const SHADER_PATH := "res://shaders/house_red_plate.gdshader"
 const NATIVE := Vector2(1536.0, 1152.0)
 
-const SPAWN_UV := Vector2(0.50, 0.70)
+const SPAWN_UV := Vector2(0.50, 0.88)
 const EXIT_UV := Vector2(0.50, 0.90)
 const MORTAR_UV := Vector2(0.50, 0.32)
 const MORTAR_REACH_UV := Vector2(0.50, 0.42)
 const FLOWERS_UV := Vector2(0.78, 0.72)
-const BARRIER_UV := Vector2(0.50, 0.58)
+## Floor mark in the path between the two porch posts.
+const BARRIER_UV := Vector2(0.50, 0.72)
 
-## Across the porch-to-hall step, where the vines grow.
+## Full curtain from the left porch post to the right one.
 const VINE_UVS: Array[Vector2] = [
-	Vector2(0.40, 0.58),
-	Vector2(0.45, 0.58),
-	Vector2(0.50, 0.58),
-	Vector2(0.55, 0.58),
-	Vector2(0.60, 0.58),
+	Vector2(0.37, 0.80),
+	Vector2(0.43, 0.79),
+	Vector2(0.50, 0.80),
+	Vector2(0.57, 0.79),
+	Vector2(0.63, 0.80),
 ]
 
 ## Open floor of the storage hall — aisles and the centre walk to the mortar.
@@ -65,6 +66,8 @@ func _ready() -> void:
 	_apply_grade()
 	add_child(_sprite)
 	_add_edge_walls()
+	# Interior solids are drawn in scenes/world/House2Collision.tscn — same as
+	# House1Collision / HubCollision: traced polygons, not axis-aligned boxes.
 	queue_redraw()
 
 

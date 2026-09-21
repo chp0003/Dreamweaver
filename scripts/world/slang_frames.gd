@@ -19,7 +19,9 @@ const DIR8_PATH := "res://assets/images/characters/slang_8dir/"
 
 const FRAME_W := 256
 const FRAME_H := 192
-const WALK_FPS := 11.0
+## Two full stride cycles per second at the default 190 px/s move speed.
+## FPS is `frame_count *` this, so 8-frame and 12-frame sheets keep the same gait.
+const WALK_CYCLES_PER_SEC := 2.0
 const ATTACK_FPS := 13.0
 
 const UNIQUE_DIRS := ["down", "down_right", "right", "up_right", "up"]
@@ -33,7 +35,9 @@ static func load_or_build() -> SpriteFrames:
 		return frames
 
 	var idle_fallback := _to_frame_texture(base)
-	var walk_fallback := _load_strip(WALK_CYCLE_PATH, 8)
+	var walk_fallback := _load_packed_strip_auto(WALK_CYCLE_PATH)
+	if walk_fallback.is_empty():
+		walk_fallback = _load_strip(WALK_CYCLE_PATH, 8)
 	if walk_fallback.is_empty() or not _footprint_matches_idle(idle_fallback, walk_fallback[0] as Texture2D):
 		walk_fallback = _walk_cycle_from_idle(base)
 	var attack := _load_strip(ATTACK_CYCLE_PATH, 8)
@@ -58,7 +62,7 @@ static func load_or_build() -> SpriteFrames:
 		if dir_attack.is_empty() or not _frames_differ(dir_attack):
 			dir_attack = attack
 		_add_anim(frames, "idle_" + dir, [idle], true, 1.0)
-		_add_anim(frames, "walk_" + dir, walk, true, WALK_FPS)
+		_add_anim(frames, "walk_" + dir, walk, true, float(walk.size()) * WALK_CYCLES_PER_SEC)
 		_add_anim(frames, "attack_" + dir, dir_attack, false, ATTACK_FPS)
 	return frames
 
