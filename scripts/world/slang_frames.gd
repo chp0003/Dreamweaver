@@ -19,8 +19,8 @@ const DIR8_PATH := "res://assets/images/characters/slang_8dir/"
 
 const FRAME_W := 256
 const FRAME_H := 192
-const WALK_FPS := 10.0
-const ATTACK_FPS := 12.0
+const WALK_FPS := 11.0
+const ATTACK_FPS := 13.0
 
 const UNIQUE_DIRS := ["down", "down_right", "right", "up_right", "up"]
 
@@ -57,10 +57,6 @@ static func load_or_build() -> SpriteFrames:
 		var dir_attack := _load_packed_strip_auto(DIR8_PATH + "attack_%s.png" % dir)
 		if dir_attack.is_empty() or not _frames_differ(dir_attack):
 			dir_attack = attack
-		elif dir_attack.size() >= 2:
-			# Keep attack transitions on-model at both ends.
-			dir_attack[0] = idle
-			dir_attack[dir_attack.size() - 1] = idle
 		_add_anim(frames, "idle_" + dir, [idle], true, 1.0)
 		_add_anim(frames, "walk_" + dir, walk, true, WALK_FPS)
 		_add_anim(frames, "attack_" + dir, dir_attack, false, ATTACK_FPS)

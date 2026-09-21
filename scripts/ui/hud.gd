@@ -143,6 +143,11 @@ func set_chapter(title: String) -> void:
 	chapter_label.text = title.to_upper()
 
 
+func show_quest_plate(visible_now: bool) -> void:
+	if quest_plate != null:
+		quest_plate.visible = visible_now
+
+
 func set_story_focus(enabled: bool) -> void:
 	_story_focus = enabled
 	if essence_plate != null:
@@ -277,10 +282,27 @@ func set_mode(text: String, color := Palette.GOLD_SACRED) -> void:
 
 func show_loom_integrity(visible_now: bool) -> void:
 	integrity_box.visible = visible_now
+	_set_integrity_tag("LOOM HP")
 
 
 func set_loom_integrity(ratio: float) -> void:
 	UiMotion.slide_bar(integrity_bar, clampf(ratio, 0.0, 1.0) * 100.0)
+
+
+func show_boss_health(visible_now: bool) -> void:
+	integrity_box.visible = visible_now
+	_set_integrity_tag("WEAVER")
+
+
+func set_boss_health(current: float, maximum: float) -> void:
+	var ratio := 0.0 if maximum <= 0.0 else current / maximum
+	UiMotion.slide_bar(integrity_bar, clampf(ratio, 0.0, 1.0) * 100.0)
+
+
+func _set_integrity_tag(text: String) -> void:
+	var tag := integrity_box.get_node_or_null("IntegrityTag") as Label
+	if tag != null:
+		tag.text = text
 
 
 func show_chime_meter(visible_now: bool) -> void:

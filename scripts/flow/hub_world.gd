@@ -626,12 +626,11 @@ func _run_chapter() -> void:
 
 	var next_house := _next_open_house()
 	objective("Walk the boardwalk. Enter %s. [E]" % Houses.short_name_for(next_house))
+	if hud != null and hud.has_method("show_quest_plate"):
+		hud.call("show_quest_plate", false)
 
 	if GameState.completed_houses.is_empty() and not GameState.lore.has("guno_bong"):
-		await say([
-			"Five houses around one crossing, all of them the same gray. The boardwalk between them is worn deep, which means it was walked once, often, by people who are not here now.",
-			{"speaker": "S'lang", "text": "The first one, then. Whatever a cloth is built on, that is where you start."},
-		])
+		banner("Five houses. Start at Black Foundation — [E] at the porch.", 3.2)
 		GameState.unlock_lore("guno_bong")
 
 
@@ -689,6 +688,8 @@ func _enter_house(house_id: int, _from_retry: bool) -> void:
 		gate.set_plate_visible(true)
 	if hud != null and hud.has_method("set_chapter"):
 		hud.call("set_chapter", Houses.name_for(house_id))
+	if hud != null and hud.has_method("show_quest_plate"):
+		hud.call("show_quest_plate", true)
 	var exit: Interactable = _exit_triggers.get(house_id) as Interactable
 	if exit != null:
 		exit.set_enabled(GameState.is_house_completed(house_id))
@@ -730,6 +731,8 @@ func _leave_house(house_id: int) -> void:
 	_restore_completed_colors()
 	if hud != null and hud.has_method("set_chapter"):
 		hud.call("set_chapter", chapter_title)
+	if hud != null and hud.has_method("show_quest_plate"):
+		hud.call("show_quest_plate", false)
 	set_player_input(true)
 	if GameState.game_completed:
 		objective("The world is whole. Walk the green.")
@@ -778,6 +781,7 @@ func _set_house_nodes_visible(house_id: int, on: bool) -> void:
 		if node is CanvasItem:
 			(node as CanvasItem).visible = on
 		_set_area_monitoring(node, on)
+		_set_static_collision(node, on)
 
 
 func _set_area_monitoring(node: Node, on: bool) -> void:
@@ -789,6 +793,30 @@ func _set_area_monitoring(node: Node, on: bool) -> void:
 			(area as Interactable).set_prompt_visible(false)
 	for child in node.get_children():
 		_set_area_monitoring(child, on)
+
+
+func _set_static_collision(node: Node, on: bool) -> void:
+	if node is CharacterBody2D or node is Area2D:
+		return
+	if node is StaticBody2D:
+		(node as StaticBody2D).collision_layer = PhysicsLayers.LAYER_WORLD if on else 0
+	if node is CollisionPolygon2D:
+		(node as CollisionPolygon2D).disabled = not on
+	elif node is CollisionShape2D:
+		(node as CollisionShape2D).disabled = not on
+	for child in node.get_children():
+		_set_static_collision(child, on)
+
+
+func _disable_non_hub_world_solids() -> void:
+	if world == null:
+		return
+	for child in world.get_children():
+		if child == null or not is_instance_valid(child):
+			continue
+		if child.name == "HubCollision":
+			continue
+		_set_static_collision(child, false)
 
 
 func _show_house(house_id: int) -> void:
@@ -807,6 +835,7 @@ func _show_house(house_id: int) -> void:
 		camera_limit_rect = quest.plate_world_rect()
 		if camera != null:
 			var z := quest.plate_camera_zoom()
+			camera_zoom = Vector2(z, z)
 			camera.zoom = Vector2(z, z)
 			var rect := quest.plate_world_rect()
 			var view := get_viewport_rect().size / Vector2(z, z)
@@ -849,6 +878,10 @@ func _show_ridge() -> void:
 				player.apply_depth_scale(1.0)
 		apply_camera_world_limits(_ridge_floor)
 		_clamp_camera()
+	if hud != null and hud.has_method("show_quest_plate"):
+		hud.call("show_quest_plate", false)
+	_disable_non_hub_world_solids()
+	call_deferred("_disable_non_hub_world_solids")
 	if stage != null:
 		stage.visible = true
 		stage.configure(0, camera)

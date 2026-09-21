@@ -3,15 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bmar7fvnbd883"
-path="res://.godot/imported/slang_attack_down_right_8f.png-403e830cd77c448e60f914cb769b643d.ctex"
-metadata={
-"vram_texture": false
-}
+valid=false
 
 [deps]
 
 source_file="res://assets/images/characters/slang_8dir_src/slang_attack_down_right_8f.png"
-dest_files=["res://.godot/imported/slang_attack_down_right_8f.png-403e830cd77c448e60f914cb769b643d.ctex"]
 
 [params]
 

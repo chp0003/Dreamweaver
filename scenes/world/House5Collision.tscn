@@ -41,3 +41,6 @@ polygon = PackedVector2Array(-311, 73, -104, 73, -104, 134, -311, 134)
 
 [node name="RightRail" type="CollisionPolygon2D" parent="HallCollision"]
 polygon = PackedVector2Array(104, 73, 311, 73, 311, 134, 104, 134)
+
+[node name="RightShelf" type="CollisionPolygon2D" parent="HallCollision"]
+polygon = PackedVector2Array(248, -198, 500, -198, 500, -12, 248, -12)

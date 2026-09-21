@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c5sacredloomhallk"
-valid=false
+uid="uid://cq3exi7b4uv61"
+path="res://.godot/imported/sacred_loom_hall.png-c453aa8b95295eedb86e9eff140a1908.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/environments/house_sacred/sacred_loom_hall.png"
+dest_files=["res://.godot/imported/sacred_loom_hall.png-c453aa8b95295eedb86e9eff140a1908.ctex"]
 
 [params]
 

@@ -7,10 +7,10 @@ extends "res://scripts/chapters/house_quest.gd"
 ##                                pools. WASD to move, Space for a staff sweep,
 ##                                Q for the sonic shockwave. The loom is sealed
 ##                                until every sprite is gone.
-##   Phase 2  The Duel of Rhythms approaching the loom materialises the Shadow
-##                                Weaver. Defend Mode parries Bleach Attacks;
-##                                a heavy overextend staggers it into Weave Mode
-##                                where the rhythm track damages the boss.
+##   Phase 2  The Duel            the Shadow Weaver chases with a claw, blinds
+##                                the hall, summons two lesser shadows, and
+##                                detonates a shadow-burst ultimate. Dodge, then
+##                                punish.
 ##   Phase 3  The Finishing Stitch a W/A/S/D QTE over a T'nalak overlay, then
 ##                                the Color Burst that restores the whole world.
 
@@ -20,7 +20,7 @@ const COLLISION_SCENE := "res://scenes/world/House5Collision.tscn"
 
 const STEPS: Array[String] = [
 	"Kill the shadows",
-	"Block, then use the loom",
+	"Survive the Weaver",
 	"Press the letters",
 ]
 
@@ -88,6 +88,7 @@ func painted_player_scale() -> float:
 func _process(_delta: float) -> void:
 	if _plate != null and player != null and is_instance_valid(player):
 		_plate.set_player_world(player.global_position)
+	_update_duel_camera()
 
 
 func _build_world() -> void:
@@ -155,6 +156,7 @@ func _build_hall() -> void:
 	_loom_aura = AncestralAura.new()
 	_loom_aura.aura_color = Color(0.96, 0.82, 0.48, 0.9)
 	_loom_aura.mote_count = 22
+	_loom_aura.start_energy = 0.5
 	_loom.add_child(_loom_aura)
 	_loom_trigger = place_interactable("Use the loom", _plate.loom_reach_world(), {
 		"enabled": false,
@@ -171,7 +173,9 @@ func _build_hall() -> void:
 	_lock_loom_approach()
 
 	for i in range(Chapter5Plate.SPAWN_UVS.size()):
-		_pools.append(_anchor("ShadowPool_%d" % i, _plate.spawn_point(i)))
+		var pool := _anchor("ShadowPool_%d" % i, _plate.spawn_point(i))
+		_dress_shadow_pool(pool)
+		_pools.append(pool)
 
 	_ancestor = place_prop("MASTER WEAVER", _plate.ghost_world(), {
 		"texture_path": "res://assets/images/characters/master_weaver_ghost.png",
@@ -188,12 +192,13 @@ func _build_hall() -> void:
 	_ancestor.visible = false
 
 	_boss = ShadowWeaverBoss.new()
-	_boss.max_health = 100.0
+	_boss.max_health = 560.0
 	if world != null:
 		world.add_child(_boss)
 	else:
 		add_child(_boss)
 	_boss.global_position = _plate.boss_world()
+	_boss.set_arena(_plate.boss_world(), 268.0)
 	# The generated boss already fills a 320px frame. At 2.15x most of its
 	# upper body was outside the camera; 1.25x remains imposing but readable.
 	_boss.scale = Vector2(1.25, 1.25)
@@ -219,6 +224,7 @@ func _bind_host_camera() -> void:
 	var z := plate_camera_zoom()
 	var rect := _plate.global_world_rect()
 	if host.camera != null:
+		host.camera_zoom = Vector2(z, z)
 		host.camera.zoom = Vector2(z, z)
 		var view := host.get_viewport_rect().size / Vector2(z, z)
 		host.camera_follows_player = view.x < rect.size.x or view.y < rect.size.y
@@ -356,7 +362,7 @@ func _phase_one_breach() -> bool:
 	return not is_finished()
 
 
-## PHASE 2 - the hybrid boss fight.
+## PHASE 2 - a chasing melee duel.
 func _phase_two_duel() -> bool:
 	_phase = 2
 	_set_steps(1)
@@ -372,10 +378,11 @@ func _phase_two_duel() -> bool:
 	_play_boss_music()
 	Audio.set_combat_drums(0.7, 128.0)
 	if hud != null:
-		if hud.has_method("show_loom_integrity"):
+		if hud.has_method("show_boss_health"):
+			hud.call("show_boss_health", true)
+		elif hud.has_method("show_loom_integrity"):
 			hud.call("show_loom_integrity", true)
-		if hud.has_method("set_loom_integrity"):
-			hud.call("set_loom_integrity", _loom_integrity)
+		_sync_boss_hud()
 
 	if not _boss.telegraph_started.is_connected(_on_telegraph_started):
 		_boss.telegraph_started.connect(_on_telegraph_started)
@@ -385,15 +392,16 @@ func _phase_two_duel() -> bool:
 		_boss.health_changed.connect(_on_boss_health_changed)
 		_boss.defeated.connect(_on_boss_defeated)
 
-	_enter_defend_mode()
+	_enter_fight_stance()
 	_coach(
-		"Block the ring",
-		"A white ring shrinks around the boss. When it gets small, press Space.",
-		["SPACE"]
+		"Read the tells",
+		"Claw, blind, two shadows, then a ring of orbs. Shift to roll. Space to hit.",
+		["SHIFT", "SPACE"]
 	)
 	_boss.begin_duel()
 
 	await until(func() -> bool: return _duel_over or is_finished())
+	clear_camera_focus()
 	return not is_finished()
 
 
@@ -409,8 +417,11 @@ func _phase_three_finish() -> void:
 	_point_loom(true, "[KEYS]")
 	if hud != null and hud.has_method("set_mode"):
 		hud.call("set_mode", "")
-	if hud != null and hud.has_method("show_loom_integrity"):
-		hud.call("show_loom_integrity", false)
+	if hud != null:
+		if hud.has_method("show_boss_health"):
+			hud.call("show_boss_health", false)
+		elif hud.has_method("show_loom_integrity"):
+			hud.call("show_loom_integrity", false)
 
 	objective("Press the letter on screen before the bar empties.")
 	Audio.set_combat_drums(0.4, 118.0)
@@ -432,7 +443,7 @@ func _phase_three_finish() -> void:
 			break
 		clear_camera_focus()
 		await say([
-			{"speaker": "The Shadow Weaver", "text": "You missed a letter. Block again, then try the keys once more."},
+			{"speaker": "The Shadow Weaver", "text": "You missed a letter. Dodge again, then try the keys once more."},
 		])
 		if not await _reform_boss():
 			return
@@ -487,6 +498,78 @@ func _refresh_shadow_counter() -> void:
 	])
 
 
+func _dress_shadow_pool(node: Node2D) -> void:
+	var stain := Sprite2D.new()
+	stain.name = "Stain"
+	stain.texture = _soft_blob()
+	stain.modulate = Color(0.07, 0.03, 0.10, 0.78)
+	stain.scale = Vector2(1.35, 0.48)
+	stain.z_index = -6
+	node.add_child(stain)
+	var wisps := GPUParticles2D.new()
+	wisps.name = "Wisps"
+	wisps.texture = _soft_blob()
+	wisps.amount = 10
+	wisps.lifetime = 1.8
+	wisps.preprocess = 0.6
+	wisps.randomness = 0.8
+	wisps.z_index = -4
+	var mat := ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 18.0
+	mat.direction = Vector3(0.0, -1.0, 0.0)
+	mat.spread = 50.0
+	mat.initial_velocity_min = 6.0
+	mat.initial_velocity_max = 22.0
+	mat.gravity = Vector3(0.0, -8.0, 0.0)
+	mat.scale_min = 0.18
+	mat.scale_max = 0.42
+	mat.color = Color(0.16, 0.07, 0.20, 0.55)
+	wisps.process_material = mat
+	wisps.emitting = true
+	node.add_child(wisps)
+
+
+func _dress_veil(body: StaticBody2D) -> void:
+	var mist := Sprite2D.new()
+	mist.name = "VeilMist"
+	mist.texture = _soft_blob()
+	mist.modulate = Color(0.08, 0.04, 0.12, 0.7)
+	mist.scale = Vector2(5.4, 0.85)
+	mist.z_index = 4
+	body.add_child(mist)
+	var sparks := GPUParticles2D.new()
+	sparks.texture = _soft_blob()
+	sparks.amount = 16
+	sparks.lifetime = 1.6
+	sparks.preprocess = 0.5
+	sparks.z_index = 5
+	var mat := ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	mat.emission_box_extents = Vector3(210.0, 10.0, 1.0)
+	mat.direction = Vector3(0.0, -1.0, 0.0)
+	mat.spread = 40.0
+	mat.initial_velocity_min = 8.0
+	mat.initial_velocity_max = 26.0
+	mat.gravity = Vector3(0.0, -14.0, 0.0)
+	mat.scale_min = 0.12
+	mat.scale_max = 0.3
+	mat.color = Color(0.28, 0.12, 0.34, 0.5)
+	sparks.process_material = mat
+	sparks.emitting = true
+	body.add_child(sparks)
+
+
+func _soft_blob() -> Texture2D:
+	var image := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	var centre := Vector2(31.5, 31.5)
+	for y in range(64):
+		for x in range(64):
+			var d := Vector2(x, y).distance_to(centre) / 32.0
+			image.set_pixel(x, y, Color(1, 1, 1, pow(clampf(1.0 - d, 0.0, 1.0), 2.1)))
+	return ImageTexture.create_from_image(image)
+
+
 func _lock_loom_approach() -> void:
 	_loom_trigger.set_enabled(false)
 	if _veil_barrier != null and is_instance_valid(_veil_barrier):
@@ -506,6 +589,7 @@ func _lock_loom_approach() -> void:
 		add_child(_veil_barrier)
 	if _plate != null:
 		_veil_barrier.global_position = _plate.veil_world()
+	_dress_veil(_veil_barrier)
 
 
 func _unlock_loom_approach() -> void:
@@ -546,29 +630,39 @@ func _play_boss_music() -> void:
 		Audio.play_music(BOSS_MUSIC, -8.0)
 
 
-func _enter_defend_mode() -> void:
+func _enter_fight_stance() -> void:
 	_weave_mode = false
-	_loom_trigger.set_enabled(false)
+	if _loom_trigger != null:
+		_loom_trigger.set_enabled(false)
 	_point_loom(false)
-	objective("When the white ring gets small, press [Space].")
+	objective("Dodge the claw, the blind, the orbs. Kill the Weaver.")
 	if hud != null and hud.has_method("set_mode"):
-		hud.call("set_mode", "SPACE when the ring is small", Color(0.94, 0.72, 0.48))
-	counter("Watch the ring around the boss.")
+		hud.call("set_mode", "SHIFT dodge   SPACE strike   Q shock", Color(0.94, 0.72, 0.48))
+	counter("Stay mobile. Roll the red. Kill the adds.")
 	if _plate != null:
-		_plate.set_loom_energy(0.45)
+		_plate.set_loom_energy(0.55)
+
+
+func _enter_defend_mode() -> void:
+	_enter_fight_stance()
 
 
 func _enter_weave_mode() -> void:
-	_weave_mode = true
-	_loom_trigger.set_enabled(true)
-	_point_loom(true, "[E]")
-	objective("The boss is stunned. Run to the loom and press [E].")
+	_enter_punish_window()
+
+
+func _enter_punish_window() -> void:
+	_weave_mode = false
+	if _loom_trigger != null:
+		_loom_trigger.set_enabled(false)
+	_point_loom(false)
+	objective("It's stunned. Hit it. Press [Space].")
 	if hud != null and hud.has_method("set_mode"):
-		hud.call("set_mode", "E at the loom  —  now", Color(0.92, 0.84, 0.5))
-	counter("Go to the loom. Press E.")
+		hud.call("set_mode", "HIT  —  now", Color(0.92, 0.84, 0.5))
+	counter("Stunned — swing.")
 	if not _weave_taught:
 		_weave_taught = true
-		_coach("Use the loom", "The boss is stunned. Run to the gold mark and press E.", ["E"])
+		_coach("Punish", "The Weaver is down. Stay on it and swing.", ["SPACE"])
 	if _plate != null:
 		_plate.set_loom_energy(1.4)
 	if _loom_aura != null:
@@ -576,13 +670,11 @@ func _enter_weave_mode() -> void:
 		_loom_aura.burst()
 
 
-## Every staff swing during a wind-up is a parry attempt.
+## Staff swings shake the hall. Defence is the dodge, not a parry QTE.
 func _on_player_attacked(_swing_position: Vector2, _facing: Vector2) -> void:
 	shake_camera(4.5)
 	if _phase == 1:
 		Audio.play_brass_shock()
-	if _boss != null and is_instance_valid(_boss) and _boss.is_telegraphing():
-		_boss.try_parry()
 
 
 func _on_player_chimed(_origin: Vector2, _radius: float) -> void:
@@ -596,52 +688,79 @@ func _on_player_attack_hit(_hit: Node2D) -> void:
 	if _phase == 1:
 		_clear_coach()
 		Audio.play_brass_shock()
+	elif _phase == 2:
+		shake_camera(5.5)
+		Audio.play_sfx(Audio.Sfx.HIT)
 
 
 func _on_telegraph_started(_window: float) -> void:
-	if _weave_mode:
-		return
 	if not _block_taught:
 		_block_taught = true
 		_clear_coach()
-	if _boss != null and _boss.is_heavy_attack():
-		counter("NOW — Space  (big one)")
-	else:
-		counter("NOW — press Space")
+	var move_name := _boss.current_move() if _boss != null else "sweep"
+	match move_name:
+		"blind":
+			counter("BLIND — keep moving")
+		"summon":
+			counter("SUMMON — kill the two shadows")
+		"burst":
+			counter("ULTIMATE — get out of the orbs")
+		_:
+			counter("CLAW — roll aside")
 
 
 func _on_telegraph_resolved(parried: bool) -> void:
 	if parried:
-		counter("Blocked.")
+		counter("Interrupted.")
 		_clear_coach()
+		shake_camera(6.0)
 		return
-
-	var damage: float = _boss.bleach_damage
-	if _boss.is_heavy_attack():
-		damage *= 1.4
-	counter("Too early or too late. Wait until the ring is small.")
-	if player != null and is_instance_valid(player):
-		player.take_damage(damage, _boss)
-	_damage_loom(LOOM_BLEACH_DAMAGE * (1.35 if _boss.is_heavy_attack() else 1.0))
+	shake_camera(10.0 if _boss != null and _boss.is_heavy_attack() else 6.0)
+	if _boss != null and _boss.is_heavy_attack():
+		counter("Missed — now hit it")
+	else:
+		counter("Keep swinging")
 
 
 func _on_boss_staggered(_duration: float) -> void:
-	_enter_weave_mode()
+	_enter_punish_window()
+	shake_camera(8.0)
 
 
 func _on_boss_recovered() -> void:
-	if _duel_over or _in_weave_game:
+	if _duel_over:
 		return
 	_clear_coach()
-	_enter_defend_mode()
+	_enter_fight_stance()
 
 
 func _on_boss_health_changed(current: float, maximum: float) -> void:
-	if _weave_mode or _duel_over:
+	_sync_boss_hud()
+	if _duel_over:
 		return
 	if _boss != null and _boss.is_telegraphing():
 		return
-	counter("Boss  %d%%" % roundi(current / maximum * 100.0))
+	counter("Weaver  %d%%" % roundi(current / maximum * 100.0))
+
+
+func _sync_boss_hud() -> void:
+	if hud == null or _boss == null:
+		return
+	if hud.has_method("set_boss_health"):
+		hud.call("set_boss_health", _boss.health, _boss.max_health)
+	elif hud.has_method("set_loom_integrity"):
+		hud.call("set_loom_integrity", _boss.health_ratio())
+
+
+func _update_duel_camera() -> void:
+	if _phase != 2 or _duel_over or is_finished():
+		return
+	if player == null or not is_instance_valid(player):
+		return
+	if _boss == null or not is_instance_valid(_boss) or not _boss.visible:
+		return
+	var mid := player.global_position.lerp(_boss.global_position, 0.42)
+	focus_camera_on(mid + Vector2(0.0, -40.0), Vector2(1.04, 1.04))
 
 
 func _on_boss_defeated() -> void:
@@ -720,7 +839,7 @@ func _reform_boss() -> bool:
 	_boss.health = _boss.max_health * 0.25
 	_boss.health_changed.emit(_boss.health, _boss.max_health)
 	_boss.begin_duel()
-	_enter_defend_mode()
+	_enter_fight_stance()
 	_set_steps(1)
 
 	await until(func() -> bool: return _duel_over or is_finished())

@@ -12,7 +12,7 @@ const SPAWN_UV := Vector2(0.50, 0.78)
 const EXIT_UV := Vector2(0.50, 0.90)
 const LOOM_UV := Vector2(0.50, 0.34)
 const LOOM_REACH_UV := Vector2(0.50, 0.54)
-const GHOST_UV := Vector2(0.76, 0.42)
+const GHOST_UV := Vector2(0.70, 0.48)
 ## Low enough that the tall six-armed silhouette remains inside the camera.
 const BOSS_UV := Vector2(0.50, 0.58)
 const VEIL_UV := Vector2(0.50, 0.46)
@@ -39,6 +39,7 @@ var _tex_size := NATIVE
 var _solids: StaticBody2D
 var _bounds: StaticBody2D
 var _material: ShaderMaterial
+var _ash: GPUParticles2D
 var _debug_rects: Array[Rect2] = []
 
 
@@ -64,6 +65,7 @@ func _ready() -> void:
 	_apply_grade()
 	add_child(_sprite)
 	_add_edge_walls()
+	_add_ash()
 	_push_lights()
 	queue_redraw()
 
@@ -137,6 +139,8 @@ func spawn_point(index: int) -> Vector2:
 func set_restore(amount: float) -> void:
 	if _material != null:
 		_material.set_shader_parameter("restore", clampf(amount, 0.0, 1.0))
+	if _ash != null:
+		_ash.emitting = amount < 0.82
 
 
 func set_sanctity(amount: float) -> void:
@@ -196,10 +200,11 @@ func _push_lights() -> void:
 	if _material == null:
 		return
 	_material.set_shader_parameter("loom_uv", LOOM_UV)
-	_material.set_shader_parameter("loom_energy", 0.35)
+	_material.set_shader_parameter("loom_energy", 0.55)
 	_material.set_shader_parameter("player_uv", SPAWN_UV)
-	_material.set_shader_parameter("restore", 0.0)
-	_material.set_shader_parameter("sanctity", 0.0)
+	_material.set_shader_parameter("player_radius", 0.36)
+	_material.set_shader_parameter("restore", 0.28)
+	_material.set_shader_parameter("sanctity", 0.10)
 
 
 func _load_disk_image() -> Image:
@@ -208,17 +213,23 @@ func _load_disk_image() -> Image:
 		return null
 	var image := Image.new()
 	if image.load(disk) != OK:
+		push_warning("Chapter5Plate: Image.load failed for %s" % disk)
 		return null
+	if image.get_format() != Image.FORMAT_RGBA8:
+		image.convert(Image.FORMAT_RGBA8)
 	return image
 
 
 func _load_texture(disk: Image) -> Texture2D:
-	if ResourceLoader.exists(TEXTURE_PATH):
-		var loaded := load(TEXTURE_PATH)
-		if loaded is Texture2D:
-			return loaded as Texture2D
+	# Prefer the PNG on disk. Replacing the hall invalidates Godot's .ctex
+	# remap (valid=false), and load() then returns an empty texture — which
+	# leaves only the dream-sky behind S'lang.
 	if disk != null:
 		return ImageTexture.create_from_image(disk)
+	if ResourceLoader.exists(TEXTURE_PATH):
+		var loaded := load(TEXTURE_PATH)
+		if loaded is Texture2D and (loaded as Texture2D).get_width() > 8:
+			return loaded as Texture2D
 	push_warning("Chapter5Plate: missing %s" % TEXTURE_PATH)
 	return null
 
@@ -237,6 +248,42 @@ func _draw() -> void:
 	for rect in _debug_rects:
 		draw_rect(rect, Color(1.0, 0.15, 0.2, 0.28))
 		draw_rect(rect, Color(1.0, 0.85, 0.2, 0.95), false, 1.5)
+
+
+func _add_ash() -> void:
+	_ash = GPUParticles2D.new()
+	_ash.name = "HallAsh"
+	_ash.z_index = 6
+	_ash.amount = 48
+	_ash.lifetime = 5.2
+	_ash.preprocess = 2.4
+	_ash.explosiveness = 0.0
+	_ash.randomness = 0.85
+	_ash.texture = _ash_dot()
+	var mat := ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	mat.emission_box_extents = Vector3(420.0, 260.0, 1.0)
+	mat.direction = Vector3(0.08, -1.0, 0.0)
+	mat.spread = 28.0
+	mat.initial_velocity_min = 8.0
+	mat.initial_velocity_max = 22.0
+	mat.gravity = Vector3(6.0, -12.0, 0.0)
+	mat.scale_min = 0.35
+	mat.scale_max = 0.9
+	mat.color = Color(0.22, 0.12, 0.14, 0.55)
+	_ash.process_material = mat
+	_ash.emitting = true
+	add_child(_ash)
+
+
+func _ash_dot() -> Texture2D:
+	var image := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	var centre := Vector2(7.5, 7.5)
+	for y in range(16):
+		for x in range(16):
+			var d := Vector2(x, y).distance_to(centre) / 8.0
+			image.set_pixel(x, y, Color(1, 1, 1, pow(clampf(1.0 - d, 0.0, 1.0), 1.7)))
+	return ImageTexture.create_from_image(image)
 
 
 func _add_edge_walls() -> void:
@@ -269,6 +316,8 @@ func _add_solids() -> void:
 	_add_uv_box(Vector2(0.50, 0.12), Vector2(0.86, 0.16))
 	# Sacred Loom frame — the hanging cloth is visual, feet are solid.
 	_add_uv_box(Vector2(0.50, 0.34), Vector2(0.30, 0.16))
+	# Gong shelf and chest on the right wall.
+	_add_uv_box(Vector2(0.84, 0.38), Vector2(0.22, 0.22))
 	# Porch gardens.
 	_add_uv_box(Vector2(0.16, 0.86), Vector2(0.30, 0.24))
 	_add_uv_box(Vector2(0.84, 0.84), Vector2(0.28, 0.28))

@@ -10,11 +10,11 @@ extends CharacterBody2D
 ##   down, down_right, right, up_right, up, and the three west mirrors via flip_h.
 ## Sheets live in SlangFrames / slang_8dir.
 ##
-## Combat (once the Lewet Staff is equipped) — AdventureQuest Worlds feel:
-##   Left-click enemy  - lock target + auto-fire gold Lewet bolts
-##   Left-click ground - clear lock / fire once toward the click
-##   Space             - attack locked target (or mouse aim)
+## Combat (once the Lewet Staff is equipped):
+##   Space             - staff sweep; bolts only if nothing is in reach
+##   Shift / RMB       - dodge roll with i-frames
 ##   Q                 - sonic chime
+##   Left-click enemy  - lock target (auto-bolts on minions, not the boss)
 
 signal health_changed(current: float, maximum: float)
 signal died
@@ -29,12 +29,12 @@ const WeaveBoltScene := preload("res://scripts/world/weave_bolt.gd")
 @export var acceleration: float = 1500.0
 @export var friction: float = 1800.0
 
-const ATTACK_COOLDOWN := 0.95
-const ATTACK_ANIM := 0.70
+const ATTACK_COOLDOWN := 0.58
+const ATTACK_ANIM := 0.52
 const ATTACK_DAMAGE := 34.0
-const MELEE_REACH := 92.0
-const MELEE_ARC := 1.35
-const BOLT_DELAY := 0.36
+const MELEE_REACH := 110.0
+const MELEE_ARC := 1.45
+const BOLT_DELAY := 0.28
 const AUTO_ATTACK_RANGE := 380.0
 const CLICK_PICK_RADIUS := 96.0
 
@@ -42,7 +42,11 @@ const CHIME_COOLDOWN := 2.6
 const CHIME_RADIUS := 190.0
 const CHIME_DAMAGE := 18.0
 
-const INVULNERABLE_TIME := 0.85
+const INVULNERABLE_TIME := 0.55
+const DODGE_COOLDOWN := 0.72
+const DODGE_TIME := 0.20
+const DODGE_SPEED := 520.0
+const DODGE_IFRAMES := 0.26
 
 @export var max_health := 100.0
 @export var has_staff := false
@@ -69,6 +73,9 @@ var _dead := false
 var _hurt_flash := 0.0
 var _attacking := false
 var _attack_anim_left := 0.0
+var _dodge_timer := 0.0
+var _dodge_left := 0.0
+var _dodge_dir := Vector2.ZERO
 ## Locked AQW-style target. Bolts auto-fire while this stays valid.
 var _locked_target: Node2D
 ## One-shot aim for the bolt currently being cast.
@@ -105,6 +112,8 @@ func _physics_process(delta: float) -> void:
 	_invulnerable = maxf(0.0, _invulnerable - delta)
 	_hurt_flash = maxf(0.0, _hurt_flash - delta)
 	_attack_anim_left = maxf(0.0, _attack_anim_left - delta)
+	_dodge_timer = maxf(0.0, _dodge_timer - delta)
+	_dodge_left = maxf(0.0, _dodge_left - delta)
 	if _attack_anim_left <= 0.0:
 		_attacking = false
 		if _animated != null:
@@ -116,20 +125,22 @@ func _physics_process(delta: float) -> void:
 
 	var input_vector := Vector2.ZERO
 	if input_enabled and not _dead:
-		# Prefer move_up/move_down; fall back to the older move_forward/move_back names.
 		var up_down_neg := "move_up" if InputMap.has_action("move_up") else "move_forward"
 		var up_down_pos := "move_down" if InputMap.has_action("move_down") else "move_back"
 		input_vector = Input.get_vector("move_left", "move_right", up_down_neg, up_down_pos)
 
 	_update_animation(input_vector)
 
-	var direction := Iso.screen_direction(input_vector)
-	if direction != Vector2.ZERO:
-		if _locked_target == null:
-			facing = direction
-		velocity = velocity.move_toward(direction * speed, acceleration * delta)
+	if _dodge_left > 0.0:
+		velocity = _dodge_dir * DODGE_SPEED
 	else:
-		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
+		var direction := Iso.screen_direction(input_vector)
+		if direction != Vector2.ZERO:
+			if _locked_target == null:
+				facing = direction
+			velocity = velocity.move_toward(direction * speed, acceleration * delta)
+		else:
+			velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
 
 	move_and_slide()
 	if collision_mask != PhysicsLayers.MASK_PLAYER_MOVES:
@@ -148,7 +159,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			_handle_aqw_click(get_global_mouse_position())
 			return
-	if event.is_action_pressed("attack"):
+	if event.is_action_pressed("dodge"):
+		get_viewport().set_input_as_handled()
+		try_dodge()
+	elif event.is_action_pressed("attack"):
 		get_viewport().set_input_as_handled()
 		try_attack()
 	elif event.is_action_pressed("ability"):
@@ -216,6 +230,9 @@ func _update_idle_breathe(delta: float, input_vector: Vector2) -> void:
 func _update_hurt_flash() -> void:
 	if _animated == null or _dead:
 		return
+	if _dodge_left > 0.0 and _animated != null:
+		_animated.modulate = Color(1.2, 1.25, 1.45)
+		return
 	_animated.modulate = Color(1.6, 0.7, 0.6) if _hurt_flash > 0.0 else Color.WHITE
 	if _light != null:
 		_light.position = Vector2(facing.x * 12.0, -24.0)
@@ -245,9 +262,47 @@ func _apply_light() -> void:
 # --------------------------------------------------------------------------
 
 func try_attack() -> bool:
+	if _dodge_left > 0.0:
+		return false
+	var boss := get_tree().get_first_node_in_group("boss") as Node2D
+	if boss != null and is_instance_valid(boss) \
+			and Iso.iso_distance(global_position, boss.global_position) <= MELEE_REACH + 64.0:
+		_set_locked_target(boss)
+		return _cast_bolt_at(boss, boss.global_position)
 	if _locked_target != null and is_instance_valid(_locked_target):
 		return _cast_bolt_at(_locked_target, _locked_target.global_position)
 	return try_attack_at(get_global_mouse_position())
+
+
+func try_dodge() -> bool:
+	if not input_enabled or _dead or _dodge_timer > 0.0:
+		return false
+	var up_down_neg := "move_up" if InputMap.has_action("move_up") else "move_forward"
+	var up_down_pos := "move_down" if InputMap.has_action("move_down") else "move_back"
+	var stick := Input.get_vector("move_left", "move_right", up_down_neg, up_down_pos)
+	var dir := Iso.screen_direction(stick)
+	if dir == Vector2.ZERO:
+		dir = facing if facing != Vector2.ZERO else Vector2(0, 1)
+	_dodge_dir = dir
+	_dodge_left = DODGE_TIME
+	_dodge_timer = DODGE_COOLDOWN
+	_invulnerable = maxf(_invulnerable, DODGE_IFRAMES)
+	_attacking = false
+	velocity = _dodge_dir * DODGE_SPEED
+	Audio.play_sfx(Audio.Sfx.HIT)
+	Fx.punch(self, 0.08)
+	if _animated != null:
+		_animated.modulate = Color(1.35, 1.4, 1.6)
+	return true
+
+
+func apply_knockback(from_world: Vector2, force := 280.0) -> void:
+	if _dead or _dodge_left > 0.0:
+		return
+	var away := global_position - from_world
+	if away.length() < 4.0:
+		away = Vector2(0, 1)
+	velocity = away.normalized() * force
 
 
 ## AQ Worlds style: left-click locks a monster; bolts auto-fire while locked.
@@ -272,6 +327,8 @@ func _handle_aqw_click(world_point: Vector2) -> void:
 
 func _try_auto_attack() -> void:
 	if not input_enabled or _dead or not has_staff:
+		return
+	if _locked_target != null and _locked_target.is_in_group("boss"):
 		return
 	if _locked_target == null or _attack_timer > 0.0:
 		return
@@ -338,6 +395,8 @@ func _validate_locked_target() -> void:
 
 
 func _face_locked_target() -> void:
+	if _dodge_left > 0.0:
+		return
 	if _locked_target == null or not is_instance_valid(_locked_target):
 		return
 	_face_vector(_locked_target.global_position - global_position)
@@ -401,13 +460,9 @@ func _play_cast_pose() -> void:
 	if _animated == null:
 		return
 	_play_facing("attack")
-	var side := -1.0 if FLIP_SHEET.has(last_direction) else 1.0
-	_animated.rotation_degrees = -22.0 * side
-	var tween := create_tween()
-	tween.tween_property(_animated, "rotation_degrees", 28.0 * side, ATTACK_ANIM * 0.45)\
-		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
-	tween.tween_property(_animated, "rotation_degrees", 0.0, ATTACK_ANIM * 0.55)\
-		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	# The attack sheet already carries the swing. Tilting the whole actor
+	# pivoted her feet off the floor and made every strike look like a flop.
+	_animated.rotation_degrees = 0.0
 
 
 func _fire_weave_bolt() -> void:
@@ -544,7 +599,10 @@ func _targets_in_range(origin: Vector2, radius: float) -> Array[Node2D]:
 		var target := node as Node2D
 		if target == null or not target.is_inside_tree():
 			continue
-		if Iso.iso_distance(origin, target.global_position) <= radius + 24.0:
+		var extra := 24.0
+		if target.has_method("hit_radius"):
+			extra = float(target.call("hit_radius"))
+		if Iso.iso_distance(origin, target.global_position) <= radius + extra:
 			found.append(target)
 	return found
 
