@@ -107,6 +107,14 @@ func world_rect() -> Rect2:
 	return Rect2(-size * 0.5, size)
 
 
+func global_world_rect() -> Rect2:
+	var rect := world_rect()
+	if is_inside_tree():
+		var top_left := to_global(rect.position)
+		return Rect2(top_left, rect.size * absf(scale.x))
+	return Rect2(global_position + rect.position * scale, rect.size * absf(scale.x))
+
+
 ## UV 0..1 over the painting. Sprite is centred on this node, so UV 0.5,0.5
 ## is local (0,0) and UV 0,0 is the top-left of displayed_size().
 func uv_to_world(uv: Vector2) -> Vector2:

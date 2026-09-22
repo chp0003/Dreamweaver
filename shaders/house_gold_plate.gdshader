@@ -36,11 +36,21 @@ void fragment() {
 	for (int i = 0; i < 4; i++) {
 		float energy = torch_energy[i];
 		if (energy > 0.01) {
-			light += energy * (1.0 - smoothstep(0.07, 0.22, distance(UV, torch_uvs[i])));
+			light += energy * (1.0 - smoothstep(0.035, 0.13, distance(UV, torch_uvs[i])));
 		}
 	}
 	light = clamp(light, 0.0, 1.0);
 	vec3 night = base * vec3(0.12, 0.11, 0.14);
 	vec3 seen = mix(night, base, light);
-	COLOR = vec4(mix(base, seen, veil), 1.0);
+	vec3 picture = mix(base, seen, veil);
+
+	vec3 pool = vec3(0.0);
+	for (int i = 0; i < 4; i++) {
+		float energy = torch_energy[i];
+		if (energy > 0.01) {
+			float halo = energy * (1.0 - smoothstep(0.012, 0.11, distance(UV, torch_uvs[i])));
+			pool += vec3(1.0, 0.64, 0.30) * halo;
+		}
+	}
+	COLOR = vec4(clamp(picture + pool * 0.48, 0.0, 1.0), 1.0);
 }

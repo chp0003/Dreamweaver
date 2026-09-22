@@ -14,6 +14,7 @@ var sfx_volume := 1.0
 var muted := false
 var fullscreen := false
 var vsync := true
+var show_beam_ghost := false
 
 
 func _ready() -> void:
@@ -32,6 +33,7 @@ func load_from_disk() -> void:
 	muted = bool(cfg.get_value("audio", "muted", muted))
 	fullscreen = bool(cfg.get_value("display", "fullscreen", fullscreen))
 	vsync = bool(cfg.get_value("display", "vsync", vsync))
+	show_beam_ghost = bool(cfg.get_value("display", "beam_ghost", show_beam_ghost))
 
 
 func save_to_disk() -> void:
@@ -42,6 +44,7 @@ func save_to_disk() -> void:
 	cfg.set_value("audio", "muted", muted)
 	cfg.set_value("display", "fullscreen", fullscreen)
 	cfg.set_value("display", "vsync", vsync)
+	cfg.set_value("display", "beam_ghost", show_beam_ghost)
 	cfg.save(SAVE_PATH)
 
 
@@ -75,6 +78,12 @@ func set_muted(value: bool) -> void:
 func set_fullscreen(value: bool) -> void:
 	fullscreen = value
 	_apply_display()
+	save_to_disk()
+	changed.emit()
+
+
+func set_show_beam_ghost(value: bool) -> void:
+	show_beam_ghost = value
 	save_to_disk()
 	changed.emit()
 

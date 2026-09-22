@@ -50,10 +50,6 @@ func plate_world_rect() -> Rect2:
 	return Rect2()
 
 
-func plate_camera_zoom() -> float:
-	return 0.86
-
-
 func painted_player_scale() -> float:
 	return 2.6
 
@@ -128,11 +124,11 @@ func _build_hall() -> void:
 		"prop_size": Vector2(110.0, 188.0),
 		"body_color": Palette.BLACK_CHARCOAL,
 		"accent_color": Palette.GOLD_SACRED,
-		"float_amplitude": 4.0,
-		"float_speed": 0.85,
+		"float_amplitude": 1.2,
+		"float_speed": 0.7,
 		"blocks_movement": false,
 		"show_label": false,
-		"cast_shadow": false,
+		"cast_shadow": true,
 	})
 	_ghost.modulate = Color(0.92, 0.96, 1.05, 0.0)
 	_ghost_aura = AncestralAura.new()

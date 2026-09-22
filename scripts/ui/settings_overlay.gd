@@ -32,6 +32,7 @@ var _delete_password: LineEdit
 
 var _fullscreen_check: CheckButton
 var _vsync_check: CheckButton
+var _beam_ghost_check: CheckButton
 
 var _audio_block: VBoxContainer
 var _account_block: VBoxContainer
@@ -200,6 +201,7 @@ func _pull_settings() -> void:
 	_mute_check.set_pressed_no_signal(Settings.muted)
 	_fullscreen_check.set_pressed_no_signal(Settings.fullscreen)
 	_vsync_check.set_pressed_no_signal(Settings.vsync)
+	_beam_ghost_check.set_pressed_no_signal(Settings.show_beam_ghost)
 
 
 func _build_audio_block() -> VBoxContainer:
@@ -298,6 +300,14 @@ func _build_display_block() -> VBoxContainer:
 	)
 	box.add_child(_fullscreen_check)
 	box.add_child(_vsync_check)
+	box.add_child(_heading("PUZZLES"))
+	_beam_ghost_check = CheckButton.new()
+	_beam_ghost_check.text = "Ghost the mirror beam"
+	_beam_ghost_check.toggled.connect(func(on: bool) -> void:
+		Settings.set_show_beam_ghost(on)
+		_ok("Beam ghost on." if on else "Beam ghost off.")
+	)
+	box.add_child(_beam_ghost_check)
 	var tip := Label.new()
 	tip.text = "Display changes apply immediately and stay saved on this device."
 	tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

@@ -64,7 +64,13 @@ func plate_world_rect() -> Rect2:
 
 
 func plate_camera_zoom() -> float:
-	return 1.04
+	var rect := plate_world_rect()
+	if host != null and host.has_method("cover_zoom_for"):
+		return host.cover_zoom_for(rect)
+	var view := get_viewport_rect().size
+	if rect.size.x < 8.0 or rect.size.y < 8.0 or view.x < 8.0 or view.y < 8.0:
+		return 0.86
+	return maxf(view.x / rect.size.x, view.y / rect.size.y) * 1.02
 
 
 func painted_player_scale() -> float:

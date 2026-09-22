@@ -3,7 +3,7 @@ extends MiniGameBase
 ## until the complete woven pattern is restored.
 ##
 ## Easy: 3x3 of a complete T'boli cloth (9 pieces), light scramble.
-## Medium: 3x4 Fun Kdungon (12 pieces).
+## Medium: 3x4 of Fun Kdungon on a wood board (12 pieces).
 ## Hard: 5x4 slices of the Golden Era village (prologue panel).
 ##
 ## Drag a piece, or click it and then a neighbor, to slide them.
@@ -14,8 +14,7 @@ const EASY_PATH := "res://assets/images/minigames/warp_pattern_easy.png"
 const MEDIUM_PATH := "res://assets/images/characters/fun_kdungon.png"
 const HARD_PATH := "res://assets/images/minigames/warp_pattern_hard.png"
 const HARD_FALLBACK_PATH := "res://assets/images/story/intro_01_golden_era.png"
-## Fun Kdungon sprite content, trimming empty transparent padding.
-const MEDIUM_CROP_UV := Rect2(0.02, 0.01, 0.96, 0.98)
+const PORTRAIT_PLATE := Vector2i(540, 810)
 
 @export var difficulty := Difficulty.Easy
 ## Optional override. Chapter 4 passes the Golden Era panel for Hard.
@@ -82,16 +81,19 @@ func _difficulty_title() -> String:
 func _build_content(parent: Control) -> void:
 	if _timer_bar != null:
 		_timer_bar.visible = false
+	if parent is BoxContainer:
+		(parent as BoxContainer).alignment = BoxContainer.ALIGNMENT_CENTER
 
 	var stage := HBoxContainer.new()
 	stage.alignment = BoxContainer.ALIGNMENT_CENTER
-	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stage.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	stage.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	stage.add_theme_constant_override("separation", 28)
 	parent.add_child(stage)
 
 	var dream_col := VBoxContainer.new()
 	dream_col.add_theme_constant_override("separation", 8)
-	dream_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	dream_col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	stage.add_child(dream_col)
 
 	var dream_tag := Label.new()
@@ -102,14 +104,16 @@ func _build_content(parent: Control) -> void:
 
 	_target_view = TextureRect.new()
 	_target_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_target_view.stretch_mode = TextureRect.STRETCH_SCALE
-	_target_view.custom_minimum_size = Vector2(200.0, 260.0)
+	_target_view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_target_view.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_target_view.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_target_view.custom_minimum_size = Vector2(180.0, 220.0)
 	dream_col.add_child(_target_view)
 
 	var loom_col := VBoxContainer.new()
 	loom_col.add_theme_constant_override("separation", 8)
-	loom_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	loom_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	loom_col.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	loom_col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	stage.add_child(loom_col)
 
 	var loom_tag := Label.new()
@@ -121,6 +125,7 @@ func _build_content(parent: Control) -> void:
 	_board_frame = PanelContainer.new()
 	_board_frame.custom_minimum_size = _board_size + Vector2(16.0, 16.0)
 	_board_frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_board_frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var frame_style := StyleBoxFlat.new()
 	frame_style.bg_color = Color(0.12, 0.10, 0.08, 0.92)
 	frame_style.border_color = Color(0.84, 0.74, 0.46, 0.85)
@@ -160,6 +165,8 @@ func _load_cloth() -> void:
 	_cloth = _load_texture(path)
 	if _cloth == null and difficulty == Difficulty.Hard:
 		_cloth = _load_texture(HARD_FALLBACK_PATH)
+	if difficulty == Difficulty.Medium and _cloth != null:
+		_cloth = _compose_portrait_plate(_cloth)
 	_regions = _slice_regions()
 	if _target_view != null:
 		_target_view.texture = _cloth_preview()
@@ -183,28 +190,28 @@ func _fit_layout_to_cloth() -> void:
 	if source.size.x <= 1.0 or source.size.y <= 1.0:
 		return
 	var aspect := source.size.x / source.size.y
-	# The Golden Era panel is a wide landscape; give the loom board more width
-	# so houses, river and weavers stay readable as 5×4 slices.
-	var max_w := 640.0 if difficulty == Difficulty.Hard else 520.0
-	var max_h := 420.0 if difficulty == Difficulty.Hard else 480.0
-	var board_w := max_w
-	var board_h := board_w / aspect
-	if board_h > max_h:
-		board_h = max_h
-		board_w = board_h * aspect
-	_board_size = Vector2(board_w, board_h)
-
-	var preview_h := mini(260.0 if difficulty == Difficulty.Hard else 340.0, board_h)
-	var preview_w := preview_h * aspect
+	var view := get_viewport_rect().size
+	# Leave room for the frame title, the two captions, and the window margins
+	# so neither the reference nor the loom is clipped.
+	var avail_h := maxf(220.0, view.y - 380.0)
+	var avail_w := maxf(520.0, view.x - 240.0)
+	var gap := 28.0
+	var frame_pad := 16.0
+	var picture_h := avail_h
+	var picture_w := picture_h * aspect
+	var total_w := picture_w + gap + picture_w + frame_pad
+	if total_w > avail_w:
+		picture_w = (avail_w - gap - frame_pad) * 0.5
+		picture_h = picture_w / aspect
+	_board_size = Vector2(picture_w, picture_h)
 	if _target_view != null:
-		_target_view.custom_minimum_size = Vector2(preview_w, preview_h)
-		_target_view.size = Vector2(preview_w, preview_h)
-
+		_target_view.custom_minimum_size = _board_size
+		_target_view.size = _board_size
 	if _board != null:
 		_board.custom_minimum_size = _board_size
 		_board.size = _board_size
 	if _board_frame != null:
-		_board_frame.custom_minimum_size = _board_size + Vector2(16.0, 16.0)
+		_board_frame.custom_minimum_size = _board_size + Vector2(frame_pad, frame_pad)
 
 
 func _load_texture(path: String) -> Texture2D:
@@ -223,25 +230,83 @@ func _load_texture(path: String) -> Texture2D:
 func _cloth_source_rect() -> Rect2:
 	if _cloth == null:
 		return Rect2()
-	var size := _cloth.get_size()
-	if difficulty == Difficulty.Medium:
-		return Rect2(
-			MEDIUM_CROP_UV.position * size,
-			MEDIUM_CROP_UV.size * size
-		)
-	return Rect2(Vector2.ZERO, size)
+	return Rect2(Vector2.ZERO, _cloth.get_size())
 
 
 func _cloth_preview() -> Texture2D:
-	if _cloth == null:
-		return null
-	if difficulty != Difficulty.Medium:
-		return _cloth
-	var atlas := AtlasTexture.new()
-	atlas.atlas = _cloth
-	atlas.region = _cloth_source_rect()
-	atlas.filter_clip = true
-	return atlas
+	return _cloth
+
+
+## Tight crop of Fun Kdungon on a wood board, so empty tiles stay brown
+## instead of black.
+func _compose_portrait_plate(source: Texture2D) -> Texture2D:
+	var raw := source.get_image()
+	if raw == null:
+		return source
+	var src: Image = raw.duplicate() as Image
+	if src.get_format() != Image.FORMAT_RGBA8:
+		src.convert(Image.FORMAT_RGBA8)
+	var bounds := _opaque_bounds(src)
+	var cropped := src.get_region(bounds)
+	var max_w := int(float(PORTRAIT_PLATE.x) * 0.9)
+	var max_h := int(float(PORTRAIT_PLATE.y) * 0.9)
+	var scale := minf(float(max_w) / float(cropped.get_width()), float(max_h) / float(cropped.get_height()))
+	var dw := maxi(1, int(round(float(cropped.get_width()) * scale)))
+	var dh := maxi(1, int(round(float(cropped.get_height()) * scale)))
+	cropped.resize(dw, dh, Image.INTERPOLATE_LANCZOS)
+	var plate := Image.create(PORTRAIT_PLATE.x, PORTRAIT_PLATE.y, false, Image.FORMAT_RGBA8)
+	_paint_wood(plate)
+	var origin := Vector2i((PORTRAIT_PLATE.x - dw) / 2, (PORTRAIT_PLATE.y - dh) / 2)
+	plate.blend_rect(cropped, Rect2i(0, 0, dw, dh), origin)
+	return ImageTexture.create_from_image(plate)
+
+
+func _opaque_bounds(image: Image) -> Rect2i:
+	var width: int = image.get_width()
+	var height: int = image.get_height()
+	var min_x := width
+	var min_y := height
+	var max_x := 0
+	var max_y := 0
+	var found := false
+	for y in height:
+		for x in width:
+			var color: Color = image.get_pixel(x, y)
+			if color.a < 0.18:
+				continue
+			found = true
+			min_x = mini(min_x, x)
+			min_y = mini(min_y, y)
+			max_x = maxi(max_x, x)
+			max_y = maxi(max_y, y)
+	if not found:
+		return Rect2i(0, 0, width, height)
+	return Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+
+
+func _paint_wood(plate: Image) -> void:
+	var width: int = plate.get_width()
+	var height: int = plate.get_height()
+	var boards: Array[Color] = [
+		Palette.EARTH_WOOD,
+		Palette.EARTH_WOOD.lightened(0.08),
+		Palette.EARTH_BAMBOO.darkened(0.18),
+		Palette.EARTH_WOOD.darkened(0.06),
+	]
+	var plank := 54
+	var y := 0
+	var i := 0
+	while y < height:
+		var h := mini(plank, height - y)
+		plate.fill_rect(Rect2i(0, y, width, h), boards[i % boards.size()])
+		if y > 0:
+			plate.fill_rect(Rect2i(0, y, width, 2), Palette.EARTH_LOAM)
+		y += plank
+		i += 1
+	plate.fill_rect(Rect2i(0, 0, width, 8), Palette.EARTH_LOAM)
+	plate.fill_rect(Rect2i(0, height - 8, width, 8), Palette.EARTH_LOAM)
+	plate.fill_rect(Rect2i(0, 0, 8, height), Palette.EARTH_LOAM)
+	plate.fill_rect(Rect2i(width - 8, 0, 8, height), Palette.EARTH_LOAM)
 
 
 func _slice_regions() -> Array[Rect2]:
@@ -332,6 +397,7 @@ func _rebuild_tiles() -> void:
 		var button := TextureButton.new()
 		button.ignore_texture_size = true
 		button.stretch_mode = TextureButton.STRETCH_SCALE
+		button.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		button.focus_mode = Control.FOCUS_NONE
 		button.mouse_filter = Control.MOUSE_FILTER_STOP
 		button.custom_minimum_size = _cell

@@ -219,6 +219,12 @@ func play_brass_shock() -> void:
 	_add_voice(523.0, 0.10, 18.0)
 
 
+func play_note(freq: float) -> void:
+	if not _enabled:
+		return
+	_add_voice(freq, 0.15, 7.0)
+
+
 func play_sfx(kind: Sfx) -> void:
 	if not _enabled:
 		return

@@ -7,8 +7,13 @@ extends MiniGameBase
 
 const ROUNDS := 3
 const START_LENGTH := 3
-const FLASH_ON := 0.42
-const FLASH_GAP := 0.18
+const FLASH_ON := 0.48
+const FLASH_GAP := 0.12
+const TILE_NOTES: Array[float] = [
+	523.0, 587.0, 659.0,
+	698.0, 784.0, 880.0,
+	988.0, 1046.0, 1174.0,
+]
 
 var _grid: GridContainer
 var _tiles: Array[Button] = []
@@ -16,6 +21,7 @@ var _sequence: Array[int] = []
 var _input_index := 0
 var _round := 0
 var _accepting := false
+var _replayed := false
 
 
 func _configure() -> void:
@@ -45,6 +51,7 @@ func _build_content(parent: Control) -> void:
 		tile.add_theme_stylebox_override("hover", _tile_style(false, true))
 		tile.add_theme_stylebox_override("pressed", _tile_style(true))
 		tile.focus_mode = Control.FOCUS_NONE
+		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile.pressed.connect(_on_tile_pressed.bind(i))
 		_grid.add_child(tile)
 		_tiles.append(tile)
@@ -64,6 +71,7 @@ func _start_next_pattern() -> void:
 
 	_sequence = _make_snake(START_LENGTH + _round - 1)
 	_input_index = 0
+	_replayed = false
 	set_status("Pattern %d of %d - watch." % [_round, ROUNDS])
 	_play_sequence()
 
@@ -107,12 +115,12 @@ func _neighbours(index: int) -> Array[int]:
 
 
 func _play_sequence() -> void:
-	_accepting = false
+	_set_tiles_open(false)
 	for index in _sequence:
 		if not running or not is_inside_tree():
 			return
-		_light_tile(index, Color(0.95, 0.83, 0.42))
-		Audio.play_sfx(Audio.Sfx.PICKUP)
+		_light_tile(index, Palette.GOLD_SUN, true)
+		Audio.play_note(TILE_NOTES[index])
 		await get_tree().create_timer(FLASH_ON).timeout
 		if not running or not is_inside_tree():
 			return
@@ -120,8 +128,14 @@ func _play_sequence() -> void:
 		await get_tree().create_timer(FLASH_GAP).timeout
 	if not running or not is_inside_tree():
 		return
-	_accepting = true
+	_set_tiles_open(true)
 	set_status("Pattern %d of %d - now repeat it." % [_round, ROUNDS])
+
+
+func _set_tiles_open(open: bool) -> void:
+	_accepting = open
+	for tile in _tiles:
+		tile.mouse_filter = Control.MOUSE_FILTER_STOP if open else Control.MOUSE_FILTER_IGNORE
 
 
 func _on_tile_pressed(index: int) -> void:
@@ -131,33 +145,48 @@ func _on_tile_pressed(index: int) -> void:
 	if index == _sequence[_input_index]:
 		_input_index += 1
 		GameState.add_score(15)
-		_pulse_tile(index, Color(0.6, 0.85, 0.55))
+		Audio.play_note(TILE_NOTES[index])
+		_pulse_tile(index, Palette.GOLD_SUN, true)
 		if _input_index >= _sequence.size():
-			_accepting = false
+			_set_tiles_open(false)
 			await get_tree().create_timer(0.4).timeout
 			if running and is_inside_tree():
 				_start_next_pattern()
 	else:
-		_accepting = false
-		_pulse_tile(index, Color(0.85, 0.3, 0.26))
-		fail("The pattern broke at step %d. The snake does not double back." % (_input_index + 1))
+		_set_tiles_open(false)
+		Audio.play_sfx(Audio.Sfx.FAIL)
+		_pulse_tile(index, Palette.RED_EMBER, false)
+		if _replayed:
+			fail("The pattern broke at step %d. The snake does not double back." % (_input_index + 1))
+			return
+		_replayed = true
+		_input_index = 0
+		set_status("Listen once more, then repeat it.")
+		await get_tree().create_timer(0.35).timeout
+		if running and is_inside_tree():
+			_play_sequence()
 
 
-func _light_tile(index: int, color: Color) -> void:
+func _light_tile(index: int, color: Color, mark := false) -> void:
+	_tiles[index].text = "◆" if mark else ""
+	_tiles[index].add_theme_color_override("font_color", Palette.DREAM_ABYSS)
+	_tiles[index].add_theme_font_size_override("font_size", 22)
 	_tiles[index].add_theme_stylebox_override("normal", _tile_style(true, false, color))
 
 
 func _unlight_tile(index: int) -> void:
+	_tiles[index].text = ""
 	_tiles[index].add_theme_stylebox_override("normal", _tile_style(false))
 
 
-func _pulse_tile(index: int, color: Color) -> void:
-	_light_tile(index, color)
+func _pulse_tile(index: int, color: Color, mark := false) -> void:
+	_light_tile(index, color, mark)
 	var tile := _tiles[index]
 	var tween := create_tween()
 	tween.tween_interval(0.18)
 	tween.tween_callback(func() -> void:
 		if is_instance_valid(tile):
+			tile.text = ""
 			tile.add_theme_stylebox_override("normal", _tile_style(false)))
 
 

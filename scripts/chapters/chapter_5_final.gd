@@ -77,10 +77,6 @@ func plate_world_rect() -> Rect2:
 	return Rect2()
 
 
-func plate_camera_zoom() -> float:
-	return 0.86
-
-
 func painted_player_scale() -> float:
 	return 2.6
 

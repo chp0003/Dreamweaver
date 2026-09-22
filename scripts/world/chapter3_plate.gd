@@ -18,17 +18,14 @@ const PUZZLE_STEP := Vector2(0.07, 0.07)
 const TORCH_UVS: Array[Vector2] = [
 	Vector2(0.26, 0.28),
 	Vector2(0.74, 0.28),
-	Vector2(0.24, 0.44),
-	Vector2(0.76, 0.44),
 ]
 
 const MIRROR_CELLS: Array[Vector2i] = [
 	Vector2i(2, 0),
 	Vector2i(2, 2),
-	Vector2i(4, 2),
+	Vector2i(6, 2),
+	Vector2i(6, 0),
 ]
-
-const DECOY_CELL := Vector2i(6, 2)
 const SPINDLE_CELL := Vector2i(4, 0)
 const EMITTER_CELL := Vector2i(0, 0)
 
@@ -210,6 +207,8 @@ func _push_torch_uvs() -> void:
 	var uvs := PackedVector2Array()
 	for uv in TORCH_UVS:
 		uvs.append(uv)
+	while uvs.size() < 4:
+		uvs.append(Vector2.ZERO)
 	_material.set_shader_parameter("torch_uvs", uvs)
 	_material.set_shader_parameter("torch_energy", PackedFloat32Array([0.0, 0.0, 0.0, 0.0]))
 	_material.set_shader_parameter("player_uv", SPAWN_UV)

@@ -869,13 +869,20 @@ func _show_ridge() -> void:
 		# must stay hidden or it covers the jungle with neon checkers.
 		_ridge_floor.visible = false
 	camera_follows_player = true
-	camera_limit_rect = Rect2()
-	if camera != null:
+	var ridge := _ridge_frame_rect()
+	if camera != null and ridge.size.x >= 8.0:
+		var z := cover_zoom_for(ridge)
+		camera_zoom = Vector2(z, z)
 		camera.zoom = camera_zoom
-		if player != null and is_instance_valid(player):
-			camera.global_position = player.global_position
-			if player.has_method("apply_depth_scale"):
-				player.apply_depth_scale(1.0)
+		camera_limit_rect = ridge
+	elif camera != null:
+		camera.zoom = camera_zoom
+		camera_limit_rect = Rect2()
+	if camera != null and player != null and is_instance_valid(player):
+		camera.global_position = player.global_position
+		if player.has_method("apply_depth_scale"):
+			player.apply_depth_scale(1.0)
+	if camera != null:
 		apply_camera_world_limits(_ridge_floor)
 		_clamp_camera()
 	if hud != null and hud.has_method("show_quest_plate"):
@@ -972,13 +979,31 @@ func _on_view_resized() -> void:
 	if _active_house_id != 0:
 		var quest: HouseQuest = _quests.get(_active_house_id) as HouseQuest
 		if quest != null and quest.uses_painted_plate():
+			var z := quest.plate_camera_zoom()
+			camera_zoom = Vector2(z, z)
+			if camera != null:
+				camera.zoom = camera_zoom
+			camera_limit_rect = quest.plate_world_rect()
 			apply_camera_world_limits()
 			_clamp_camera()
 		else:
 			fit_camera_to_floor(_house_floors.get(_active_house_id) as Node2D)
 	else:
+		var ridge := _ridge_frame_rect()
+		if ridge.size.x >= 8.0:
+			var z := cover_zoom_for(ridge)
+			camera_zoom = Vector2(z, z)
+			if camera != null:
+				camera.zoom = camera_zoom
+			camera_limit_rect = ridge
 		apply_camera_world_limits(_ridge_floor)
 		_clamp_camera()
+
+
+func _ridge_frame_rect() -> Rect2:
+	if _plate != null and _plate.has_method("global_world_rect"):
+		return _plate.global_world_rect()
+	return Rect2()
 
 
 func _hide_house_darkness(quest: HouseQuest) -> void:

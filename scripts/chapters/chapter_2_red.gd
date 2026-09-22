@@ -7,6 +7,9 @@ extends "res://scripts/chapters/house_quest.gd"
 
 const ROOT_TOTAL := 5
 const VINE_COUNT := 5
+const ROOT_AMBUSH_RANGE := 128.0
+const GUARDS_PER_ROOT := 2
+const ROOT_SHADOW_CAP := 8
 const PIGMENT_MASHING := "res://scenes/minigames/PigmentMashing.tscn"
 const COLLISION_SCENE := "res://scenes/world/House2Collision.tscn"
 const STEPS: Array[String] = [
@@ -27,7 +30,9 @@ var _vine_anchor: Node2D
 var _beacon: QuestBeacon
 var _marks: Dictionary = {}
 var _pickups: Array[Collectible] = []
-var _minion: ShadowMinion
+var _minions: Array[ShadowMinion] = []
+var _root_ambushed: Dictionary = {}
+var _ambush_watch := false
 
 
 func uses_painted_plate() -> bool:
@@ -50,10 +55,6 @@ func plate_world_rect() -> Rect2:
 	if _plate != null:
 		return _plate.global_world_rect()
 	return Rect2()
-
-
-func plate_camera_zoom() -> float:
-	return 0.86
 
 
 func painted_player_scale() -> float:
@@ -304,14 +305,13 @@ func _run_chapter() -> void:
 	_light_station("")
 	if _beacon != null:
 		_beacon.clear()
-	objective("Find 5 red roots in the hall. If a shadow runs at you, press [Space] to swing.")
-	_release_minion()
+	objective("Find 5 red roots in the hall. Shadows rise when you get close — press [Space] to swing.")
+	_arm_root_ambushes()
 	await until(func() -> bool: return _roots >= ROOT_TOTAL)
+	_disarm_root_ambushes()
 	if _beacon != null:
 		_beacon.clear()
-	if _minion != null and is_instance_valid(_minion):
-		_minion.queue_free()
-		_minion = null
+	_clear_minions()
 
 	await say([
 		{"speaker": "S'lang", "text": "Five roots. Beaten in a mortar until they give the colour away."},
@@ -361,5 +361,68 @@ func _run_chapter() -> void:
 	])
 
 
-func _release_minion() -> void:
-	_minion = place_minion(_plate.minion_world(), {"max_health": 60.0, "speed": 78.0})
+func _arm_root_ambushes() -> void:
+	_ambush_watch = true
+	_root_ambushed.clear()
+	if host != null:
+		host.max_shadows_alive = ROOT_SHADOW_CAP
+	set_process(true)
+
+
+func _disarm_root_ambushes() -> void:
+	_ambush_watch = false
+	set_process(false)
+
+
+func _process(_delta: float) -> void:
+	if not _ambush_watch:
+		return
+	_try_root_ambushes()
+
+
+func _try_root_ambushes() -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	for pickup in _pickups:
+		if pickup == null or not is_instance_valid(pickup):
+			continue
+		var key := pickup.get_instance_id()
+		if bool(_root_ambushed.get(key, false)):
+			continue
+		if Iso.iso_distance(player.global_position, pickup.global_position) > ROOT_AMBUSH_RANGE:
+			continue
+		_root_ambushed[key] = true
+		_spawn_root_guards(pickup.global_position)
+
+
+func _spawn_root_guards(at: Vector2) -> void:
+	var offsets: Array[Vector2] = [
+		Vector2(-42.0, -18.0),
+		Vector2(38.0, 16.0),
+		Vector2(0.0, -36.0),
+	]
+	var spawned := 0
+	for offset in offsets:
+		if spawned >= GUARDS_PER_ROOT:
+			break
+		var style := "chaser" if spawned == 0 else "stalker"
+		var minion := place_minion(at + offset, {
+			"max_health": 52.0,
+			"speed": 80.0 if style == "chaser" else 74.0,
+			"combat_style": style,
+			"spawn_delay": 0.2 + float(spawned) * 0.12,
+		})
+		if minion == null:
+			continue
+		_minions.append(minion)
+		spawned += 1
+
+
+func _clear_minions() -> void:
+	for minion in _minions:
+		if minion != null and is_instance_valid(minion):
+			minion.queue_free()
+	_minions.clear()
+	_root_ambushed.clear()
+	if host != null:
+		host.max_shadows_alive = 4

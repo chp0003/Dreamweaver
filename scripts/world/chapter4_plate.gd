@@ -13,9 +13,9 @@ const EXIT_UV := Vector2(0.50, 0.90)
 ## Loom sits on the back wall; reach is the open aisle in front of the statues.
 const LOOM_UV := Vector2(0.50, 0.30)
 const LOOM_REACH_UV := Vector2(0.50, 0.62)
-## Ghost stands near the loom; talk from the open aisle.
-const GHOST_UV := Vector2(0.50, 0.42)
-const GHOST_REACH_UV := Vector2(0.50, 0.60)
+## She stands on the floor at the loom's left, not on the warp.
+const GHOST_UV := Vector2(0.36, 0.58)
+const GHOST_REACH_UV := Vector2(0.44, 0.68)
 const SCROLL_UV := Vector2(0.58, 0.70)
 
 ## CultureData order: Dreamer, Fibre, Dye, Master.

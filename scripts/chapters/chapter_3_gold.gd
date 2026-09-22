@@ -27,6 +27,8 @@ var _mirror_anchor: Node2D
 var _mirror_props: Array[Node2D] = []
 var _beacon: QuestBeacon
 var _marks: Dictionary = {}
+var _mirror_track: HBoxContainer
+var _mirror_dots: Array[ColorRect] = []
 var _sky_streaks: Node2D
 
 
@@ -50,10 +52,6 @@ func plate_world_rect() -> Rect2:
 	if _plate != null:
 		return _plate.global_world_rect()
 	return Rect2()
-
-
-func plate_camera_zoom() -> float:
-	return 0.86
 
 
 func painted_player_scale() -> float:
@@ -136,22 +134,27 @@ func _build_work_line() -> void:
 	if _color_anchor != null:
 		_color_anchor.global_position = _plate.spindle_world()
 
-	var torch_anchor := _anchor("TorchAnchor", _plate.torch_world(2))
+	var torch_anchor := _anchor("TorchAnchor", _plate.torch_world(0))
 	_mark_station("torches", torch_anchor, "TORCHES", Vector2(0.0, -80.0))
 
 
 func _build_torches() -> void:
 	for i in range(Chapter3Plate.TORCH_UVS.size()):
-		var prop := _anchor("WallTorch_%d" % i, _plate.torch_world(i))
-		var light := PointLight2D.new()
-		light.name = "TorchLight"
-		light.texture = _light_texture()
-		light.color = Color(1.0, 0.82, 0.5)
-		light.energy = 0.0
-		light.texture_scale = 2.4
-		light.position = Vector2(0.0, -48.0)
-		prop.add_child(light)
-		_torches.append({"prop": prop, "light": light, "lit": false, "index": i})
+		var torch := WallTorch.new()
+		torch.name = "WallTorch_%d" % i
+		# Left bowl faces into the hall. Right bowl is flipped the same way.
+		torch.face_right = i == 1
+		if world != null:
+			world.add_child(torch)
+		else:
+			add_child(torch)
+		torch.global_position = _plate.torch_world(i)
+		_torches.append({
+			"prop": torch,
+			"light": torch.get_light(),
+			"lit": false,
+			"index": i,
+		})
 
 	if player != null:
 		player.chimed.connect(_on_chime)
@@ -172,10 +175,13 @@ func _build_mirror_puzzle() -> void:
 	_puzzle.z_as_relative = false
 	_puzzle.z_index = -8
 
+	# Each plate starts one turn away from the path. The beam has to
+	# bounce off all four before it can reach the spindle.
 	var facings: Array[int] = [
 		MirrorPuzzle.Facing.SLASH,
 		MirrorPuzzle.Facing.SLASH,
 		MirrorPuzzle.Facing.BACKSLASH,
+		MirrorPuzzle.Facing.SLASH,
 	]
 	for i in range(Chapter3Plate.MIRROR_CELLS.size()):
 		var cell: Vector2i = Chapter3Plate.MIRROR_CELLS[i]
@@ -186,16 +192,10 @@ func _build_mirror_puzzle() -> void:
 				"radius": 72.0,
 			})
 		_puzzle.add_mirror(cell, facings[i], prop, trigger)
-
-	var decoy := _spawn_mirror(Chapter3Plate.DECOY_CELL)
-	var decoy_trigger := place_interactable("Turn the brass mirror",
-		_plate.puzzle_world(Chapter3Plate.DECOY_CELL) + Vector2(0.0, 18.0), {
-			"enabled": false,
-			"radius": 72.0,
-		})
-	_puzzle.add_mirror(Chapter3Plate.DECOY_CELL, MirrorPuzzle.Facing.SLASH, decoy, decoy_trigger)
 	_puzzle.visible = false
 	_puzzle.modulate.a = 0.0
+	if not _puzzle.path_changed.is_connected(_on_mirror_path):
+		_puzzle.path_changed.connect(_on_mirror_path)
 	_puzzle.trace_beam()
 
 	_mirror_anchor = _anchor("MirrorAnchor", _plate.puzzle_world(Chapter3Plate.MIRROR_CELLS[1]))
@@ -301,6 +301,8 @@ func _clear_steps() -> void:
 
 
 func _on_chime(origin: Vector2, _radius: float) -> void:
+	if player != null:
+		Fx.ring_pulse(player, Palette.GOLD_SUN, 170.0)
 	for torch in _torches:
 		if bool(torch["lit"]):
 			continue
@@ -311,9 +313,14 @@ func _on_chime(origin: Vector2, _radius: float) -> void:
 		_torches_lit += 1
 		GameState.add_score(50)
 
+		if prop is WallTorch:
+			(prop as WallTorch).set_lit(true)
+		Fx.ring_pulse(prop, Palette.GOLD_SUN, 70.0)
+		Fx.hit_flash(prop, Palette.GOLD_SUN)
 		var light := torch["light"] as PointLight2D
-		var tween := create_tween()
-		tween.tween_property(light, "energy", 1.35, 0.6)
+		if light != null:
+			var tween := create_tween()
+			tween.tween_property(light, "energy", 1.35, 0.6)
 		if _plate != null:
 			_plate.set_torch_energy(int(torch["index"]), 1.0)
 
@@ -359,6 +366,39 @@ func _reveal_mirrors(settled := false) -> void:
 			continue
 		var tween := create_tween()
 		tween.tween_property(prop, "modulate:a", 1.0, 0.7)
+	if not settled:
+		_show_mirror_track()
+
+
+func _show_mirror_track() -> void:
+	if ui_layer == null or _mirror_track != null:
+		return
+	_mirror_track = HBoxContainer.new()
+	_mirror_track.position = Vector2(28.0, 236.0)
+	_mirror_track.add_theme_constant_override("separation", 8)
+	ui_layer.add_child(_mirror_track)
+	var count := maxi(_mirror_props.size(), 1)
+	for _i in range(count):
+		var dot := ColorRect.new()
+		dot.custom_minimum_size = Vector2(10.0, 10.0)
+		dot.color = Palette.alpha(Palette.CREAM_STONE, 0.35)
+		_mirror_track.add_child(dot)
+		_mirror_dots.append(dot)
+
+
+func _on_mirror_path(lit_mirrors: int, _mirror_count: int, spindle_hit: bool) -> void:
+	if _mirror_track == null:
+		return
+	for i in range(_mirror_dots.size()):
+		var on := spindle_hit or i < lit_mirrors
+		_mirror_dots[i].color = Palette.GOLD_SUN if on else Palette.alpha(Palette.CREAM_STONE, 0.35)
+
+
+func _hide_mirror_track() -> void:
+	if _mirror_track != null and is_instance_valid(_mirror_track):
+		_mirror_track.queue_free()
+	_mirror_track = null
+	_mirror_dots.clear()
 
 
 func _run_chapter() -> void:
@@ -386,7 +426,7 @@ func _run_chapter() -> void:
 
 	await wait(1.1)
 	await say([
-		"Four torches burn. Brass mirrors on the floor, a shaft of daylight from the left window, and at the centre a spindle wound with dead gold.",
+		"The wall torches burn. Brass mirrors stand in the hall, a shaft of daylight from the left window, and at the centre a spindle wound with dead gold.",
 		{"speaker": "S'lang", "text": "The light comes in there. And it stops at the first mirror because the mirror is facing the wrong way."},
 	])
 
@@ -396,10 +436,11 @@ func _run_chapter() -> void:
 	objective("Turn the brass mirrors until the window light reaches the Golden Spindle. [E]")
 	if _puzzle != null and not _puzzle.is_solved():
 		await _puzzle.solved
+	_hide_mirror_track()
 
 	Audio.play_sfx(Audio.Sfx.CHIME)
 	await say([
-		"The beam turns once, twice, three times, and lands square on the spindle. The dead gold on it catches and holds.",
+		"The beam turns at every brass plate and lands square on the spindle. The dead gold on it catches and holds.",
 		{"speaker": "Golden Spindle", "text": "Light I have. Memory I do not. Show me the snake that crosses this floor, weaver, and I will turn again."},
 	])
 
@@ -471,20 +512,3 @@ func _build_sky_streaks() -> void:
 		var tween := create_tween()
 		tween.tween_interval(float(i) * 0.09)
 		tween.tween_property(streak, "color:a", randf_range(0.16, 0.36), 0.9)
-
-
-func _light_texture() -> GradientTexture2D:
-	var gradient := Gradient.new()
-	gradient.set_offset(0, 0.0)
-	gradient.set_color(0, Color(1, 1, 1, 1))
-	gradient.set_offset(1, 1.0)
-	gradient.set_color(1, Color(1, 1, 1, 0))
-
-	var texture := GradientTexture2D.new()
-	texture.gradient = gradient
-	texture.width = 256
-	texture.height = 256
-	texture.fill = GradientTexture2D.FILL_RADIAL
-	texture.fill_from = Vector2(0.5, 0.5)
-	texture.fill_to = Vector2(1.0, 0.5)
-	return texture

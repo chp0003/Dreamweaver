@@ -88,6 +88,28 @@ static func fiber_burst(host: Node2D, color := Palette.CREAM_PAPER) -> void:
 	tween.tween_callback(particles.queue_free)
 
 
+static func ring_pulse(host: Node2D, color := Palette.GOLD_SUN, radius := 150.0) -> void:
+	if host == null or not host.is_inside_tree():
+		return
+	var ring := Line2D.new()
+	ring.width = 3.0
+	ring.default_color = Palette.alpha(color, 0.9)
+	ring.closed = true
+	ring.z_index = 30
+	var pts := PackedVector2Array()
+	for i in range(28):
+		var a := TAU * float(i) / 28.0
+		pts.append(Vector2(cos(a), sin(a) * 0.55) * 16.0)
+	ring.points = pts
+	host.add_child(ring)
+	var tween := host.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(ring, "scale", Vector2(radius / 16.0, radius / 16.0), 0.38)\
+		.set_ease(Tween.EASE_OUT)
+	tween.tween_property(ring, "modulate:a", 0.0, 0.38)
+	tween.chain().tween_callback(ring.queue_free)
+
+
 static func light_burst(host: Node2D, color := Palette.GOLD_SUN) -> void:
 	if host == null or not host.is_inside_tree():
 		return

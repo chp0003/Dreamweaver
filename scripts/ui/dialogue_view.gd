@@ -39,6 +39,8 @@ func _ready() -> void:
 	visible = false
 	choice_box.visible = false
 	add_to_group("dialogue_view")
+	if panel is WovenFrame:
+		(panel as WovenFrame).set_quiet(true)
 	if portrait != null:
 		var well := portrait.get_parent() as PanelContainer
 		if well != null:

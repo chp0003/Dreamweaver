@@ -134,10 +134,29 @@ class ConnectBoard extends Control:
 		_pulse = 0.0
 		var pairs := _make_pairs()
 		_left = pairs.duplicate()
-		_right = pairs.duplicate()
 		_left.shuffle()
-		_right.shuffle()
+		_right = _shuffle_without_straights(_left)
 		queue_redraw()
+
+	## Random right column, but no colour may sit on the same row as its twin
+	## (that would draw a flat horizontal thread).
+	func _shuffle_without_straights(left: Array[Dictionary]) -> Array[Dictionary]:
+		var right: Array[Dictionary] = left.duplicate()
+		for _attempt in range(64):
+			right.shuffle()
+			if not _has_straight_pair(left, right):
+				return right
+		# Guaranteed derangement for n >= 2 if shuffle keeps landing fixed points.
+		right = left.duplicate()
+		var first: Dictionary = right.pop_front()
+		right.append(first)
+		return right
+
+	func _has_straight_pair(left: Array[Dictionary], right: Array[Dictionary]) -> bool:
+		for i in range(mini(left.size(), right.size())):
+			if int(left[i]["id"]) == int(right[i]["id"]):
+				return true
+		return false
 
 	func to_cloth() -> TnalakCloth:
 		var cloth := TnalakCloth.new()

@@ -59,7 +59,9 @@ func painted_player_scale() -> float:
 
 
 func plate_camera_zoom() -> float:
-	return 0.86
+	if _plate == null:
+		return 0.86
+	return cover_zoom_for(_plate.global_world_rect())
 
 
 func _mount_plate() -> void:
@@ -243,5 +245,4 @@ func _clamp_camera_to_rect(rect: Rect2) -> void:
 
 
 func _on_view_resized() -> void:
-	apply_camera_world_limits()
-	_clamp_camera()
+	_bind_plate_camera()

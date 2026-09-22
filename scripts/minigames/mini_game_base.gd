@@ -167,7 +167,7 @@ func _build_chrome() -> void:
 	if not compact:
 		_backdrop = ColorRect.new()
 		_backdrop.name = "Backdrop"
-		_backdrop.color = Palette.alpha(Palette.DREAM_ABYSS, 0.78)
+		_backdrop.color = Palette.DREAM_ABYSS
 		_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
 		add_child(_backdrop)

@@ -16,6 +16,17 @@ extends PanelContainer
 @export var accent_bar := false
 @export var lit := false
 @export var accent := Color(0.929, 0.82, 0.447, 1)
+var _quiet := false
+
+
+func set_quiet(on: bool) -> void:
+	_quiet = on
+	if on:
+		lit = false
+		accent = Palette.CREAM_STONE
+		border = Palette.alpha(Palette.CREAM_STONE, 0.28)
+	_apply_style()
+	queue_redraw()
 
 
 func _ready() -> void:
@@ -78,7 +89,8 @@ func _draw_kleng_edge(r: Rect2, y: float) -> void:
 		points.append(Vector2(x, y + (-amp if up else amp)))
 		x += step
 		up = not up
-	draw_polyline(points, Palette.alpha(Palette.GOLD_BRASS, 0.38), 1.2, true)
+	var ink := Palette.CREAM_STONE if _quiet else Palette.GOLD_BRASS
+	draw_polyline(points, Palette.alpha(ink, 0.38), 1.2, true)
 
 
 func _draw_corners(r: Rect2) -> void:
@@ -105,7 +117,8 @@ func _draw_boss(centre: Vector2) -> void:
 		centre + Vector2(0.0, s),
 		centre + Vector2(-s * 0.7, 0.0),
 	])
-	draw_colored_polygon(diamond, Palette.GOLD_SACRED)
+	var boss := Palette.CREAM_STONE if _quiet else Palette.GOLD_SACRED
+	draw_colored_polygon(diamond, boss)
 	draw_polyline(diamond + PackedVector2Array([diamond[0]]),
 		Palette.alpha(Palette.DREAM_LANTERN, 0.9), 1.0)
 	draw_circle(centre, 1.3, Palette.GOLD_SUN)

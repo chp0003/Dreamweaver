@@ -108,6 +108,15 @@ func _process(delta: float) -> void:
 	_update_camera(delta)
 
 
+func cover_zoom_for(rect: Rect2) -> float:
+	var view := get_viewport_rect().size
+	if rect.size.x < 8.0 or rect.size.y < 8.0 or view.x < 8.0 or view.y < 8.0:
+		return camera_zoom.x
+	# Cover, same idea as the login background: fill the window and crop the
+	# spare edge instead of leaving the clear colour on the sides.
+	return maxf(view.x / rect.size.x, view.y / rect.size.y) * 1.02
+
+
 func shake_camera(amount := 10.0) -> void:
 	_shake = maxf(_shake, amount)
 
