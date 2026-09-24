@@ -272,15 +272,28 @@ func unlock_lore(entry_id: String) -> void:
 
 ## Final ranking shown on the completion screen.
 func rank() -> String:
-	if score >= 6000:
+	return rank_for_score(score)
+
+
+static func rank_for_score(score_value: int) -> String:
+	if score_value >= 6000:
 		return "Master Dreamweaver"
-	if score >= 4500:
+	if score_value >= 4500:
 		return "Keeper of the Loom"
-	if score >= 3000:
+	if score_value >= 3000:
 		return "Dye Mistress"
-	if score >= 1500:
+	if score_value >= 1500:
 		return "Apprentice Weaver"
 	return "Thread Gatherer"
+
+
+static func place_from_progress(progress: Dictionary) -> String:
+	if bool(progress.get("game_completed", false)):
+		return "World restored"
+	var chapter := int(progress.get("current_chapter", 0))
+	if chapter > 0:
+		return Houses.name_for(chapter)
+	return "Prologue"
 
 
 # --------------------------------------------------------------------------

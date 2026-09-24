@@ -19,8 +19,8 @@ Authentication → **Providers** → **Email**:
 
 1. Open **SQL Editor** → New query.
 2. Open [`supabase/schema.sql`](../supabase/schema.sql), **copy the entire file**, paste, Run.
-3. Safe to re-run if you already applied an older version — it adds the `email` column and keeps RLS.
-4. You should see `profiles` (with `username` + `email`) and `player_saves` under **Table Editor**.
+3. Safe to re-run if you already applied an older version — it adds the `email` column, keeps RLS, and creates `fetch_leaderboard()` for the Gateway leaderboard.
+4. You should see `profiles` (with `username` + `email`) and `player_saves` under **Table Editor**. Re-run this SQL if the in-game leaderboard only shows your own name while other weavers exist in the cloud.
 
 ## 4. Copy API keys into the game
 
@@ -52,6 +52,7 @@ Do **not** put the **service_role** key in the game client. Only the anon key.
 - Auth uses the real email; `profiles.username` is the in-game name
 - Progress JSON matches what `GameState.save()` already writes
 - Session tokens live in `user://supabase_session.json`
+- The Gateway **Leaderboard** calls `fetch_leaderboard()` (usernames + progress, no emails)
 
 ## 6. Verify
 

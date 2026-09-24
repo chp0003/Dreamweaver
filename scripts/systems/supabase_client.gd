@@ -188,6 +188,18 @@ func delete_save() -> Dictionary:
 	)
 
 
+## Username + progress for every weaver. Needs fetch_leaderboard() in schema.sql.
+func fetch_leaderboard() -> Dictionary:
+	if not has_session():
+		return _fail("Not signed in.")
+	return await _request(
+		HTTPClient.METHOD_POST,
+		"/rest/v1/rpc/fetch_leaderboard",
+		{},
+		true
+	)
+
+
 # --------------------------------------------------------------------------
 # HTTP
 # --------------------------------------------------------------------------

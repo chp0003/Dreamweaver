@@ -1,8 +1,9 @@
 extends Control
 ## "The Gateway" — modern game main menu after sign-in.
 ##
-## Continue / New Game, Load, Lore Codex, Settings (audio · account · display),
-## Log Out, and Quit. Settings opens a shared overlay used across auth screens.
+## Continue / New Game, Load, Lore Codex, Leaderboard, Settings
+## (audio · account · display), Log Out, and Quit. Settings opens a shared
+## overlay used across auth screens.
 
 const SETTINGS_SCENE := "res://scenes/ui/SettingsOverlay.tscn"
 
@@ -10,6 +11,7 @@ const SETTINGS_SCENE := "res://scenes/ui/SettingsOverlay.tscn"
 @onready var new_game_button: Button = %NewGameButton
 @onready var load_game_button: Button = %LoadGameButton
 @onready var codex_button: Button = %CodexButton
+@onready var leaderboard_button: Button = %LeaderboardButton
 @onready var settings_button: Button = %SettingsButton
 @onready var logout_button: Button = %LogoutButton
 @onready var quit_button: Button = %QuitButton
@@ -39,6 +41,7 @@ func _ready() -> void:
 	new_game_button.pressed.connect(_on_new_game_pressed)
 	load_game_button.pressed.connect(_on_load_game_pressed)
 	codex_button.pressed.connect(_on_codex_pressed)
+	leaderboard_button.pressed.connect(_on_leaderboard_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)
 	logout_button.pressed.connect(_on_logout_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
@@ -138,6 +141,12 @@ func _on_codex_pressed() -> void:
 	if SceneFader.is_busy():
 		return
 	SceneFader.fade_to_scene(AccountManager.CODEX_SCENE)
+
+
+func _on_leaderboard_pressed() -> void:
+	if SceneFader.is_busy():
+		return
+	SceneFader.fade_to_scene(AccountManager.LEADERBOARD_SCENE)
 
 
 func _on_settings_pressed() -> void:

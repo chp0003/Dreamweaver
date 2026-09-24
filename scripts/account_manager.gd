@@ -20,6 +20,7 @@ const HUB_SCENE := "res://scenes/HubWorld.tscn"
 const ENDING_SCENE := "res://scenes/Ending.tscn"
 const GAME_OVER_SCENE := "res://scenes/GameOver.tscn"
 const CODEX_SCENE := "res://scenes/LoreCodex.tscn"
+const LEADERBOARD_SCENE := "res://scenes/Leaderboard.tscn"
 
 var _accounts: Dictionary = {}
 var _current_key: String = ""
@@ -218,6 +219,35 @@ func clear_progress() -> void:
 	_save_to_disk()
 
 
+## Ranked weavers: username, houses, chapter, score, rank title.
+## Cloud uses fetch_leaderboard(); otherwise local accounts on this machine.
+func fetch_leaderboard() -> Dictionary:
+	var you := current_username().strip_edges().to_lower()
+	var raw: Array = []
+	var source := "local"
+	if is_cloud_mode() and has_session():
+		var res: Dictionary = await Supabase.fetch_leaderboard()
+		if bool(res.get("ok", false)):
+			var data: Variant = res.get("data", [])
+			if typeof(data) == TYPE_ARRAY:
+				raw = _leaderboard_from_cloud(data as Array)
+				source = "cloud"
+	if raw.is_empty():
+		raw = _leaderboard_from_local()
+		source = "local"
+		if is_cloud_mode() and has_session():
+			_ensure_you_on_leaderboard(raw)
+
+	raw.sort_custom(_leaderboard_before)
+	for i in raw.size():
+		var row: Dictionary = raw[i]
+		row["place_index"] = i + 1
+		row["is_you"] = str(row.get("username", "")).strip_edges().to_lower() == you \
+			and not you.is_empty()
+		raw[i] = row
+	return {"ok": true, "rows": raw, "source": source, "error": ""}
+
+
 # --------------------------------------------------------------------------
 # Auth
 # --------------------------------------------------------------------------
@@ -370,6 +400,98 @@ func _find_local_key_by_username(username: String) -> String:
 		if str(row.get("username", "")).strip_edges().to_lower() == wanted:
 			return str(key)
 	return ""
+
+
+func _leaderboard_from_cloud(data: Array) -> Array:
+	var out: Array = []
+	for entry in data:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var name := str((entry as Dictionary).get("username", "")).strip_edges()
+		if name.is_empty():
+			continue
+		out.append(_leaderboard_row(name, _as_progress_dict((entry as Dictionary).get("progress", {}))))
+	return out
+
+
+func _leaderboard_from_local() -> Array:
+	var out: Array = []
+	for key in _accounts.keys():
+		var stored: Variant = _accounts[key]
+		if typeof(stored) != TYPE_DICTIONARY:
+			continue
+		var row := stored as Dictionary
+		var name := str(row.get("username", key)).strip_edges()
+		if name.is_empty():
+			name = str(key)
+		out.append(_leaderboard_row(name, _as_progress_dict(row.get("progress", {}))))
+	return out
+
+
+func _ensure_you_on_leaderboard(rows: Array) -> void:
+	var you := current_username().strip_edges()
+	if you.is_empty():
+		return
+	var wanted := you.to_lower()
+	for entry in rows:
+		if typeof(entry) == TYPE_DICTIONARY \
+				and str((entry as Dictionary).get("username", "")).strip_edges().to_lower() == wanted:
+			return
+	rows.append(_leaderboard_row(you, _progress_cache.duplicate(true)))
+
+
+func _leaderboard_row(username: String, progress: Dictionary) -> Dictionary:
+	var houses := _progress_array_size(progress.get("completed_houses", []))
+	var lore := _progress_array_size(progress.get("lore", []))
+	var score := int(progress.get("score", 0))
+	return {
+		"username": username,
+		"score": score,
+		"houses": houses,
+		"chapter": int(progress.get("current_chapter", 0)),
+		"completed": bool(progress.get("game_completed", false)),
+		"lore": lore,
+		"place": GameState.place_from_progress(progress),
+		"rank_title": GameState.rank_for_score(score),
+	}
+
+
+func _as_progress_dict(value: Variant) -> Dictionary:
+	if typeof(value) == TYPE_DICTIONARY:
+		return value as Dictionary
+	if typeof(value) == TYPE_STRING:
+		var parsed: Variant = JSON.parse_string(str(value))
+		if typeof(parsed) == TYPE_DICTIONARY:
+			return parsed as Dictionary
+	return {}
+
+
+func _progress_array_size(value: Variant) -> int:
+	if typeof(value) != TYPE_ARRAY:
+		return 0
+	return (value as Array).size()
+
+
+func _leaderboard_before(a: Variant, b: Variant) -> bool:
+	var left: Dictionary = {}
+	var right: Dictionary = {}
+	if typeof(a) == TYPE_DICTIONARY:
+		left = a
+	if typeof(b) == TYPE_DICTIONARY:
+		right = b
+	var left_done := 1 if bool(left.get("completed", false)) else 0
+	var right_done := 1 if bool(right.get("completed", false)) else 0
+	if left_done != right_done:
+		return left_done > right_done
+	if int(left.get("houses", 0)) != int(right.get("houses", 0)):
+		return int(left.get("houses", 0)) > int(right.get("houses", 0))
+	if int(left.get("chapter", 0)) != int(right.get("chapter", 0)):
+		return int(left.get("chapter", 0)) > int(right.get("chapter", 0))
+	if int(left.get("score", 0)) != int(right.get("score", 0)):
+		return int(left.get("score", 0)) > int(right.get("score", 0))
+	if int(left.get("lore", 0)) != int(right.get("lore", 0)):
+		return int(left.get("lore", 0)) > int(right.get("lore", 0))
+	return str(left.get("username", "")).nocasecmp_to(str(right.get("username", ""))) < 0
 
 
 func _hash_password(password: String) -> String:

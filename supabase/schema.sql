@@ -135,3 +135,28 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- Public leaderboard: usernames + progress only (no emails). Bypasses own-row RLS.
+create or replace function public.fetch_leaderboard()
+returns table (
+  username text,
+  progress jsonb,
+  updated_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    p.username,
+    coalesce(s.progress, '{}'::jsonb),
+    s.updated_at
+  from public.profiles p
+  left join public.player_saves s on s.user_id = p.id
+  where p.username is not null
+    and length(trim(p.username)) > 0
+$$;
+
+revoke all on function public.fetch_leaderboard() from public;
+grant execute on function public.fetch_leaderboard() to authenticated;

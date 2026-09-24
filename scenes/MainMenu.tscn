@@ -312,7 +312,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -430.0
-offset_top = -560.0
+offset_top = -600.0
 offset_right = -40.0
 offset_bottom = -40.0
 grow_horizontal = 0
@@ -398,6 +398,16 @@ theme_type_variation = &"GhostButton"
 theme_override_colors/font_color = Color(0.86, 0.78, 0.62, 0.9)
 theme_override_font_sizes/font_size = 14
 text = "Lore Codex"
+flat = true
+
+[node name="LeaderboardButton" type="Button" parent="MenuHost/Menu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+theme_type_variation = &"GhostButton"
+theme_override_colors/font_color = Color(0.86, 0.78, 0.62, 0.9)
+theme_override_font_sizes/font_size = 14
+text = "Leaderboard"
 flat = true
 
 [node name="QuitButton" type="Button" parent="MenuHost/Menu"]
