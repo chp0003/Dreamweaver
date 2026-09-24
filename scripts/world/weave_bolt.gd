@@ -56,6 +56,10 @@ func _try_hit() -> void:
 		var hit := node as Node2D
 		if hit == null or not hit.is_inside_tree() or hit == source:
 			continue
+		if hit.has_method("is_hittable") and not bool(hit.call("is_hittable")):
+			continue
+		if hit.has_method("is_defeated") and hit.is_defeated():
+			continue
 		var aim_point := hit.global_position + Vector2(0.0, -28.0)
 		if global_position.distance_to(aim_point) > HIT_RADIUS \
 				and Iso.iso_distance(global_position, hit.global_position) > HIT_RADIUS:

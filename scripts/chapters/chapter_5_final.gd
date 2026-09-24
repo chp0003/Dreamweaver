@@ -3,31 +3,31 @@ extends "res://scripts/chapters/house_quest.gd"
 ##
 ## Three phases, no puzzle screens:
 ##
-##   Phase 1  The Breach          dozens of Shadow Minions rise from darkness
-##                                pools. WASD to move, Space for a staff sweep,
-##                                Q for the sonic shockwave. The loom is sealed
-##                                until every sprite is gone.
-##   Phase 2  The Duel            the Shadow Weaver chases with a claw, blinds
-##                                the hall, summons two lesser shadows, and
-##                                detonates a shadow-burst ultimate. Dodge, then
-##                                punish.
-##   Phase 3  The Finishing Stitch a W/A/S/D QTE over a T'nalak overlay, then
-##                                the Color Burst that restores the whole world.
+##   Phase 1  The Breach          growing packs of Shadow Minions rise from
+##                                darkness pools. WASD to move, Space for a
+##                                staff sweep, Q for the sonic shockwave. The
+##                                loom is sealed until every sprite is gone.
+##   Phase 2  The Duel            the Shadow Weaver fights with a real skill kit
+##                                (claw, lunge, slam, volley, dash, nova).
+##                                Dodge the red tells, punish the recover.
+##   Phase 3  Colour returns      beating the Weaver triggers the Color Burst.
 
-const RHYTHM_TRACK := "res://scenes/minigames/RhythmTrack.tscn"
-const QTE_SEQUENCE := "res://scenes/minigames/QteSequence.tscn"
 const COLLISION_SCENE := "res://scenes/world/House5Collision.tscn"
 
 const STEPS: Array[String] = [
 	"Kill the shadows",
-	"Survive the Weaver",
-	"Press the letters",
+	"Defeat the Weaver",
+	"Colour returns",
 ]
 
-## Thirty shadows across three escalating waves: a readable but genuine siege.
-const WAVES: Array[int] = [8, 10, 12]
+## Growing packs so the floor stays readable. Wave 1 is 3, then 4, then 5, then 6.
+## Later waves start one size higher and close on bigger packs.
+const WAVE_GROUPS: Array = [
+	[3, 4, 5, 6],
+	[4, 5, 6],
+	[6, 7],
+]
 
-const RHYTHM_DAMAGE := 9.0
 const LOOM_BLEACH_DAMAGE := 0.18
 const APPROACH_RADIUS := 220.0
 const BOSS_MUSIC := "res://assets/audio/music/boss_shadow_weaver.ogg"
@@ -46,6 +46,9 @@ var _hint: TutorialPrompt
 var _shadows_alive := 0
 var _shadows_total := 0
 var _wave_index := 0
+var _pack_index := 0
+var _spawn_cursor := 0
+var _style_cursor := 0
 var _loom_integrity := 1.0
 var _weave_mode := false
 var _in_weave_game := false
@@ -311,9 +314,9 @@ func _run_chapter() -> void:
 func _phase_one_breach() -> bool:
 	_phase = 1
 	_shadows_alive = 0
-	_shadows_total = 0
-	for wave_size in WAVES:
-		_shadows_total += wave_size
+	_shadows_total = _count_planned_shadows()
+	_spawn_cursor = 0
+	_style_cursor = 0
 	_set_steps(0)
 	objective("Kill the dark figures. Press [Space] to swing.")
 	if hud != null and hud.has_method("set_mode"):
@@ -328,16 +331,32 @@ func _phase_one_breach() -> bool:
 		["SPACE", "Q"]
 	)
 
-	for wave_index in range(WAVES.size()):
+	for wave_index in range(WAVE_GROUPS.size()):
 		if is_finished():
 			return false
 		_wave_index = wave_index
-		_spawn_wave(WAVES[wave_index])
-		await until(func() -> bool: return _shadows_alive <= 0 or is_finished())
+		var packs: Array = WAVE_GROUPS[wave_index]
+		for pack_index in range(packs.size()):
+			if is_finished():
+				return false
+			_pack_index = pack_index
+			var pack_size := int(packs[pack_index])
+			if pack_index > 0:
+				counter("A larger pack rises  ·  Wave %d of %d" % [
+					wave_index + 1,
+					WAVE_GROUPS.size(),
+				])
+				await wait(0.4)
+			_spawn_pack(pack_size)
+			# Next pack overlaps the last survivor so the siege never fully idles.
+			# The last pack of a wave must die out before the next wave begins.
+			var remain_gate := 0 if pack_index == packs.size() - 1 else 1
+			await until(func() -> bool: return _shadows_alive <= remain_gate or is_finished())
 		if is_finished():
 			return false
-		if wave_index < WAVES.size() - 1:
-			counter("More shadows  ·  wave %d of %d" % [wave_index + 2, WAVES.size()])
+		_heal_after_wave()
+		if wave_index < WAVE_GROUPS.size() - 1:
+			counter("More shadows  ·  wave %d of %d" % [wave_index + 2, WAVE_GROUPS.size()])
 			await wait(0.85)
 
 	_clear_coach()
@@ -390,8 +409,8 @@ func _phase_two_duel() -> bool:
 
 	_enter_fight_stance()
 	_coach(
-		"Read the tells",
-		"Claw, blind, two shadows, then a ring of orbs. Shift to roll. Space to hit.",
+		"Dodge, then hit",
+		"Red on the floor is a skill. Shift to roll out. Space when it recovers. Q if you are crowded.",
 		["SHIFT", "SPACE"]
 	)
 	_boss.begin_duel()
@@ -401,7 +420,7 @@ func _phase_two_duel() -> bool:
 	return not is_finished()
 
 
-## PHASE 3 - the quick-time finale and the Color Burst.
+## PHASE 3 - the Weaver is down. Colour returns. No minigame.
 func _phase_three_finish() -> void:
 	_phase = 3
 	_set_steps(2)
@@ -410,7 +429,7 @@ func _phase_three_finish() -> void:
 		_boss.kneel()
 	counter("")
 	_clear_coach()
-	_point_loom(true, "[KEYS]")
+	_point_loom(false)
 	if hud != null and hud.has_method("set_mode"):
 		hud.call("set_mode", "")
 	if hud != null:
@@ -418,34 +437,15 @@ func _phase_three_finish() -> void:
 			hud.call("show_boss_health", false)
 		elif hud.has_method("show_loom_integrity"):
 			hud.call("show_loom_integrity", false)
-
-	objective("Press the letter on screen before the bar empties.")
-	Audio.set_combat_drums(0.4, 118.0)
+	if player != null and is_instance_valid(player) and not player.is_dead():
+		player.heal_full()
+	objective("")
+	Audio.set_combat_drums(0.25, 104.0)
 	if is_instance_valid(_loom):
 		focus_camera_on(_loom.global_position + Vector2(0.0, -40.0), Vector2(1.12, 1.12))
 	await say([
-		{"speaker": "S'lang", "text": "One last stitch. Hit the letters as they appear."},
+		{"speaker": "S'lang", "text": "I remember you. That is enough."},
 	])
-
-	# If the finale is fluffed entirely, the Shadow Weaver reforms rather than
-	# dead-ending the run: the player goes back to Phase 2 with a weakened boss.
-	while true:
-		var stitched: bool = await run_mini_game(QTE_SEQUENCE, {
-			"prompt_count": 8,
-			"start_window": 1.05,
-			"end_window": 0.48,
-		})
-		if stitched:
-			break
-		clear_camera_focus()
-		await say([
-			{"speaker": "The Shadow Weaver", "text": "You missed a letter. Dodge again, then try the keys once more."},
-		])
-		if not await _reform_boss():
-			return
-		if is_instance_valid(_loom):
-			focus_camera_on(_loom.global_position + Vector2(0.0, -40.0), Vector2(1.12, 1.12))
-
 	await _color_burst()
 	await _closing_cutscene()
 
@@ -454,30 +454,50 @@ func _phase_three_finish() -> void:
 # Phase 1 helpers
 # --------------------------------------------------------------------------
 
-func _spawn_wave(count: int) -> void:
+func _count_planned_shadows() -> int:
+	var total := 0
+	for packs in WAVE_GROUPS:
+		for pack_size in packs:
+			total += int(pack_size)
+	return total
+
+
+func _spawn_pack(count: int) -> void:
 	var slots := Chapter5Plate.SPAWN_UVS.size()
-	var styles: Array[String] = ["chaser", "stalker", "dasher", "caster"]
+	var start := _spawn_cursor
+	shake_camera(4.0 + float(count) * 0.35)
 	for i in range(count):
-		var pool_index := i % slots
+		var pool_index := (start + i) % slots
 		var origin := _plate.spawn_point(pool_index) if _plate != null else Vector2.ZERO
 		origin += Vector2(randf_range(-28.0, 28.0), randf_range(-18.0, 18.0))
 		if pool_index < _pools.size() and is_instance_valid(_pools[pool_index]):
 			Fx.pool_rise(_pools[pool_index])
-		var style := styles[(i + _wave_index) % styles.size()]
+		var style := _next_combat_style()
 		var minion := place_minion(origin, {
 			"combat_style": style,
 			"max_health": 38.0 if style == "caster" else 42.0,
 			"speed": 84.0 if style == "caster" else (108.0 if style == "dasher" else 96.0),
 			"touch_damage": 9.0 if style == "caster" else 11.0,
-			"spawn_delay": 0.45 + float(i) * 0.16,
+			"spawn_delay": 0.22 + float(i) * 0.10,
 		})
 		if minion == null:
 			_shadows_total = maxi(0, _shadows_total - 1)
 			continue
-		minion.scale = Vector2(2.15, 2.15)
+		minion.scale = Vector2(1.15, 1.15)
 		minion.died.connect(_on_minion_died)
 		_shadows_alive += 1
+	_spawn_cursor = (start + count) % slots
 	_refresh_shadow_counter()
+
+
+## Four melee, then one ranged — 80 / 20, spread through the siege.
+func _next_combat_style() -> String:
+	var slot := _style_cursor % 5
+	_style_cursor += 1
+	if slot == 4:
+		return "caster"
+	var melee: Array[String] = ["chaser", "dasher", "stalker"]
+	return melee[slot % melee.size()]
 
 
 func _on_minion_died(_minion: ShadowMinion) -> void:
@@ -486,11 +506,19 @@ func _on_minion_died(_minion: ShadowMinion) -> void:
 	_refresh_shadow_counter()
 
 
+func _heal_after_wave() -> void:
+	if player == null or not is_instance_valid(player) or player.is_dead():
+		return
+	player.heal_full()
+	Fx.hit_flash(player, Palette.GOLD_SUN)
+	Fx.punch(player, 0.08)
+
+
 func _refresh_shadow_counter() -> void:
 	counter("Shadows Remaining: %d   ·   Wave %d of %d" % [
 		_shadows_total,
 		_wave_index + 1,
-		WAVES.size(),
+		WAVE_GROUPS.size(),
 	])
 
 
@@ -631,10 +659,10 @@ func _enter_fight_stance() -> void:
 	if _loom_trigger != null:
 		_loom_trigger.set_enabled(false)
 	_point_loom(false)
-	objective("Dodge the claw, the blind, the orbs. Kill the Weaver.")
+	objective("Dodge the skills. Kill the Weaver.")
 	if hud != null and hud.has_method("set_mode"):
 		hud.call("set_mode", "SHIFT dodge   SPACE strike   Q shock", Color(0.94, 0.72, 0.48))
-	counter("Stay mobile. Roll the red. Kill the adds.")
+	counter("Roll the red. Hit the recover.")
 	if _plate != null:
 		_plate.set_loom_energy(0.55)
 
@@ -693,14 +721,20 @@ func _on_telegraph_started(_window: float) -> void:
 	if not _block_taught:
 		_block_taught = true
 		_clear_coach()
-	var move_name := _boss.current_move() if _boss != null else "sweep"
+	var move_name := _boss.current_move() if _boss != null else "claw"
 	match move_name:
-		"blind":
-			counter("BLIND — keep moving")
+		"lunge":
+			counter("LUNGE — roll aside")
+		"slam":
+			counter("SLAM — get out of the circle")
+		"volley":
+			counter("VOLLEY — dodge the bolts")
+		"dash":
+			counter("DASH — it will reappear")
+		"nova":
+			counter("NOVA — roll through the ring")
 		"summon":
-			counter("SUMMON — kill the two shadows")
-		"burst":
-			counter("ULTIMATE — get out of the orbs")
+			counter("SUMMON — kill the shadows")
 		_:
 			counter("CLAW — roll aside")
 
@@ -763,45 +797,8 @@ func _on_boss_defeated() -> void:
 	_duel_over = true
 
 
-## Player reached the loom during Weave Mode: open the rhythm track.
 func _on_loom_used() -> void:
-	if not _weave_mode or _in_weave_game or _duel_over or is_finished():
-		return
-	if _phase < 2:
-		return
-	_in_weave_game = true
-	_loom_trigger.set_enabled(false)
-	_clear_coach()
-	_point_loom(false)
-	objective("Press W A S D as the notes hit the glowing line.")
-
-	await run_mini_game(RHYTHM_TRACK, {
-		"note_count": 8,
-		"note_speed": 210.0,
-		"spawn_interval": 0.85,
-		"required_ratio": 0.5,
-	}, func(game: Node) -> void:
-		if game.has_signal("note_resolved"):
-			game.note_resolved.connect(_on_rhythm_note))
-
-	_in_weave_game = false
-	if _duel_over or is_finished():
-		return
-	if _boss != null and is_instance_valid(_boss):
-		_boss.end_stagger_early()
-	_enter_defend_mode()
-
-
-func _on_rhythm_note(hit: bool) -> void:
-	if not hit or _boss == null or not is_instance_valid(_boss):
-		return
-	_boss.take_damage(RHYTHM_DAMAGE, player)
-	Fx.light_burst(_boss, Palette.GOLD_SUN)
-	if _loom != null:
-		ColorRestoration.bloom_zone("rhythm_hit", _loom, 160.0, 0.55, 0.28)
-	if _plate != null:
-		_plate.set_loom_energy(1.2)
-	shake_camera(5.0)
+	return
 
 
 ## The loom's own health bar. Losing it costs a life, not the run.
@@ -821,34 +818,6 @@ func _damage_loom(amount: float) -> void:
 	_loom_integrity = 0.5
 	if hud != null and hud.has_method("set_loom_integrity"):
 		hud.call("set_loom_integrity", _loom_integrity)
-
-
-## After a failed finale the boss stands back up at a fraction of its strength.
-func _reform_boss() -> bool:
-	if _boss == null or not is_instance_valid(_boss):
-		return false
-	_duel_over = false
-	_phase = 2
-	_boss.rotation_degrees = 0.0
-	_boss.scale = Vector2(1.25, 1.25)
-	_boss.modulate = Color.WHITE
-	_boss.health = _boss.max_health * 0.25
-	_boss.health_changed.emit(_boss.health, _boss.max_health)
-	_boss.begin_duel()
-	_enter_fight_stance()
-	_set_steps(1)
-
-	await until(func() -> bool: return _duel_over or is_finished())
-	if is_finished():
-		return false
-
-	_phase = 3
-	_boss.end_duel()
-	if _boss.has_method("kneel"):
-		_boss.kneel()
-	if hud != null and hud.has_method("set_mode"):
-		hud.call("set_mode", "")
-	return true
 
 
 # --------------------------------------------------------------------------

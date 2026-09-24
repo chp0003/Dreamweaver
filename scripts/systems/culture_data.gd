@@ -153,6 +153,18 @@ const LORE_ENTRIES: Array[Dictionary] = [
 		"portrait": "res://assets/images/lore/lore_taboo.png",
 	},
 	{
+		"id": "the_chief",
+		"title": "The Chief — Ancestral Strength",
+		"text": "The Chief is the guardian of the valley's history and the first leader S'lang must save in the House of the Black Foundation. He represents Ancestral Strength and defence, teaching how to protect the village from the first shadow invasion. His restoration matters because he holds the knowledge of where the Shadow Weaver first struck, and he gives S'lang her first map — the hall, the garden, and the paths the dark already walked.",
+		"portrait": "res://assets/images/characters/the_chief.png",
+	},
+	{
+		"id": "harvest_queen",
+		"title": "The Harvest Queen — Abundance of the Land",
+		"text": "The Harvest Queen is the spiritual protector of the forests and the source of the region's prosperity. Representing the Abundance of the Land, she is the key to unlocking the Red Dye in the House of Red Courage. She teaches S'lang that weaving is a cycle of life and growth, and grants the explosive Life-Thread — a living stitch that bursts corrupted thorns so the path can be sown again.",
+		"portrait": "res://assets/images/characters/harvest_queen.png",
+	},
+	{
 		"id": "kleng",
 		"title": "Kleng - The Lightning Motif",
 		"text": "The zigzag that runs through T'nalak is kleng, lightning. It marks the boundary between fields of pattern the way lightning marks the boundary between sky and earth. Nearly every design in the Houses of Weaving is framed by it.",

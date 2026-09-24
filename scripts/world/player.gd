@@ -11,10 +11,10 @@ extends CharacterBody2D
 ## Sheets live in SlangFrames / slang_8dir.
 ##
 ## Combat (once the Lewet Staff is equipped):
-##   Space             - staff sweep; bolts only if nothing is in reach
+##   Space             - melee staff sweep
 ##   Shift / RMB       - dodge roll with i-frames
-##   Q                 - sonic chime
-##   Left-click enemy  - lock target (auto-bolts on minions, not the boss)
+##   Q                 - sonic shockwave around her feet
+##   Left-click enemy  - lock, run in, then melee when she is close enough
 
 signal health_changed(current: float, maximum: float)
 signal died
@@ -23,8 +23,6 @@ signal chimed(origin: Vector2, radius: float)
 signal staff_acquired
 signal attack_hit(hit: Node2D)
 
-const WeaveBoltScene := preload("res://scripts/world/weave_bolt.gd")
-
 @export var speed: float = 190.0
 @export var acceleration: float = 1500.0
 @export var friction: float = 1800.0
@@ -32,24 +30,27 @@ const WeaveBoltScene := preload("res://scripts/world/weave_bolt.gd")
 const ATTACK_COOLDOWN := 0.58
 const ATTACK_ANIM := 0.52
 const ATTACK_DAMAGE := 34.0
-const MELEE_REACH := 110.0
+const MELEE_REACH := 128.0
 const MELEE_ARC := 1.45
-const BOLT_DELAY := 0.28
-const AUTO_ATTACK_RANGE := 380.0
 const CLICK_PICK_RADIUS := 96.0
 
 const CHIME_COOLDOWN := 2.6
 const CHIME_RADIUS := 190.0
 const CHIME_DAMAGE := 18.0
+const LIFE_THREAD_VINE_DAMAGE := 92.0
+const SHOCKWAVE_PATH := "res://assets/images/vfx/slang_shockwave.png"
+const SHOCKWAVE_FRAMES := 8
+const SHOCKWAVE_FPS := 7.0
 
 const INVULNERABLE_TIME := 0.55
-const DODGE_COOLDOWN := 0.72
-const DODGE_TIME := 0.20
-const DODGE_SPEED := 520.0
-const DODGE_IFRAMES := 0.26
+const DODGE_COOLDOWN := 0.68
+const DODGE_TIME := 0.24
+const DODGE_SPEED := 540.0
+const DODGE_IFRAMES := 0.38
 
 @export var max_health := 100.0
 @export var has_staff := false
+@export var has_life_thread := false
 @export var staff_light_enabled := false
 @export var staff_light_radius := 210.0
 
@@ -77,10 +78,10 @@ var _attack_anim_left := 0.0
 var _dodge_timer := 0.0
 var _dodge_left := 0.0
 var _dodge_dir := Vector2.ZERO
-## Locked AQW-style target. Bolts auto-fire while this stays valid.
+## Locked target. Clicking one out of range makes her chase until she can swing.
 var _locked_target: Node2D
-## One-shot aim for the bolt currently being cast.
-var _bolt_target: Node2D
+var _chasing := false
+var _shockwave_frames: SpriteFrames
 
 var _animated: AnimatedSprite2D
 var _swing: Node2D
@@ -129,8 +130,12 @@ func _physics_process(delta: float) -> void:
 		var up_down_neg := "move_up" if InputMap.has_action("move_up") else "move_forward"
 		var up_down_pos := "move_down" if InputMap.has_action("move_down") else "move_back"
 		input_vector = Input.get_vector("move_left", "move_right", up_down_neg, up_down_pos)
+		if input_vector != Vector2.ZERO:
+			_chasing = false
 
-	_update_animation(input_vector)
+	var chase_dir := _chase_direction()
+	var anim_stick := input_vector if input_vector != Vector2.ZERO else chase_dir
+	_update_animation(anim_stick)
 
 	if _dodge_left > 0.0:
 		velocity = _dodge_dir * DODGE_SPEED
@@ -140,6 +145,8 @@ func _physics_process(delta: float) -> void:
 			if _locked_target == null:
 				facing = direction
 			velocity = velocity.move_toward(direction * speed, acceleration * delta)
+		elif chase_dir != Vector2.ZERO:
+			velocity = velocity.move_toward(chase_dir * speed, acceleration * delta)
 		else:
 			velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
 
@@ -147,7 +154,7 @@ func _physics_process(delta: float) -> void:
 	if collision_mask != PhysicsLayers.MASK_PLAYER_MOVES:
 		collision_mask = PhysicsLayers.MASK_PLAYER_MOVES
 	_update_hurt_flash()
-	_update_idle_breathe(delta, input_vector)
+	_update_idle_breathe(delta, anim_stick)
 	_sync_walk_stride()
 	_sync_body_shadow()
 
@@ -294,12 +301,10 @@ func try_attack() -> bool:
 	if _dodge_left > 0.0:
 		return false
 	var boss := get_tree().get_first_node_in_group("boss") as Node2D
-	if boss != null and is_instance_valid(boss) \
-			and Iso.iso_distance(global_position, boss.global_position) <= MELEE_REACH + 64.0:
-		_set_locked_target(boss)
-		return _cast_bolt_at(boss, boss.global_position)
-	if _locked_target != null and is_instance_valid(_locked_target):
-		return _cast_bolt_at(_locked_target, _locked_target.global_position)
+	if _is_valid_hit(boss) and _in_melee_range(boss):
+		return _engage_target(boss)
+	if _is_valid_hit(_locked_target):
+		return _engage_target(_locked_target)
 	return try_attack_at(get_global_mouse_position())
 
 
@@ -334,48 +339,78 @@ func apply_knockback(from_world: Vector2, force := 280.0) -> void:
 	velocity = away.normalized() * force
 
 
-## AQ Worlds style: left-click locks a monster; bolts auto-fire while locked.
+## Left-click locks a monster. Out of range she runs in; in range she swings.
 func try_attack_at(world_point: Vector2) -> bool:
 	var clicked := _pick_click_target(world_point)
 	if clicked != null:
-		_set_locked_target(clicked)
-		return _cast_bolt_at(clicked, clicked.global_position)
-	return _cast_bolt_at(null, world_point)
+		return _engage_target(clicked)
+	_face_vector(world_point - global_position)
+	return _swing_staff(null)
 
 
 func _handle_aqw_click(world_point: Vector2) -> void:
 	var clicked := _pick_click_target(world_point)
 	if clicked != null:
-		_set_locked_target(clicked)
-		_cast_bolt_at(clicked, clicked.global_position)
+		_engage_target(clicked)
 		return
-	# Empty ground clears the lock so you can re-pick, AQW-style.
 	_set_locked_target(null)
-	_cast_bolt_at(null, world_point)
+
+
+func _engage_target(target: Variant) -> bool:
+	if not _is_valid_hit(target):
+		return false
+	var node := target as Node2D
+	_set_locked_target(node)
+	_chasing = true
+	_face_vector(node.global_position - global_position)
+	if _in_melee_range(node):
+		return _swing_staff(node)
+	return false
 
 
 func _try_auto_attack() -> void:
 	if not input_enabled or _dead or not has_staff:
 		return
-	if _locked_target != null and _locked_target.is_in_group("boss"):
+	if _locked_target == null or _attack_timer > 0.0 or _dodge_left > 0.0:
 		return
-	if _locked_target == null or _attack_timer > 0.0:
+	if not _is_valid_hit(_locked_target):
 		return
-	if not is_instance_valid(_locked_target) or not _locked_target.is_inside_tree():
+	if not _in_melee_range(_locked_target):
 		return
-	if Iso.iso_distance(global_position, _locked_target.global_position) > AUTO_ATTACK_RANGE:
-		return
-	_cast_bolt_at(_locked_target, _locked_target.global_position)
+	_swing_staff(_locked_target)
 
 
-func _cast_bolt_at(target: Node2D, world_point: Vector2) -> bool:
+func _in_melee_range(target: Variant) -> bool:
+	if not _is_valid_hit(target):
+		return false
+	var node := target as Node2D
+	var extra := 16.0
+	if node.has_method("hit_radius"):
+		extra = float(node.call("hit_radius")) * 0.35
+	return Iso.iso_distance(global_position, node.global_position) <= MELEE_REACH + extra
+
+
+func _chase_direction() -> Vector2:
+	if not _chasing or _dead or _dodge_left > 0.0 or _attacking:
+		return Vector2.ZERO
+	if not _is_valid_hit(_locked_target):
+		return Vector2.ZERO
+	if _in_melee_range(_locked_target):
+		return Vector2.ZERO
+	var to_target := _locked_target.global_position - global_position
+	if to_target.length() < 4.0:
+		return Vector2.ZERO
+	return to_target.normalized()
+
+
+func _swing_staff(target: Variant) -> bool:
 	if not has_staff or _attack_timer > 0.0 or _dead:
 		return false
-	_bolt_target = target
-	if target != null and is_instance_valid(target):
-		_face_vector(target.global_position - global_position)
-	else:
-		_face_vector(world_point - global_position)
+	if target != null:
+		if not _is_valid_hit(target) or not _in_melee_range(target):
+			return false
+		var node := target as Node2D
+		_face_vector(node.global_position - global_position)
 	_attack_timer = ATTACK_COOLDOWN
 	_attacking = true
 	_attack_anim_left = ATTACK_ANIM
@@ -383,29 +418,28 @@ func _cast_bolt_at(target: Node2D, world_point: Vector2) -> bool:
 	Audio.play_sfx(Audio.Sfx.HIT)
 	_play_cast_pose()
 	_play_cast_flash()
-	Fx.staff_trail(self, facing, 72.0)
+	Fx.staff_trail(self, facing, 84.0)
 	Fx.punch(self, 0.05)
 	var swing_point := global_position + facing * 48.0
 	attacked.emit(swing_point, facing)
-	# Close-range staff sweep is the primary strike. Bolts only fly when the
-	# arc does not connect, so Chapter 5 plays as melee + Q shockwave.
-	if _staff_melee() <= 0:
-		var fire := get_tree().create_timer(BOLT_DELAY)
-		fire.timeout.connect(_fire_weave_bolt, CONNECT_ONE_SHOT)
-	else:
-		_bolt_target = null
+	_staff_melee()
 	return true
 
 
-func _set_locked_target(target: Node2D) -> void:
-	if _locked_target == target:
-		if target != null and target.has_method("set_selected"):
-			target.set_selected(true)
+func _set_locked_target(target: Variant) -> void:
+	var node: Node2D = null
+	if _is_valid_hit(target):
+		node = target as Node2D
+	if node == null:
+		_chasing = false
+	if _locked_target == node:
+		if node != null and node.has_method("set_selected"):
+			node.set_selected(true)
 		return
 	if _locked_target != null and is_instance_valid(_locked_target) \
 			and _locked_target.has_method("set_selected"):
 		_locked_target.set_selected(false)
-	_locked_target = target
+	_locked_target = node
 	if _locked_target != null and _locked_target.has_method("set_selected"):
 		_locked_target.set_selected(true)
 
@@ -413,13 +447,7 @@ func _set_locked_target(target: Node2D) -> void:
 func _validate_locked_target() -> void:
 	if _locked_target == null:
 		return
-	if not is_instance_valid(_locked_target) or not _locked_target.is_inside_tree():
-		_locked_target = null
-		return
-	if _locked_target.has_method("is_defeated") and _locked_target.is_defeated():
-		_set_locked_target(null)
-		return
-	if _locked_target is ShadowMinion and (_locked_target as ShadowMinion).health <= 0.0:
+	if not _is_valid_hit(_locked_target):
 		_set_locked_target(null)
 
 
@@ -436,11 +464,9 @@ func _pick_click_target(world_point: Vector2) -> Node2D:
 	var best: Node2D = null
 	var best_d := CLICK_PICK_RADIUS
 	for node in get_tree().get_nodes_in_group("hittable"):
+		if not _is_valid_hit(node):
+			continue
 		var target := node as Node2D
-		if target == null or not target.is_inside_tree():
-			continue
-		if target.has_method("is_defeated") and target.is_defeated():
-			continue
 		# Prefer enemies near the cursor; also accept clicks a little below their feet.
 		var d := minf(
 			world_point.distance_to(target.global_position + Vector2(0.0, -28.0)),
@@ -458,14 +484,18 @@ func try_chime() -> bool:
 	_chime_timer = CHIME_COOLDOWN
 	Audio.play_sfx(Audio.Sfx.CHIME)
 	_play_shockwave()
-	Fx.punch(self, 0.08)
+	Fx.punch(self, 0.05)
 
 	for target in _targets_in_range(global_position, CHIME_RADIUS):
 		if target.has_method("stun"):
 			target.stun(1.2)
 		if target.has_method("take_damage"):
-			target.take_damage(CHIME_DAMAGE, self)
-			Fx.hit_flash(target, Palette.GOLD_SACRED)
+			var dmg := CHIME_DAMAGE
+			if has_life_thread and target.is_in_group("shadow_vine"):
+				dmg = LIFE_THREAD_VINE_DAMAGE
+				Fx.fiber_burst(target, Color(0.82, 0.22, 0.18))
+			target.take_damage(dmg, self)
+			Fx.hit_flash(target, Palette.GOLD_SACRED if not has_life_thread else Color(0.86, 0.28, 0.2))
 	chimed.emit(global_position, CHIME_RADIUS)
 	return true
 
@@ -493,31 +523,6 @@ func _play_cast_pose() -> void:
 	# The attack sheet already carries the swing. Tilting the whole actor
 	# pivoted her feet off the floor and made every strike look like a flop.
 	_animated.rotation_degrees = 0.0
-
-
-func _fire_weave_bolt() -> void:
-	if not is_inside_tree() or _dead or not has_staff:
-		return
-	var aim: Node2D = null
-	if _bolt_target != null and is_instance_valid(_bolt_target):
-		aim = _bolt_target
-	elif _locked_target != null and is_instance_valid(_locked_target):
-		aim = _locked_target
-	if aim != null:
-		_face_vector(aim.global_position - global_position)
-	var bolt := WeaveBoltScene.new()
-	bolt.direction = facing if facing != Vector2.ZERO else Vector2(0, 1)
-	bolt.damage = ATTACK_DAMAGE
-	bolt.source = self
-	if aim != null:
-		bolt.target = aim
-	bolt.global_position = global_position + bolt.direction * 22.0 + Vector2(0.0, -36.0)
-	var host: Node = get_parent()
-	if host != null:
-		host.add_child(bolt)
-	else:
-		add_child(bolt)
-	_bolt_target = null
 
 
 ## Battle UI spends the chime cooldown and plays the pulse without re-targeting.
@@ -578,6 +583,17 @@ func take_damage(amount: float, _source: Node = null) -> void:
 		died.emit()
 
 
+func heal(amount: float) -> float:
+	if _dead or amount <= 0.0:
+		return 0.0
+	var before := health
+	health = minf(max_health, health + amount)
+	var gained := health - before
+	if gained > 0.0:
+		health_changed.emit(health, max_health)
+	return gained
+
+
 func heal_full() -> void:
 	_dead = false
 	health = max_health
@@ -614,21 +630,41 @@ func _staff_melee() -> int:
 			var aligned := aim.normalized().dot(to_target.normalized())
 			if aligned < cos(MELEE_ARC):
 				continue
-		if target.has_method("take_damage"):
-			target.take_damage(ATTACK_DAMAGE, self)
-			Fx.hit_flash(target, Palette.GOLD_SUN)
-			Fx.punch(target, 0.1)
-			attack_hit.emit(target)
-			hits += 1
+		if not target.has_method("take_damage"):
+			continue
+		var result: Variant = target.take_damage(ATTACK_DAMAGE, self)
+		if result is bool and not result:
+			continue
+		Fx.hit_flash(target, Palette.GOLD_SUN)
+		Fx.punch(target, 0.1)
+		attack_hit.emit(target)
+		hits += 1
 	return hits
+
+
+func _is_valid_hit(target: Variant) -> bool:
+	if target == null or not is_instance_valid(target):
+		return false
+	if not (target is Node2D):
+		return false
+	var node := target as Node2D
+	if not node.is_inside_tree():
+		return false
+	if node.has_method("is_hittable"):
+		return bool(node.call("is_hittable"))
+	if not node.is_visible_in_tree():
+		return false
+	if node.has_method("is_defeated") and node.is_defeated():
+		return false
+	return true
 
 
 func _targets_in_range(origin: Vector2, radius: float) -> Array[Node2D]:
 	var found: Array[Node2D] = []
 	for node in get_tree().get_nodes_in_group("hittable"):
-		var target := node as Node2D
-		if target == null or not target.is_inside_tree():
+		if not _is_valid_hit(node):
 			continue
+		var target := node as Node2D
 		var extra := 24.0
 		if target.has_method("hit_radius"):
 			extra = float(target.call("hit_radius"))
@@ -771,17 +807,70 @@ func _play_cast_flash() -> void:
 
 
 func _play_shockwave() -> void:
+	var sheet := _load_shockwave_texture()
+	if sheet == null:
+		_play_shockwave_fallback()
+		return
+	# Rebuild each cast so a replaced PNG is picked up without a restart.
+	_shockwave_frames = null
+	var sprite := AnimatedSprite2D.new()
+	sprite.name = "Shockwave"
+	sprite.sprite_frames = _get_shockwave_frames(sheet)
+	sprite.z_index = 5
+	sprite.z_as_relative = true
+	sprite.position = Vector2(0.0, 10.0)
+	sprite.scale = Vector2(1.7, 1.45)
+	sprite.modulate = Color(1.08, 1.02, 0.88, 0.95)
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	add_child(sprite)
+	sprite.play("burst")
+	sprite.animation_finished.connect(sprite.queue_free, CONNECT_ONE_SHOT)
+
+
+func _play_shockwave_fallback() -> void:
 	var ring := Sprite2D.new()
 	ring.texture = _radial_texture()
 	ring.modulate = Color(0.95, 0.88, 0.62, 0.75)
 	ring.scale = Vector2(0.1, 0.06)
 	ring.z_index = 8
 	add_child(ring)
-
 	var target_scale := (CHIME_RADIUS * 2.0) / 256.0
 	var tween := create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(ring, "scale", Vector2(target_scale, target_scale * 0.6), 0.45)\
+	tween.tween_property(ring, "scale", Vector2(target_scale, target_scale * 0.6), 1.05)\
 		.set_ease(Tween.EASE_OUT)
-	tween.tween_property(ring, "modulate:a", 0.0, 0.45)
+	tween.tween_property(ring, "modulate:a", 0.0, 1.05)
 	tween.chain().tween_callback(ring.queue_free)
+
+
+func _get_shockwave_frames(sheet: Texture2D) -> SpriteFrames:
+	if _shockwave_frames != null:
+		return _shockwave_frames
+	var frames := SpriteFrames.new()
+	frames.add_animation("burst")
+	frames.set_animation_loop("burst", false)
+	frames.set_animation_speed("burst", SHOCKWAVE_FPS)
+	var fw := maxi(1, int(sheet.get_width() / float(SHOCKWAVE_FRAMES)))
+	var fh := sheet.get_height()
+	for i in range(SHOCKWAVE_FRAMES):
+		var atlas := AtlasTexture.new()
+		atlas.atlas = sheet
+		atlas.region = Rect2(float(i * fw), 0.0, float(fw), float(fh))
+		frames.add_frame("burst", atlas)
+	_shockwave_frames = frames
+	return frames
+
+
+func _load_shockwave_texture() -> Texture2D:
+	var disk := ProjectSettings.globalize_path(SHOCKWAVE_PATH)
+	if FileAccess.file_exists(disk):
+		var image := Image.new()
+		if image.load(disk) == OK:
+			if image.get_format() != Image.FORMAT_RGBA8:
+				image.convert(Image.FORMAT_RGBA8)
+			return ImageTexture.create_from_image(image)
+	if ResourceLoader.exists(SHOCKWAVE_PATH):
+		var loaded := load(SHOCKWAVE_PATH)
+		if loaded is Texture2D:
+			return loaded
+	return null

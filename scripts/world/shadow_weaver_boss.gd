@@ -1,7 +1,7 @@
 class_name ShadowWeaverBoss
 extends Node2D
-## Final boss: claw melee, hall-blind, two shadow adds, and a shadow-burst
-## ultimate. Floor tells, dodgeable strikes, punish windows after heavies.
+## Action duel: Elden Ring tells, God of War punish windows, DOTA skill kit.
+## Dodge red, hit the recover. No parry QTE, no letter minigame.
 
 signal health_changed(current: float, maximum: float)
 signal telegraph_started(window: float)
@@ -10,60 +10,68 @@ signal staggered(duration: float)
 signal recovered
 signal defeated
 
-const PARRY_GRACE := 0.08
-const SHEET_PATH := "res://assets/images/enemies/shadow_weaver_boss_sheet.png"
-const FRAME_SIZE := Vector2i(320, 320)
+enum Skill { None, Claw, Lunge, Slam, Volley, Dash, Nova, Summon }
+enum Phase { Approach, Windup, Active, Recover, Stagger, Dead }
+
+const BODY_SIZE := Vector2i(320, 320)
+const STRIP_FRAMES := 8
+const ORIGINAL_SHEET := "res://assets/images/enemies/shadow_weaver_boss_sheet.png"
 const SHEET_COLS := 4
 const SHEET_ROWS := 3
-
-enum Move { Melee, Blind, Summon, Burst }
+const VFX_SLASH := "res://assets/images/vfx/weaver_claw_slash.png"
+const VFX_SLAM := "res://assets/images/vfx/weaver_slam_ring.png"
+const VFX_BOLT := "res://assets/images/vfx/weaver_shadow_bolt.png"
+const VFX_NOVA := "res://assets/images/vfx/weaver_nova_ring.png"
 
 @export var max_health := 560.0
-@export var chase_speed := 148.0
-@export var keep_range := 64.0
-@export var bleach_damage := 20.0
-@export var stagger_duration := 1.35
-@export var poise_to_stagger := 140.0
-@export var blind_duration := 4.4
-@export var burst_orbs := 10
+@export var chase_speed := 156.0
+@export var keep_range := 72.0
+@export var stagger_duration := 1.45
+@export var poise_to_stagger := 150.0
 
 var health := 100.0
 
 var _active := false
-var _telegraphing := false
-var _resolved := false
-var _timer := 0.8
-var _window_left := 0.0
-var _current_window := 1.0
-var _staggered := false
-var _stagger_left := 0.0
 var _dead := false
-var _heavy := false
-var _move := Move.Melee
+var _phase := Phase.Approach
+var _skill := Skill.None
+var _timer := 0.55
+var _phase_t := 0.0
+var _windup := 0.0
+var _active_len := 0.0
+var _recover_len := 0.0
+var _stagger_left := 0.0
 var _poise := 0.0
-var _recover_left := 0.0
+var _heavy := false
 var _home := Vector2.ZERO
 var _arena_radius := 280.0
 var _aim := Vector2(0, 1)
-var _strike_center := Vector2.ZERO
+var _strike_at := Vector2.ZERO
 var _lunge_vel := Vector2.ZERO
-var _cd_blind := 5.5
-var _cd_summon := 3.5
-var _cd_burst := 9.0
-var _blind_left := 0.0
+var _hits_landed := 0
+var _volleys_shot := 0
 var _adds: Array[Node] = []
-var _veil: CanvasLayer
+var _cds := {
+	Skill.Claw: 0.0,
+	Skill.Lunge: 0.0,
+	Skill.Slam: 0.0,
+	Skill.Volley: 0.0,
+	Skill.Dash: 0.0,
+	Skill.Nova: 0.0,
+	Skill.Summon: 0.0,
+}
 
 var _art: PlaceholderProp
 var _sprite: AnimatedSprite2D
 var _tell: Node2D
 var _danger: Polygon2D
 var _smoke: GPUParticles2D
+var _select_ring: Polygon2D
+var _vfx_frames: Dictionary = {}
 
 
 func _ready() -> void:
 	add_to_group("boss")
-	add_to_group("hittable")
 	health = max_health
 	_home = global_position
 	_build_visuals()
@@ -71,62 +79,71 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	_cd_blind = maxf(0.0, _cd_blind - delta)
-	_cd_summon = maxf(0.0, _cd_summon - delta)
-	_cd_burst = maxf(0.0, _cd_burst - delta)
-	if _blind_left > 0.0:
-		_blind_left = maxf(0.0, _blind_left - delta)
-		if _blind_left <= 0.0:
-			_clear_blind()
+	for key in _cds.keys():
+		_cds[key] = maxf(0.0, float(_cds[key]) - delta)
 	if not _active or _dead:
 		return
-	if _staggered:
-		_stagger_left -= delta
-		if _stagger_left <= 0.0:
-			_end_stagger()
-		return
-	if _recover_left > 0.0:
-		_recover_left -= delta
-		_face_player()
-		return
-	if _telegraphing:
-		_window_left -= delta
-		_update_tell(1.0 - clampf(_window_left / maxf(0.001, _current_window), 0.0, 1.0))
-		if _lunge_vel != Vector2.ZERO and _window_left < _current_window * 0.25:
-			global_position += _lunge_vel * delta
-			_clamp_arena()
-		if _window_left <= -PARRY_GRACE and not _resolved:
-			_resolve_telegraph(false)
-		return
-	_timer -= delta
-	_chase_player(delta)
-	if _timer <= 0.0:
-		_begin_telegraph()
+	match _phase:
+		Phase.Stagger:
+			_stagger_left -= delta
+			if _stagger_left <= 0.0:
+				_end_stagger()
+		Phase.Windup:
+			_phase_t += delta
+			_update_tell(clampf(_phase_t / maxf(0.001, _windup), 0.0, 1.0))
+			if _phase_t >= _windup:
+				_enter_active()
+		Phase.Active:
+			_phase_t += delta
+			_tick_active(delta)
+			if _phase_t >= _active_len:
+				_enter_recover()
+		Phase.Recover:
+			_phase_t += delta
+			_face_player()
+			if _phase_t >= _recover_len:
+				_enter_approach(0.22)
+		Phase.Approach:
+			_timer -= delta
+			_chase_player(delta)
+			if _timer <= 0.0:
+				_try_start_skill()
 
 
 func begin_duel() -> void:
 	_active = true
 	_dead = false
-	_staggered = false
-	_timer = 0.4
+	_phase = Phase.Approach
+	_skill = Skill.None
+	_timer = 0.35
+	_poise = 0.0
 	_home = global_position
-	_cd_blind = 5.5
-	_cd_summon = 3.2
-	_cd_burst = 8.5
-	_play_visual("idle")
+	_cds[Skill.Lunge] = 1.2
+	_cds[Skill.Volley] = 2.0
+	_cds[Skill.Slam] = 4.0
+	_cds[Skill.Dash] = 3.0
+	_cds[Skill.Nova] = 8.0
+	_cds[Skill.Summon] = 6.0
+	if not is_in_group("hittable"):
+		add_to_group("hittable")
+	_play_visual("idle", true)
 	if _smoke != null:
 		_smoke.emitting = true
 
 
 func end_duel() -> void:
 	_active = false
-	_telegraphing = false
 	_lunge_vel = Vector2.ZERO
 	_hide_tell()
-	_clear_blind()
 	_clear_adds()
+	if is_in_group("hittable"):
+		remove_from_group("hittable")
 	if _smoke != null:
 		_smoke.emitting = false
+
+
+func is_hittable() -> bool:
+	return _active and not _dead and visible and modulate.a > 0.2
 
 
 func set_arena(home: Vector2, radius: float) -> void:
@@ -135,87 +152,337 @@ func set_arena(home: Vector2, radius: float) -> void:
 
 
 func is_staggered() -> bool:
-	return _staggered
+	return _phase == Phase.Stagger
 
 
 func is_telegraphing() -> bool:
-	return _telegraphing and not _resolved
+	return _phase == Phase.Windup
 
 
 func current_move() -> String:
-	match _move:
-		Move.Blind:
-			return "blind"
-		Move.Summon:
+	match _skill:
+		Skill.Lunge:
+			return "lunge"
+		Skill.Slam:
+			return "slam"
+		Skill.Volley:
+			return "volley"
+		Skill.Dash:
+			return "dash"
+		Skill.Nova:
+			return "nova"
+		Skill.Summon:
 			return "summon"
-		Move.Burst:
-			return "burst"
+		Skill.Claw:
+			return "claw"
 		_:
-			return "melee"
+			return "idle"
 
 
 func hit_radius() -> float:
-	return 56.0
+	return 62.0
 
 
 func try_parry() -> bool:
-	if not is_telegraphing():
-		return false
-	if _window_left > _current_window * 0.42:
-		return false
-	var player := _player()
-	if player == null or Iso.iso_distance(global_position, player.global_position) > 130.0:
-		return false
-	_resolve_telegraph(true)
-	return true
+	return false
 
 
-func take_damage(amount: float, _source: Node = null) -> void:
-	if _dead or amount <= 0.0:
-		return
-	if _staggered:
-		amount *= 1.35
+func is_heavy_attack() -> bool:
+	return _heavy
+
+
+func health_ratio() -> float:
+	return health / maxf(1.0, max_health)
+
+
+func set_selected(on: bool) -> void:
+	if _select_ring != null:
+		_select_ring.visible = on
+
+
+func take_damage(amount: float, _source: Node = null) -> bool:
+	if not is_hittable() or amount <= 0.0:
+		return false
+	if _phase == Phase.Stagger:
+		amount *= 1.4
 	health = maxf(0.0, health - amount)
 	health_changed.emit(health, max_health)
 	_flash(Color(1.8, 1.5, 1.5))
 	_poise += amount
-	if not _staggered and _poise >= poise_to_stagger:
+	if _phase != Phase.Stagger and _poise >= poise_to_stagger:
 		stagger()
 	if health <= 0.0:
-		_dead = true
-		_active = false
-		_hide_tell()
-		_clear_blind()
-		_clear_adds()
-		defeated.emit()
+		_die()
+	return true
 
 
 func stagger(duration: float = -1.0) -> void:
-	if _dead or _staggered:
+	if _dead or _phase == Phase.Stagger:
 		return
-	_staggered = true
-	_telegraphing = false
+	_phase = Phase.Stagger
 	_lunge_vel = Vector2.ZERO
 	_hide_tell()
 	_stagger_left = stagger_duration if duration < 0.0 else duration
 	_poise = 0.0
 	Audio.play_sfx(Audio.Sfx.SUCCESS)
 	_flash(Color(1.4, 1.3, 0.9))
-	_play_visual("stagger")
+	_play_visual("stagger", true)
 	staggered.emit(_stagger_left)
 
 
 func end_stagger_early() -> void:
-	if _staggered:
+	if _phase == Phase.Stagger:
 		_end_stagger()
 
 
-func health_ratio() -> float:
-	return health / max_health
+func kneel() -> void:
+	_active = false
+	_hide_tell()
+	_clear_adds()
+	if _smoke != null:
+		_smoke.emitting = false
+	_play_visual("stagger", true)
 
 
-func is_heavy_attack() -> bool:
-	return _heavy
+func dissolve_into_light() -> void:
+	_active = false
+	_dead = true
+	_hide_tell()
+	_clear_adds()
+	if _smoke != null:
+		_smoke.emitting = false
+	_play_visual("death", true)
+	Fx.fiber_burst(self, Palette.GOLD_SUN)
+	var home := scale
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(self, "modulate", Color(1.6, 1.5, 1.1, 0.0), 1.35)
+	tween.tween_property(self, "scale", Vector2(home.x * 1.7, home.y * 0.18), 1.35)
+
+
+func _die() -> void:
+	_dead = true
+	_active = false
+	_phase = Phase.Dead
+	remove_from_group("hittable")
+	_hide_tell()
+	_clear_adds()
+	_play_visual("death", true)
+	defeated.emit()
+
+
+func _end_stagger() -> void:
+	_phase = Phase.Approach
+	_stagger_left = 0.0
+	_timer = 0.55
+	_play_visual("idle", true)
+	recovered.emit()
+
+
+func _enter_approach(delay: float) -> void:
+	_phase = Phase.Approach
+	_skill = Skill.None
+	_timer = delay
+	_lunge_vel = Vector2.ZERO
+	_hide_tell()
+	_play_visual("idle")
+
+
+func _try_start_skill() -> void:
+	var player := _player()
+	if player == null:
+		_timer = 0.2
+		return
+	_face_player()
+	var dist := Iso.iso_distance(global_position, player.global_position)
+	var next := _pick_skill(dist)
+	if next == Skill.None:
+		_timer = 0.16
+		return
+	_start_skill(next)
+
+
+func _pick_skill(dist: float) -> Skill:
+	_prune_adds()
+	var late := health_ratio() <= 0.35
+	var mid := health_ratio() <= 0.65
+	var options: Array[Skill] = []
+	if dist <= 118.0:
+		options.append(Skill.Claw)
+		if _ready_cd(Skill.Lunge):
+			options.append(Skill.Lunge)
+		if mid and _ready_cd(Skill.Slam):
+			options.append(Skill.Slam)
+	elif dist <= 240.0:
+		if _ready_cd(Skill.Lunge):
+			options.append(Skill.Lunge)
+		if _ready_cd(Skill.Volley):
+			options.append(Skill.Volley)
+		if mid and _ready_cd(Skill.Slam):
+			options.append(Skill.Slam)
+		options.append(Skill.Claw)
+	else:
+		if mid and _ready_cd(Skill.Dash):
+			options.append(Skill.Dash)
+		if _ready_cd(Skill.Volley):
+			options.append(Skill.Volley)
+		if _ready_cd(Skill.Lunge):
+			options.append(Skill.Lunge)
+	if late and _ready_cd(Skill.Nova) and dist < 280.0:
+		options.append(Skill.Nova)
+		options.append(Skill.Nova)
+	if late and _ready_cd(Skill.Summon) and _adds.size() < 2:
+		options.append(Skill.Summon)
+	if options.is_empty():
+		return Skill.Claw if dist < 130.0 else Skill.None
+	return options[randi() % options.size()]
+
+
+func _ready_cd(skill: Skill) -> bool:
+	return float(_cds.get(skill, 0.0)) <= 0.0
+
+
+func _start_skill(skill: Skill) -> void:
+	var plan := _plan(skill)
+	_skill = skill
+	_heavy = bool(plan["heavy"])
+	_windup = float(plan["windup"])
+	_active_len = float(plan["active"])
+	_recover_len = float(plan["recover"])
+	_cds[skill] = float(plan["cd"])
+	_phase = Phase.Windup
+	_phase_t = 0.0
+	_hits_landed = 0
+	_volleys_shot = 0
+	_lunge_vel = Vector2.ZERO
+	_face_player()
+	var player := _player()
+	_strike_at = player.global_position if player != null else global_position + _aim * 90.0
+	_show_tell()
+	_play_visual(String(plan["anim"]), true)
+	Audio.play_wind_whistle()
+	telegraph_started.emit(_windup)
+
+
+func _plan(skill: Skill) -> Dictionary:
+	var haste := 0.82 if health_ratio() <= 0.35 else (0.9 if health_ratio() <= 0.65 else 1.0)
+	match skill:
+		Skill.Lunge:
+			return {windup = 0.58 * haste, active = 0.30, recover = 0.70 * haste, cd = 3.6, anim = "lunge", heavy = true}
+		Skill.Slam:
+			return {windup = 0.78 * haste, active = 0.42, recover = 0.92 * haste, cd = 7.4, anim = "slam", heavy = true}
+		Skill.Volley:
+			return {windup = 0.55 * haste, active = 0.62, recover = 0.48 * haste, cd = 5.2, anim = "cast", heavy = false}
+		Skill.Dash:
+			return {windup = 0.28 * haste, active = 0.18, recover = 0.38 * haste, cd = 5.8, anim = "lunge", heavy = false}
+		Skill.Nova:
+			return {windup = 1.05 * haste, active = 0.70, recover = 1.05 * haste, cd = 16.0, anim = "nova", heavy = true}
+		Skill.Summon:
+			return {windup = 0.72 * haste, active = 0.30, recover = 0.55 * haste, cd = 15.0, anim = "summon", heavy = false}
+		_:
+			return {windup = 0.42 * haste, active = 0.40, recover = 0.52 * haste, cd = 0.15, anim = "claw", heavy = false}
+
+
+func _enter_active() -> void:
+	_phase = Phase.Active
+	_phase_t = 0.0
+	match _skill:
+		Skill.Lunge:
+			var to := _strike_at - global_position
+			_lunge_vel = (to.normalized() if to.length() > 4.0 else _aim) * 620.0
+		Skill.Dash:
+			_do_dash()
+		Skill.Slam:
+			_spawn_slam_ring()
+		Skill.Nova:
+			_spawn_nova_ring()
+		Skill.Summon:
+			_spawn_adds()
+		_:
+			pass
+	_hide_tell()
+
+
+func _tick_active(delta: float) -> void:
+	if _skill == Skill.Lunge and _lunge_vel != Vector2.ZERO:
+		global_position += _lunge_vel * delta
+		_clamp_arena()
+	match _skill:
+		Skill.Claw:
+			if _hits_landed == 0 and _phase_t >= 0.10:
+				_claw_hit(0)
+			if _hits_landed == 1 and _phase_t >= 0.26:
+				_claw_hit(1)
+		Skill.Lunge:
+			if _hits_landed == 0 and _phase_t >= 0.08:
+				_body_hit(118.0, 28.0, 1.15)
+		Skill.Slam:
+			if _hits_landed == 0 and _phase_t >= 0.08:
+				_body_hit(150.0, 30.0, 1.25)
+		Skill.Volley:
+			_tick_volley()
+		Skill.Nova:
+			if _hits_landed == 0 and _phase_t >= 0.12:
+				_body_hit(96.0, 24.0, 1.1)
+		_:
+			pass
+
+
+func _enter_recover() -> void:
+	_phase = Phase.Recover
+	_phase_t = 0.0
+	_lunge_vel = Vector2.ZERO
+	telegraph_resolved.emit(false)
+
+
+func _claw_hit(index: int) -> void:
+	_hits_landed = index + 1
+	_spawn_slash_vfx(index == 1)
+	_body_hit(108.0, 22.0, 1.0)
+	Fx.punch(self, 0.1)
+	Audio.play_sfx(Audio.Sfx.THUD)
+
+
+func _tick_volley() -> void:
+	var stamps := [0.06, 0.24, 0.42]
+	while _volleys_shot < stamps.size() and _phase_t >= float(stamps[_volleys_shot]):
+		_spawn_bolt(_volleys_shot)
+		_volleys_shot += 1
+
+
+func _body_hit(reach: float, damage: float, knock: float) -> void:
+	_hits_landed = maxi(_hits_landed, 1)
+	var player := _player()
+	if player == null:
+		return
+	var dist := Iso.iso_distance(global_position, player.global_position)
+	if dist > reach:
+		return
+	var to_player := (player.global_position - global_position)
+	if to_player.length() > 4.0 and _aim.dot(to_player.normalized()) < -0.15 and _skill == Skill.Claw:
+		return
+	player.take_damage(damage, self)
+	if player.has_method("apply_knockback"):
+		player.apply_knockback(global_position, 260.0 * knock)
+	Fx.hit_flash(player, Color(0.62, 0.22, 0.78))
+
+
+func _do_dash() -> void:
+	var player := _player()
+	var dest := global_position
+	if player != null:
+		var side := Vector2(-_aim.y, _aim.x)
+		if randf() < 0.5:
+			side = -side
+		dest = player.global_position + side.normalized() * 78.0 + _aim * -36.0
+	modulate.a = 0.15
+	global_position = dest
+	_clamp_arena()
+	_face_player()
+	var tween := create_tween()
+	tween.tween_property(self, "modulate:a", 1.0, 0.16)
+	Fx.fiber_burst(self, Color(0.42, 0.16, 0.55))
+	Audio.play_sfx(Audio.Sfx.HIT)
 
 
 func _player() -> Slang:
@@ -230,13 +497,17 @@ func _chase_player(delta: float) -> void:
 	_face_player()
 	var to_player := player.global_position - global_position
 	var dist := Iso.iso_distance(global_position, player.global_position)
-	if dist > keep_range + 18.0:
-		var step := to_player.normalized() * chase_speed * delta
-		global_position += step
+	var speed := chase_speed
+	if health_ratio() <= 0.35:
+		speed *= 1.32
+	elif health_ratio() <= 0.65:
+		speed *= 1.14
+	if dist > keep_range + 16.0:
+		global_position += to_player.normalized() * speed * delta
 		_clamp_arena()
 		_play_visual("walk")
-	elif dist < keep_range * 0.5:
-		global_position -= to_player.normalized() * chase_speed * 0.5 * delta
+	elif dist < keep_range * 0.45:
+		global_position -= to_player.normalized() * speed * 0.55 * delta
 		_clamp_arena()
 		_play_visual("walk")
 	else:
@@ -247,7 +518,7 @@ func _face_player() -> void:
 	var player := _player()
 	if player == null:
 		return
-	_aim = (player.global_position - global_position)
+	_aim = player.global_position - global_position
 	if _aim.length() < 2.0:
 		_aim = Vector2(0, 1)
 	else:
@@ -263,165 +534,6 @@ func _clamp_arena() -> void:
 	global_position = _home + offset.normalized() * _arena_radius
 
 
-func _begin_telegraph() -> void:
-	var player := _player()
-	_telegraphing = true
-	_resolved = false
-	_lunge_vel = Vector2.ZERO
-	_face_player()
-	var dist := 180.0
-	if player != null:
-		dist = Iso.iso_distance(global_position, player.global_position)
-	_move = _pick_move(dist)
-	if _move == Move.Melee and dist > keep_range + 42.0:
-		_telegraphing = false
-		_timer = 0.12
-		return
-	_heavy = _move == Move.Burst or _move == Move.Blind
-	match _move:
-		Move.Melee:
-			_current_window = 0.42
-			_lunge_vel = _aim * 210.0
-		Move.Blind:
-			_current_window = 0.85
-			_cd_blind = 16.5
-		Move.Summon:
-			_current_window = 0.78
-			_cd_summon = 13.0
-		Move.Burst:
-			_current_window = 1.15
-			_cd_burst = 18.0
-	_window_left = _current_window
-	if player != null:
-		_strike_center = player.global_position
-	else:
-		_strike_center = global_position + _aim * 90.0
-	_show_tell()
-	if _move == Move.Burst:
-		_seed_burst_tells()
-	match _move:
-		Move.Blind:
-			_play_visual("blind")
-		Move.Summon:
-			_play_visual("summon")
-		Move.Burst:
-			_play_visual("burst_windup")
-		_:
-			_play_visual("windup")
-	Audio.play_wind_whistle()
-	telegraph_started.emit(_window_left)
-
-
-func _pick_move(dist: float) -> Move:
-	_prune_adds()
-	var can_burst := _cd_burst <= 0.0 and _blind_left <= 0.0 \
-		and (health_ratio() <= 0.78 or _cd_summon < 8.0)
-	var can_summon := _cd_summon <= 0.0 and _adds.size() < 2
-	var can_blind := _cd_blind <= 0.0 and _blind_left <= 0.0
-	if can_burst and (dist < 210.0 or health_ratio() <= 0.55):
-		return Move.Burst
-	if can_summon and randf() < (0.7 if dist > 90.0 else 0.4):
-		return Move.Summon
-	if can_blind and dist < 230.0:
-		return Move.Blind
-	if dist > keep_range + 42.0:
-		if can_summon:
-			return Move.Summon
-		if can_burst:
-			return Move.Burst
-	return Move.Melee
-
-
-func _resolve_telegraph(parried: bool) -> void:
-	_resolved = true
-	_telegraphing = false
-	_lunge_vel = Vector2.ZERO
-
-	if parried:
-		_hide_tell()
-		_timer = 0.55
-		Audio.play_sfx(Audio.Sfx.PARRY)
-		take_damage(22.0 if _heavy else 14.0)
-		GameState.add_score(50 if _heavy else 30)
-		_poise += 40.0
-		if _poise >= poise_to_stagger or _heavy:
-			telegraph_resolved.emit(true)
-			stagger()
-			return
-		_recover_left = 0.35
-	else:
-		match _move:
-			Move.Blind:
-				_play_visual("blind")
-			Move.Summon:
-				_play_visual("summon")
-			Move.Burst:
-				_play_visual("burst")
-			_:
-				_play_visual("attack")
-		_land_attack()
-		_hide_tell()
-		_timer = 1.05 if _move == Move.Burst else (0.7 if _move != Move.Melee else 0.38)
-		_recover_left = 0.85 if _move == Move.Burst else (0.42 if _heavy else 0.22)
-	telegraph_resolved.emit(parried)
-
-
-func _land_attack() -> void:
-	match _move:
-		Move.Blind:
-			_cast_blind()
-			Audio.play_sfx(Audio.Sfx.FAIL)
-			Fx.punch(self, 0.14)
-			return
-		Move.Summon:
-			_spawn_adds()
-			Audio.play_sfx(Audio.Sfx.THUD)
-			Fx.punch(self, 0.12)
-			return
-		Move.Burst:
-			_fire_burst()
-			Audio.play_sfx(Audio.Sfx.FAIL)
-			Fx.punch(self, 0.22)
-			return
-		_:
-			pass
-	var player := _player()
-	Audio.play_sfx(Audio.Sfx.THUD)
-	Fx.punch(self, 0.12)
-	if player == null:
-		return
-	if _player_in_strike(player):
-		player.take_damage(bleach_damage, self)
-		if player.has_method("apply_knockback"):
-			player.apply_knockback(global_position, 280.0)
-
-
-func _player_in_strike(player: Node2D) -> bool:
-	var dist := Iso.iso_distance(global_position, player.global_position)
-	if dist > 96.0:
-		return false
-	var to_player := (player.global_position - global_position).normalized()
-	return _aim.dot(to_player) > 0.12
-
-
-func _cast_blind() -> void:
-	_blind_left = blind_duration
-	if _veil != null and is_instance_valid(_veil):
-		_veil.queue_free()
-	_veil = BlindVeil.new()
-	_veil.hold_time = blind_duration
-	var tree := get_tree()
-	if tree != null:
-		tree.root.add_child(_veil)
-
-
-func _clear_blind() -> void:
-	_blind_left = 0.0
-	if _veil != null and is_instance_valid(_veil):
-		_veil.fade_out()
-	_veil = null
-
-
 func _spawn_adds() -> void:
 	_prune_adds()
 	var needed := 2 - _adds.size()
@@ -430,20 +542,22 @@ func _spawn_adds() -> void:
 	var host := get_parent()
 	if host == null:
 		host = self
-	var offsets := [Vector2(-70.0, 28.0), Vector2(70.0, 28.0)]
+	var offsets := [Vector2(-78.0, 30.0), Vector2(78.0, 30.0)]
 	for i in range(needed):
 		var minion := ShadowMinion.new()
-		minion.max_health = 52.0
-		minion.touch_damage = 12.0
-		minion.speed = 132.0
+		minion.max_health = 34.0
+		minion.touch_damage = 11.0
+		minion.speed = 124.0
 		minion.combat_style = "dasher" if i == 0 else "chaser"
-		minion.spawn_delay = 0.2
+		minion.spawn_delay = 0.18
 		minion.set_meta("boss_add", true)
 		host.add_child(minion)
 		minion.global_position = global_position + offsets[i]
-		minion.scale = Vector2(1.45, 1.45)
+		minion.scale = Vector2(1.12, 1.12)
 		minion.z_index = 6
 		_adds.append(minion)
+	Audio.play_sfx(Audio.Sfx.THUD)
+	Fx.punch(self, 0.12)
 
 
 func _prune_adds() -> void:
@@ -463,41 +577,163 @@ func _clear_adds() -> void:
 	_adds.clear()
 
 
-func _seed_burst_tells() -> void:
-	# Orbs spawn on resolve; the floor tell is the large ring around the Weaver.
-	pass
+func _spawn_slash_vfx(flip: bool) -> void:
+	var frames: SpriteFrames = _vfx_frames.get("slash", null)
+	if frames == null:
+		return
+	var fx := AnimatedSprite2D.new()
+	fx.sprite_frames = frames
+	fx.centered = true
+	fx.position = _aim * 54.0 + Vector2(0.0, -48.0)
+	fx.rotation = _aim.angle()
+	fx.flip_v = flip
+	fx.z_index = 12
+	add_child(fx)
+	fx.play("play")
+	fx.animation_finished.connect(fx.queue_free)
 
 
-func _fire_burst() -> void:
+func _spawn_bolt(index: int) -> void:
+	var player := _player()
+	if player == null:
+		return
 	var host := get_parent()
 	if host == null:
 		host = self
-	var player := _player()
-	var count := burst_orbs
-	if health_ratio() <= 0.4:
-		count += 4
-	for i in range(count):
-		var orb := ShadowOrb.new()
-		var angle := TAU * float(i) / float(count)
-		var radius := 78.0 + float(i % 3) * 36.0
-		orb.damage = bleach_damage * 0.85
-		orb.global_position = global_position + Vector2(cos(angle) * radius, sin(angle) * radius * 0.55)
-		host.add_child(orb)
-	if player != null:
-		for j in range(3):
-			var extra := ShadowOrb.new()
-			extra.damage = bleach_damage * 0.9
-			var jitter := Vector2(randf_range(-70.0, 70.0), randf_range(-48.0, 48.0))
-			extra.global_position = player.global_position + jitter
-			host.add_child(extra)
+	var bolt := _SkillBolt.new()
+	bolt.target = player
+	bolt.source = self
+	bolt.damage = 16.0
+	bolt.frames = _vfx_frames.get("bolt", null)
+	var spread := (float(index) - 1.0) * 0.22
+	bolt.direction = _aim.rotated(spread)
+	host.add_child(bolt)
+	bolt.global_position = global_position + Vector2(0.0, -70.0) + _aim * 28.0
+	Audio.play_sfx(Audio.Sfx.HIT)
 
 
-func _end_stagger() -> void:
-	_staggered = false
-	_stagger_left = 0.0
-	_timer = 0.7
-	_play_visual("recover")
-	recovered.emit()
+func _spawn_slam_ring() -> void:
+	_spawn_ring(_vfx_frames.get("slam", null), 16.0, 240.0, 320.0, 34.0, 26.0, 1.35)
+
+
+func _spawn_nova_ring() -> void:
+	_spawn_ring(_vfx_frames.get("nova", null), 22.0, 210.0, 390.0, 32.0, 28.0, 1.55)
+	Audio.play_sfx(Audio.Sfx.FAIL)
+	Fx.punch(self, 0.2)
+
+
+func _spawn_ring(frames: SpriteFrames, start_r: float, grow: float, max_r: float, band: float, damage: float, life: float) -> void:
+	var host := get_parent()
+	if host == null:
+		host = self
+	var ring := _ExpandingRing.new()
+	ring.frames = frames
+	ring.radius = start_r
+	ring.grow = grow
+	ring.max_r = max_r
+	ring.band = band
+	ring.damage = damage
+	ring.life = life
+	ring.source = self
+	host.add_child(ring)
+	ring.global_position = global_position
+
+
+func _show_tell() -> void:
+	if _tell == null:
+		return
+	_tell.visible = true
+	_tell.scale = Vector2.ONE
+	var pts := _danger_points()
+	if _danger != null:
+		_danger.polygon = pts
+		_danger.color = Color(0.92, 0.14, 0.16, 0.34)
+	var rim := _tell.get_node_or_null("Rim") as Line2D
+	if rim != null:
+		rim.points = pts
+
+
+func _hide_tell() -> void:
+	if _tell != null:
+		_tell.visible = false
+
+
+func _danger_points() -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	match _skill:
+		Skill.Nova:
+			for i in range(24):
+				var a := TAU * float(i) / 24.0
+				pts.append(Vector2(cos(a) * 190.0, sin(a) * 104.0))
+		Skill.Slam:
+			for i in range(20):
+				var a := TAU * float(i) / 20.0
+				pts.append(Vector2(cos(a) * 132.0, sin(a) * 72.0))
+		Skill.Summon:
+			for i in range(16):
+				var a := TAU * float(i) / 16.0
+				pts.append(Vector2(cos(a) * 74.0, sin(a) * 38.0 + 16.0))
+		Skill.Volley:
+			pts.append(-_aim * 10.0)
+			pts.append(_aim.rotated(-0.55) * 210.0)
+			pts.append(_aim.rotated(0.55) * 210.0)
+		Skill.Lunge, Skill.Dash:
+			pts.append(-_aim * 8.0 + _aim.rotated(-0.28) * 36.0)
+			pts.append(_aim * 168.0)
+			pts.append(-_aim * 8.0 + _aim.rotated(0.28) * 36.0)
+		_:
+			pts.append(-_aim * 8.0)
+			pts.append(_aim.rotated(-0.72) * 118.0)
+			pts.append(_aim.rotated(0.72) * 118.0)
+	return pts
+
+
+func _update_tell(progress: float) -> void:
+	if _tell == null:
+		return
+	var pulse := 0.92 + progress * 0.2
+	_tell.scale = Vector2(pulse, pulse)
+	if _danger != null:
+		_danger.color = Color(0.94, 0.10, 0.12, 0.26 + progress * 0.34)
+	var rim := _tell.get_node_or_null("Rim") as Line2D
+	if rim != null:
+		rim.default_color = Color(1.0, 0.22 + progress * 0.2, 0.16, 0.78 + progress * 0.22)
+		rim.width = 3.0 + progress * 3.4
+
+
+func _flash(tint: Color) -> void:
+	if _art == null and _sprite == null:
+		return
+	if _art != null:
+		_art.set_tint(tint)
+	if _sprite != null:
+		_sprite.modulate = tint
+	var tween := create_tween()
+	tween.tween_interval(0.1)
+	tween.tween_callback(func() -> void:
+		if is_instance_valid(_art):
+			_art.set_tint(Color.WHITE)
+		if is_instance_valid(_sprite):
+			_sprite.modulate = Color.WHITE
+	)
+
+
+func _play_visual(anim: StringName, force := false) -> void:
+	if _sprite == null or not _sprite.sprite_frames.has_animation(anim):
+		return
+	if not force and _sprite.animation == anim and _sprite.is_playing():
+		return
+	_sprite.play(anim)
+
+
+func _on_visual_finished() -> void:
+	if _sprite == null or _dead:
+		return
+	if _sprite.animation == &"idle" or _sprite.animation == &"walk":
+		return
+	if _phase == Phase.Stagger or _phase == Phase.Windup or _phase == Phase.Active:
+		return
+	_sprite.play("idle")
 
 
 func _build_visuals() -> void:
@@ -507,10 +743,8 @@ func _build_visuals() -> void:
 		_sprite.name = "ShadowWeaverArt"
 		_sprite.sprite_frames = boss_frames
 		_sprite.centered = true
-		_sprite.position = Vector2(0.0, -FRAME_SIZE.y * 0.5)
-		# Chapter 5 applies a 1.25 world scale. This keeps the boss roughly
-		# twice S'lang's height while its lowered arena anchor prevents clipping.
-		_sprite.scale = Vector2(0.8, 0.8)
+		_sprite.position = Vector2(0.0, -BODY_SIZE.y * 0.48)
+		_sprite.scale = Vector2(0.78, 0.78)
 		_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		_sprite.animation_finished.connect(_on_visual_finished)
 		add_child(_sprite)
@@ -526,6 +760,11 @@ func _build_visuals() -> void:
 		_art.float_speed = 1.1
 		_art.blocks_movement = false
 		add_child(_art)
+
+	_vfx_frames["slash"] = _strip_frames(VFX_SLASH, 14.0, false)
+	_vfx_frames["slam"] = _strip_frames(VFX_SLAM, 10.0, false)
+	_vfx_frames["bolt"] = _strip_frames(VFX_BOLT, 12.0, true)
+	_vfx_frames["nova"] = _strip_frames(VFX_NOVA, 9.0, false)
 
 	_smoke = GPUParticles2D.new()
 	_smoke.name = "Smoke"
@@ -549,6 +788,14 @@ func _build_visuals() -> void:
 	_smoke.process_material = smoke_mat
 	add_child(_smoke)
 
+	_select_ring = Polygon2D.new()
+	_select_ring.polygon = Iso.diamond(Vector2(0.0, 10.0), 2.6)
+	_select_ring.color = Palette.alpha(Palette.GOLD_SUN, 0.5)
+	_select_ring.z_index = -2
+	_select_ring.visible = false
+	add_child(_select_ring)
+	move_child(_select_ring, 0)
+
 	_tell = Node2D.new()
 	_tell.name = "Telegraph"
 	_tell.visible = false
@@ -567,207 +814,52 @@ func _build_visuals() -> void:
 	_tell.add_child(rim)
 
 
-func _show_tell() -> void:
-	if _tell == null:
-		return
-	_tell.visible = true
-	_tell.scale = Vector2.ONE
-	_tell.rotation = 0.0
-	if _move == Move.Burst:
-		_tell.position = Vector2.ZERO
-	elif _move == Move.Summon:
-		_tell.position = Vector2.ZERO
-	else:
-		_tell.position = Vector2.ZERO
-	var pts := _danger_points()
-	if _danger != null:
-		_danger.polygon = pts
-		_danger.color = Color(0.92, 0.16, 0.18, 0.32)
-	var rim := _tell.get_node_or_null("Rim") as Line2D
-	if rim != null:
-		rim.points = pts
-
-
-func _hide_tell() -> void:
-	if _tell != null:
-		_tell.visible = false
-
-
-func _danger_points() -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	match _move:
-		Move.Burst:
-			for i in range(24):
-				var a := TAU * float(i) / 24.0
-				pts.append(Vector2(cos(a) * 168.0, sin(a) * 92.0))
-		Move.Summon:
-			for i in range(16):
-				var a := TAU * float(i) / 16.0
-				pts.append(Vector2(cos(a) * 70.0, sin(a) * 36.0 + 18.0))
-		Move.Blind:
-			for i in range(18):
-				var a := TAU * float(i) / 18.0
-				pts.append(Vector2(cos(a) * 48.0, sin(a) * 26.0) + Vector2(0, -52))
-		_:
-			var left := _aim.rotated(-0.7) * 108.0
-			var right := _aim.rotated(0.7) * 108.0
-			pts.append(-_aim * 8.0)
-			pts.append(left)
-			pts.append(right)
-	return pts
-
-
-func _update_tell(progress: float) -> void:
-	if _tell == null:
-		return
-	var pulse := 0.92 + progress * 0.18
-	_tell.scale = Vector2(pulse, pulse)
-	if _danger != null:
-		_danger.color = Color(0.92, 0.12, 0.14, 0.28 + progress * 0.28)
-	var rim := _tell.get_node_or_null("Rim") as Line2D
-	if rim != null:
-		rim.default_color = Color(1.0, 0.22 + progress * 0.2, 0.18, 0.8 + progress * 0.2)
-		rim.width = 3.0 + progress * 3.0
-
-
-## Phase 3: the Weaver drops to its knees, waiting for the last stitch.
-func kneel() -> void:
-	_active = false
-	_telegraphing = false
-	_staggered = false
-	_hide_tell()
-	_clear_blind()
-	_clear_adds()
-	if _smoke != null:
-		_smoke.emitting = false
-	_play_visual("stagger")
-	var home := scale
-	var tween := create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(self, "rotation_degrees", 16.0, 0.55)\
-		.set_ease(Tween.EASE_IN)
-	tween.tween_property(self, "scale", Vector2(home.x * 1.05, home.y * 0.82), 0.55)
-
-
-## Color Burst: the sprite unravels into light.
-func dissolve_into_light() -> void:
-	_active = false
-	_dead = true
-	_hide_tell()
-	_clear_blind()
-	_clear_adds()
-	if _smoke != null:
-		_smoke.emitting = false
-	Fx.fiber_burst(self, Palette.GOLD_SUN)
-	var home := scale
-	var tween := create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(self, "modulate", Color(1.6, 1.5, 1.1, 0.0), 1.25)
-	tween.tween_property(self, "scale", Vector2(home.x * 1.8, home.y * 0.12), 1.25)
-
-
-func _flash(tint: Color) -> void:
-	if _art == null and _sprite == null:
-		return
-	if _art != null:
-		_art.set_tint(tint)
-	if _sprite != null:
-		_sprite.modulate = tint
-	var tween := create_tween()
-	tween.tween_interval(0.1)
-	tween.tween_callback(func() -> void:
-		if is_instance_valid(_art):
-			_art.set_tint(Color.WHITE)
-		if is_instance_valid(_sprite):
-			_sprite.modulate = Color.WHITE
-	)
-
-
-func _play_visual(anim: StringName) -> void:
-	if _sprite == null or not _sprite.sprite_frames.has_animation(anim):
-		return
-	if _sprite.animation == anim and _sprite.is_playing():
-		return
-	_sprite.play(anim)
-
-
-func _on_visual_finished() -> void:
-	if _sprite == null or _dead or _staggered or not _active:
-		return
-	if _sprite.animation == &"idle" or _sprite.animation == &"walk":
-		return
-	_sprite.play("idle")
-
-
 func _build_sprite_frames() -> SpriteFrames:
-	var image := Image.new()
-	if image.load(ProjectSettings.globalize_path(SHEET_PATH)) != OK:
-		push_warning("ShadowWeaverBoss: missing %s" % SHEET_PATH)
+	var original := _frames_from_original_sheet()
+	if original != null:
+		return original
+	push_warning("ShadowWeaverBoss: original sheet missing")
+	return null
+
+
+func _frames_from_original_sheet() -> SpriteFrames:
+	var image := _load_image(ORIGINAL_SHEET)
+	if image == null:
 		return null
-	if image.get_format() != Image.FORMAT_RGBA8:
-		image.convert(Image.FORMAT_RGBA8)
-	var aspect := float(image.get_width()) / maxf(1.0, float(image.get_height()))
+	_key_black_plate(image)
 	var cols := SHEET_COLS
-	var rows := SHEET_ROWS if aspect < 1.7 else 2
+	var rows := SHEET_ROWS
 	var cell_w := int(image.get_width() / cols)
 	var cell_h := int(image.get_height() / rows)
 	if cell_w < 8 or cell_h < 8:
 		return null
-	var count := cols * rows
 	var textures: Array[Texture2D] = []
-	for i in range(count):
+	for i in range(cols * rows):
 		var cell := image.get_region(Rect2i(
 			(i % cols) * cell_w,
 			int(i / cols) * cell_h,
 			cell_w,
 			cell_h
 		))
-		_key_boss_plate(cell)
-		textures.append(_fit_boss_frame(cell))
+		textures.append(_fit_body_frame(cell))
+	if textures.size() < 12:
+		return null
 	var frames := SpriteFrames.new()
 	frames.remove_animation(&"default")
-	if textures.size() >= 12:
-		_add_visual_anim(frames, &"idle", [textures[0], textures[1], textures[11], textures[1]], 3.6, true)
-		_add_visual_anim(frames, &"walk", [textures[2], textures[1], textures[2], textures[0]], 6.0, true)
-		_add_visual_anim(frames, &"windup", [textures[3]], 1.0, false)
-		_add_visual_anim(frames, &"attack", [textures[4]], 1.0, false)
-		_add_visual_anim(frames, &"blind", [textures[5]], 1.0, false)
-		_add_visual_anim(frames, &"summon", [textures[6]], 1.0, false)
-		_add_visual_anim(frames, &"burst_windup", [textures[7]], 1.0, false)
-		_add_visual_anim(frames, &"burst", [textures[8]], 1.0, false)
-		_add_visual_anim(frames, &"stagger", [textures[9]], 1.0, false)
-		_add_visual_anim(frames, &"recover", [textures[10], textures[0]], 5.0, false)
-		_add_visual_anim(frames, &"cast", [textures[5]], 1.0, false)
-	else:
-		_add_visual_anim(frames, &"idle", [textures[0], textures[1], textures[2], textures[1]], 3.5, true)
-		_add_visual_anim(frames, &"walk", [textures[0], textures[2]], 5.0, true)
-		_add_visual_anim(frames, &"windup", [textures[3]], 1.0, false)
-		_add_visual_anim(frames, &"attack", [textures[mini(4, textures.size() - 1)]], 1.0, false)
-		_add_visual_anim(frames, &"cast", [textures[mini(5, textures.size() - 1)]], 1.0, false)
-		_add_visual_anim(frames, &"blind", [textures[mini(5, textures.size() - 1)]], 1.0, false)
-		_add_visual_anim(frames, &"summon", [textures[mini(5, textures.size() - 1)]], 1.0, false)
-		_add_visual_anim(frames, &"burst_windup", [textures[3]], 1.0, false)
-		_add_visual_anim(frames, &"burst", [textures[mini(4, textures.size() - 1)]], 1.0, false)
-		_add_visual_anim(frames, &"stagger", [textures[mini(6, textures.size() - 1)]], 1.0, false)
-		_add_visual_anim(frames, &"recover", [textures[mini(7, textures.size() - 1)], textures[0]], 5.0, false)
+	_add_visual_anim(frames, &"idle", [textures[0], textures[1], textures[11], textures[1]], 3.8, true)
+	_add_visual_anim(frames, &"walk", [textures[2], textures[1], textures[2], textures[0]], 6.5, true)
+	_add_visual_anim(frames, &"claw", [textures[3], textures[4], textures[4]], 11.0, false)
+	_add_visual_anim(frames, &"lunge", [textures[2], textures[4], textures[4]], 12.0, false)
+	_add_visual_anim(frames, &"slam", [textures[7], textures[8], textures[8]], 9.0, false)
+	_add_visual_anim(frames, &"cast", [textures[5], textures[5]], 8.0, false)
+	_add_visual_anim(frames, &"summon", [textures[6], textures[6]], 8.0, false)
+	_add_visual_anim(frames, &"nova", [textures[7], textures[8], textures[8]], 8.0, false)
+	_add_visual_anim(frames, &"stagger", [textures[9]], 1.0, true)
+	_add_visual_anim(frames, &"death", [textures[9], textures[10]], 5.0, false)
 	return frames
 
 
-func _add_visual_anim(
-		frames: SpriteFrames,
-		anim: StringName,
-		textures: Array,
-		fps: float,
-		loop: bool
-) -> void:
-	frames.add_animation(anim)
-	frames.set_animation_speed(anim, fps)
-	frames.set_animation_loop(anim, loop)
-	for texture in textures:
-		frames.add_frame(anim, texture as Texture2D)
-
-
-func _key_boss_plate(image: Image) -> void:
+func _key_black_plate(image: Image) -> void:
 	var w := image.get_width()
 	var h := image.get_height()
 	var seen := PackedByteArray()
@@ -787,8 +879,8 @@ func _key_boss_plate(image: Image) -> void:
 		if seen[index] == 1:
 			continue
 		seen[index] = 1
-		var color: Color = image.get_pixelv(point)
-		if not _is_boss_plate(color):
+		var color := image.get_pixelv(point)
+		if not _is_black_plate(color):
 			continue
 		image.set_pixelv(point, Color.TRANSPARENT)
 		pending.append(point + Vector2i.RIGHT)
@@ -797,23 +889,114 @@ func _key_boss_plate(image: Image) -> void:
 		pending.append(point + Vector2i.UP)
 
 
-func _is_boss_plate(color: Color) -> bool:
+func _is_black_plate(color: Color) -> bool:
 	if color.a < 0.08:
 		return true
-	# Generated plate ranges from hot magenta to violet. Flooding only from the
-	# cell edge preserves the enclosed violet eye/core and rim lighting.
-	return color.r > 0.32 and color.b > 0.38 and color.g < 0.28 \
-		and (color.r + color.b) > color.g * 3.2
+	var luma := color.r * 0.299 + color.g * 0.587 + color.b * 0.114
+	var chroma := maxf(color.r, maxf(color.g, color.b)) - minf(color.r, minf(color.g, color.b))
+	return luma < 0.09 and chroma < 0.07
 
 
-func _fit_boss_frame(source: Image) -> Texture2D:
+func _add_sheet_anim(frames: SpriteFrames, anim: StringName, path: String, fps: float, loop: bool) -> bool:
+	var textures := _slice_strip(path, true)
+	if textures.is_empty():
+		return false
+	_add_visual_anim(frames, anim, textures, fps, loop)
+	return true
+
+
+func _strip_frames(path: String, fps: float, loop: bool) -> SpriteFrames:
+	var textures := _slice_strip(path, false)
+	if textures.is_empty():
+		return null
+	var frames := SpriteFrames.new()
+	frames.remove_animation(&"default")
+	_add_visual_anim(frames, &"play", textures, fps, loop)
+	return frames
+
+
+func _add_visual_anim(frames: SpriteFrames, anim: StringName, textures: Array, fps: float, loop: bool) -> void:
+	if frames.has_animation(anim):
+		frames.remove_animation(anim)
+	frames.add_animation(anim)
+	frames.set_animation_speed(anim, fps)
+	frames.set_animation_loop(anim, loop)
+	for texture in textures:
+		frames.add_frame(anim, texture as Texture2D)
+
+
+func _first_tex(frames: SpriteFrames, anim: StringName) -> Texture2D:
+	if frames.has_animation(anim) and frames.get_frame_count(anim) > 0:
+		return frames.get_frame_texture(anim, 0)
+	return null
+
+
+func _slice_strip(path: String, fit_body: bool) -> Array[Texture2D]:
+	var image := _load_image(path)
+	if image == null:
+		return []
+	_key_plate(image)
+	var fw := maxi(1, int(image.get_width() / float(STRIP_FRAMES)))
+	var fh := image.get_height()
+	var textures: Array[Texture2D] = []
+	for i in range(STRIP_FRAMES):
+		var cell := image.get_region(Rect2i(i * fw, 0, fw, fh))
+		if fit_body:
+			textures.append(_fit_body_frame(cell))
+		else:
+			textures.append(_fit_vfx_frame(cell))
+	return textures
+
+
+func _load_image(path: String) -> Image:
+	var image := Image.new()
+	if image.load(path) == OK:
+		if image.get_format() != Image.FORMAT_RGBA8:
+			image.convert(Image.FORMAT_RGBA8)
+		return image
+	var disk := ProjectSettings.globalize_path(path)
+	if image.load(disk) == OK:
+		if image.get_format() != Image.FORMAT_RGBA8:
+			image.convert(Image.FORMAT_RGBA8)
+		return image
+	if ResourceLoader.exists(path):
+		var loaded := load(path)
+		if loaded is Texture2D:
+			var tex := (loaded as Texture2D).get_image()
+			if tex != null:
+				if tex.get_format() != Image.FORMAT_RGBA8:
+					tex.convert(Image.FORMAT_RGBA8)
+				return tex
+	return null
+
+
+func _key_plate(image: Image) -> void:
+	var w := image.get_width()
+	var h := image.get_height()
+	for y in range(h):
+		for x in range(w):
+			if _is_plate(image.get_pixel(x, y)):
+				image.set_pixel(x, y, Color.TRANSPARENT)
+
+
+func _is_plate(color: Color) -> bool:
+	if color.a < 0.08:
+		return true
+	if color.r > 0.78 and color.b > 0.78 and color.g < 0.42 and (color.r + color.b) > color.g * 3.6:
+		return true
+	if color.g > 0.78 and color.r < 0.42 and color.b < 0.42:
+		return true
+	return false
+
+
+func _fit_body_frame(source: Image) -> Texture2D:
 	var used := source.get_used_rect()
-	var canvas := Image.create(FRAME_SIZE.x, FRAME_SIZE.y, false, Image.FORMAT_RGBA8)
+	var canvas := Image.create(BODY_SIZE.x, BODY_SIZE.y, false, Image.FORMAT_RGBA8)
 	canvas.fill(Color.TRANSPARENT)
 	if used.size.x < 1 or used.size.y < 1:
 		return ImageTexture.create_from_image(canvas)
 	var crop := source.get_region(used)
-	var available := FRAME_SIZE - Vector2i(24, 24)
+	var available := BODY_SIZE - Vector2i(20, 18)
 	var scale_factor := minf(
 		float(available.x) / float(crop.get_width()),
 		float(available.y) / float(crop.get_height())
@@ -823,150 +1006,128 @@ func _fit_boss_frame(source: Image) -> Texture2D:
 		maxi(1, int(round(crop.get_height() * scale_factor)))
 	)
 	crop.resize(target.x, target.y, Image.INTERPOLATE_LANCZOS)
-	var origin := Vector2i(
-		(FRAME_SIZE.x - target.x) / 2,
-		FRAME_SIZE.y - 12 - target.y
-	)
+	var origin := Vector2i((BODY_SIZE.x - target.x) / 2, BODY_SIZE.y - 10 - target.y)
 	canvas.blit_rect(crop, Rect2i(Vector2i.ZERO, target), origin)
 	return ImageTexture.create_from_image(canvas)
 
 
-class ShadowOrb extends Node2D:
-	const ARM := 0.55
-	const LIVE := 1.25
-	const HIT_RADIUS := 40.0
-	const EXPLODE_RADIUS := 52.0
+func _fit_vfx_frame(source: Image) -> Texture2D:
+	var used := source.get_used_rect()
+	if used.size.x < 1 or used.size.y < 1:
+		return ImageTexture.create_from_image(source)
+	var crop := source.get_region(used)
+	var side := maxi(crop.get_width(), crop.get_height())
+	var canvas := Image.create(side, side, false, Image.FORMAT_RGBA8)
+	canvas.fill(Color.TRANSPARENT)
+	var origin := Vector2i((side - crop.get_width()) / 2, (side - crop.get_height()) / 2)
+	canvas.blit_rect(crop, Rect2i(Vector2i.ZERO, crop.get_size()), origin)
+	return ImageTexture.create_from_image(canvas)
 
+
+class _SkillBolt extends Node2D:
+	var source: Node2D
+	var target: Node2D
 	var damage := 16.0
-	var _age := 0.0
+	var speed := 360.0
+	var direction := Vector2.RIGHT
+	var frames: SpriteFrames
 	var _spent := false
-	var _armed := false
-	var _ball: Sprite2D
-	var _tell: Polygon2D
-
+	var _travel := 0.0
 
 	func _ready() -> void:
-		z_index = 16
-		_tell = Polygon2D.new()
-		var ring := PackedVector2Array()
-		for i in range(16):
-			var a := TAU * float(i) / 16.0
-			ring.append(Vector2(cos(a) * 38.0, sin(a) * 20.0))
-		_tell.polygon = ring
-		_tell.color = Color(0.78, 0.12, 0.22, 0.42)
-		_tell.z_index = -1
-		add_child(_tell)
-		_ball = Sprite2D.new()
-		_ball.texture = _dot()
-		_ball.modulate = Color(0.28, 0.08, 0.38, 0.0)
-		_ball.scale = Vector2(0.55, 0.55)
-		_ball.position = Vector2(0.0, -18.0)
-		add_child(_ball)
-		set_process(true)
-
+		z_index = 20
+		if frames != null:
+			var spr := AnimatedSprite2D.new()
+			spr.sprite_frames = frames
+			spr.centered = true
+			spr.scale = Vector2(0.55, 0.55)
+			add_child(spr)
+			spr.play("play")
+		else:
+			var orb := Polygon2D.new()
+			orb.polygon = PackedVector2Array([
+				Vector2(0.0, -9.0), Vector2(8.0, 0.0), Vector2(0.0, 9.0), Vector2(-8.0, 0.0)
+			])
+			orb.color = Color(0.7, 0.25, 0.9, 0.95)
+			add_child(orb)
 
 	func _process(delta: float) -> void:
 		if _spent:
 			return
+		if target != null and is_instance_valid(target) and target.is_inside_tree():
+			var aim := target.global_position + Vector2(0.0, -28.0) - global_position
+			if aim.length() > 4.0:
+				direction = direction.lerp(aim.normalized(), minf(1.0, delta * 3.8)).normalized()
+			if aim.length() <= 26.0:
+				_impact()
+				return
+		global_position += direction * speed * delta
+		rotation = direction.angle()
+		_travel += speed * delta
+		if _travel >= 980.0:
+			queue_free()
+
+	func _impact() -> void:
+		_spent = true
+		if target != null and is_instance_valid(target) and target.has_method("take_damage"):
+			target.take_damage(damage, source)
+			Fx.hit_flash(target as Node2D, Color(0.6, 0.22, 0.8))
+			if target.has_method("apply_knockback"):
+				target.apply_knockback(global_position, 180.0)
+		queue_free()
+
+
+class _ExpandingRing extends Node2D:
+	var source: Node2D
+	var frames: SpriteFrames
+	var radius := 20.0
+	var grow := 240.0
+	var max_r := 320.0
+	var band := 30.0
+	var damage := 24.0
+	var life := 1.2
+	var _age := 0.0
+	var _hit := false
+	var _spr: AnimatedSprite2D
+
+	func _ready() -> void:
+		z_index = 9
+		if frames != null:
+			_spr = AnimatedSprite2D.new()
+			_spr.sprite_frames = frames
+			_spr.centered = true
+			_spr.position = Vector2(0.0, -8.0)
+			add_child(_spr)
+			_spr.play("play")
+		set_process(true)
+
+	func _process(delta: float) -> void:
 		_age += delta
-		var pulse := 0.9 + 0.12 * sin(_age * 14.0)
-		if _tell != null:
-			_tell.scale = Vector2(pulse, pulse)
-			_tell.color.a = 0.28 + 0.22 * clampf(_age / ARM, 0.0, 1.0)
-		if not _armed and _age >= ARM:
-			_armed = true
-			if _ball != null:
-				_ball.modulate.a = 0.95
-		if _armed and _ball != null:
-			_ball.scale = Vector2(0.58, 0.58) * (1.0 + 0.08 * sin(_age * 10.0))
-			_try_hit(HIT_RADIUS)
-		if _age >= ARM + LIVE:
-			_explode()
+		radius += grow * delta
+		if _spr != null:
+			var s := clampf(radius / 90.0, 0.6, 4.2)
+			_spr.scale = Vector2(s, s * 0.58)
+			_spr.modulate.a = clampf(1.0 - _age / life, 0.0, 1.0)
+		if not _hit:
+			_try_hit()
+		if radius >= max_r or _age >= life:
+			queue_free()
 
-
-	func _try_hit(radius: float) -> void:
+	func _try_hit() -> void:
 		var tree := get_tree()
 		if tree == null:
 			return
 		for node in tree.get_nodes_in_group("player"):
 			var victim := node as Node2D
-			if victim == null or not victim.is_inside_tree():
+			if victim == null:
 				continue
-			if Iso.iso_distance(global_position, victim.global_position) > radius:
+			var dist := Iso.iso_distance(global_position, victim.global_position)
+			if absf(dist - radius) > band:
 				continue
-			_impact(victim)
+			_hit = true
+			if victim.has_method("take_damage"):
+				victim.take_damage(damage, source)
+			if victim.has_method("apply_knockback"):
+				victim.apply_knockback(global_position, 300.0)
+			Fx.hit_flash(victim, Color(0.55, 0.16, 0.7))
 			return
-
-
-	func _impact(victim: Node2D) -> void:
-		_spent = true
-		if victim.has_method("take_damage"):
-			victim.take_damage(damage, self)
-		if victim.has_method("apply_knockback"):
-			victim.apply_knockback(global_position, 220.0)
-		Fx.hit_flash(victim, Color(0.55, 0.18, 0.62))
-		queue_free()
-
-
-	func _explode() -> void:
-		_try_hit(EXPLODE_RADIUS)
-		if _spent:
-			return
-		_spent = true
-		Fx.fiber_burst(self, Color(0.42, 0.16, 0.5))
-		queue_free()
-
-
-	func _dot() -> Texture2D:
-		var image := Image.create(48, 48, false, Image.FORMAT_RGBA8)
-		var centre := Vector2(23.5, 23.5)
-		for y in range(48):
-			for x in range(48):
-				var d := Vector2(x, y).distance_to(centre) / 24.0
-				image.set_pixel(x, y, Color(1, 1, 1, pow(clampf(1.0 - d, 0.0, 1.0), 1.7)))
-		return ImageTexture.create_from_image(image)
-
-
-class BlindVeil extends CanvasLayer:
-	var hold_time := 4.4
-	var _shade: ColorRect
-	var _tag: Label
-	var _fading := false
-
-
-	func _ready() -> void:
-		layer = 105
-		name = "BlindVeil"
-		_shade = ColorRect.new()
-		_shade.color = Color(0.01, 0.0, 0.02, 0.0)
-		_shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(_shade)
-		_tag = Label.new()
-		_tag.text = "BLINDED"
-		_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_tag.set_anchors_preset(Control.PRESET_CENTER_TOP)
-		_tag.offset_left = -140.0
-		_tag.offset_right = 140.0
-		_tag.offset_top = 88.0
-		_tag.offset_bottom = 120.0
-		_tag.add_theme_font_size_override("font_size", 22)
-		_tag.add_theme_color_override("font_color", Color(0.72, 0.62, 0.82, 0.9))
-		_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(_tag)
-		var tween := create_tween()
-		tween.tween_property(_shade, "color:a", 1.0, 0.28)
-		tween.tween_interval(hold_time)
-		tween.tween_callback(fade_out)
-
-
-	func fade_out() -> void:
-		if _fading:
-			return
-		_fading = true
-		var tween := create_tween()
-		if _shade != null:
-			tween.tween_property(_shade, "color:a", 0.0, 0.45)
-		if _tag != null:
-			tween.parallel().tween_property(_tag, "modulate:a", 0.0, 0.3)
-		tween.tween_callback(queue_free)

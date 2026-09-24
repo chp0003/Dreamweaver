@@ -12,6 +12,8 @@ const EXIT_UV := Vector2(0.50, 0.90)
 const MORTAR_UV := Vector2(0.50, 0.32)
 const MORTAR_REACH_UV := Vector2(0.50, 0.42)
 const FLOWERS_UV := Vector2(0.78, 0.72)
+const QUEEN_UV := Vector2(0.66, 0.86)
+const QUEEN_REACH_UV := Vector2(0.66, 0.88)
 ## Floor mark in the path between the two porch posts.
 const BARRIER_UV := Vector2(0.50, 0.72)
 
@@ -108,6 +110,14 @@ func mortar_reach_world() -> Vector2:
 
 func flowers_world() -> Vector2:
 	return uv_to_global(FLOWERS_UV)
+
+
+func queen_world() -> Vector2:
+	return uv_to_global(QUEEN_UV)
+
+
+func queen_reach_world() -> Vector2:
+	return uv_to_global(QUEEN_REACH_UV)
 
 
 func exit_world() -> Vector2:

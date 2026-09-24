@@ -11,6 +11,13 @@ const AGGRO_RANGE := 240.0
 const ATTACK_RANGE := 52.0
 const TOUCH_COOLDOWN := 1.1
 const SPECIAL_RANGE := 210.0
+## Casters shoot as soon as they can see S'lang — not melee-close.
+const CASTER_SIGHT := 920.0
+const KILL_HEAL_RATIO := 0.10
+const ATTACK_SHEET := "res://assets/images/enemies/shadow_minion_attack.png"
+const DASH_SHEET := "res://assets/images/enemies/shadow_minion_skill_dash.png"
+const CAST_SHEET := "res://assets/images/enemies/shadow_minion_skill_cast.png"
+const COMBAT_FRAMES := 8
 
 @export var max_health := 60.0
 @export var touch_damage := 14.0
@@ -27,6 +34,7 @@ var _dying := false
 var _touch_timer := 0.0
 var _hurt_lock := 0.0
 var _art: PlaceholderProp
+var _anim: AnimatedSprite2D
 var _hp_bar: ProgressBar
 var _select_ring: Polygon2D
 var _action_tell: Polygon2D
@@ -36,6 +44,7 @@ var _windup_left := 0.0
 var _dash_left := 0.0
 var _dash_velocity := Vector2.ZERO
 var _strafe_sign := 1.0
+var _last_hit_by: Node
 
 
 func _ready() -> void:
@@ -48,7 +57,7 @@ func _ready() -> void:
 	# Stop the grayscale veil from leaving afterimage trails on this body.
 	z_as_relative = true
 	_build_visuals()
-	_action_timer = randf_range(0.8, 1.8)
+	_action_timer = randf_range(0.25, 0.55) if combat_style == "caster" else randf_range(0.8, 1.8)
 	_strafe_sign = -1.0 if randf() < 0.5 else 1.0
 	_rise_from_the_floor()
 	health_changed.emit(health, max_health)
@@ -95,7 +104,8 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var dist := Iso.iso_distance(global_position, _player.global_position)
-	if dist > AGGRO_RANGE:
+	var aggro := CASTER_SIGHT if combat_style == "caster" else AGGRO_RANGE
+	if dist > aggro:
 		velocity = velocity.move_toward(Vector2.ZERO, 280.0 * delta)
 		move_and_slide()
 		return
@@ -129,14 +139,14 @@ func _physics_process(delta: float) -> void:
 func _move_caster(dist: float) -> void:
 	var toward := (_player.global_position - global_position).normalized()
 	var tangent := Vector2(-toward.y, toward.x) * _strafe_sign
-	if dist < 105.0:
+	if dist < 160.0:
 		velocity = -toward * speed
-	elif dist > 175.0:
-		velocity = toward * speed * 0.72
+	elif dist > 420.0:
+		velocity = toward * speed * 0.55
 	else:
 		velocity = tangent * speed * 0.62
-	if _action_timer <= 0.0 and dist <= SPECIAL_RANGE:
-		_begin_special(0.72)
+	if _action_timer <= 0.0 and dist <= CASTER_SIGHT:
+		_begin_special(0.48)
 
 
 func _move_stalker(dist: float) -> void:
@@ -170,29 +180,34 @@ func _commit_special() -> void:
 	var toward := (_player.global_position - global_position).normalized()
 	match combat_style:
 		"caster":
-			_cast_thread_bolt()
+			_play_combat_anim("cast")
+			var fire := get_tree().create_timer(0.28)
+			fire.timeout.connect(_cast_thread_bolt, CONNECT_ONE_SHOT)
 		"stalker":
+			_play_combat_anim("dash")
 			_dash_velocity = toward * speed * 2.25
 			_dash_left = 0.24
 		"dasher":
+			_play_combat_anim("dash")
 			_dash_velocity = toward * speed * 3.0
 			_dash_left = 0.34
 
 
 func _cast_thread_bolt() -> void:
-	var thread := Line2D.new()
-	thread.name = "ShadowThread"
-	thread.width = 4.0
-	thread.default_color = Color(0.68, 0.24, 0.9, 0.9)
-	thread.points = PackedVector2Array([Vector2(0.0, -56.0), to_local(_player.global_position)])
-	thread.z_index = 18
-	add_child(thread)
-	var tween := create_tween()
-	tween.tween_property(thread, "modulate:a", 0.0, 0.18)
-	tween.tween_callback(thread.queue_free)
-	if Iso.iso_distance(global_position, _player.global_position) <= SPECIAL_RANGE + 25.0:
-		_player.take_damage(touch_damage * 0.7, self)
-		Fx.hit_flash(_player, Color(0.62, 0.28, 0.82))
+	if _dying or not is_inside_tree():
+		return
+	if _player == null or not is_instance_valid(_player) or _player.is_dead():
+		return
+	var host := get_parent()
+	if host == null:
+		return
+	var bolt := _ShadowBolt.new()
+	bolt.source = self
+	bolt.target = _player
+	bolt.damage = touch_damage * 0.7
+	host.add_child(bolt)
+	bolt.global_position = global_position + Vector2(0.0, -56.0)
+	bolt.aim_at_target()
 
 
 func _pulse_action_tell() -> void:
@@ -213,6 +228,10 @@ func is_defeated() -> bool:
 	return _dying or health <= 0.0
 
 
+func is_hittable() -> bool:
+	return is_inside_tree() and not _dying and not _spawning and health > 0.0
+
+
 func _refresh_hp() -> void:
 	if _hp_bar == null:
 		return
@@ -231,6 +250,7 @@ func take_damage(amount: float, source: Node = null) -> bool:
 	if _dying or _spawning or amount <= 0.0:
 		return false
 	health = maxf(0.0, health - amount)
+	_last_hit_by = source
 	_hurt_lock = 0.16
 	_flash()
 	_refresh_hp()
@@ -254,6 +274,7 @@ func _try_touch() -> void:
 	if _touch_timer > 0.0 or _player == null or not is_instance_valid(_player):
 		return
 	_touch_timer = TOUCH_COOLDOWN
+	_play_combat_anim("attack")
 	_player.take_damage(touch_damage, self)
 	Fx.hit_flash(_player, Palette.RED_EMBER)
 	Fx.punch(self, 0.1)
@@ -270,6 +291,7 @@ func _die() -> void:
 	set_selected(false)
 	GameState.add_score(25)
 	died.emit(self)
+	_grant_kill_heal()
 	Fx.fiber_burst(self, Color(0.28, 0.22, 0.32))
 	Fx.hit_flash(self, Color(0.55, 0.42, 0.7))
 
@@ -281,20 +303,34 @@ func _die() -> void:
 
 
 func _rise_from_the_floor() -> void:
-	scale = Vector2(1.15, 0.08)
+	# Animate the art, not this node's scale — chapters set a display scale
+	# (Chapter 5 uses 2.15x) and a scale tween here was flattening some bodies.
 	modulate.a = 0.0
+	var art_from := Vector2(1.12, 0.12)
+	var art_rest := Vector2.ONE
+	var anim_rest := Vector2(118.0 / 128.0, 118.0 / 128.0)
+	if _art != null:
+		_art.scale = art_from
+	if _anim != null:
+		_anim.scale = Vector2(anim_rest.x, anim_rest.y * 0.12)
 	var tween := create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(self, "scale", Vector2.ONE, spawn_delay)\
-		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	tween.tween_property(self, "modulate:a", 1.0, spawn_delay)
+	if _art != null:
+		tween.tween_property(_art, "scale", art_rest, spawn_delay)\
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	if _anim != null:
+		tween.tween_property(_anim, "scale", anim_rest, spawn_delay)\
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	tween.chain().tween_callback(func() -> void: _spawning = false)
 
 
 func _face_toward(point: Vector2) -> void:
 	_facing_left = point.x < global_position.x
-	if _art != null:
-		_art.scale.x = -1.0 if _facing_left else 1.0
+	if _art != null and _art.has_method("set_flip_h"):
+		_art.set_flip_h(_facing_left)
+	if _anim != null:
+		_anim.flip_h = _facing_left
 
 
 func _flash() -> void:
@@ -329,6 +365,8 @@ func _build_visuals() -> void:
 	# No float bob — it made the grayscale veil leave ghost trails.
 	_art.float_amplitude = 0.0
 	add_child(_art)
+	if combat_style == "caster":
+		_setup_combat_anim()
 
 	_select_ring = Polygon2D.new()
 	_select_ring.name = "SelectRing"
@@ -366,3 +404,184 @@ func _build_visuals() -> void:
 	_hp_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hp_bar.z_index = 30
 	add_child(_hp_bar)
+
+
+func _setup_combat_anim() -> void:
+	var frames := SpriteFrames.new()
+	_add_strip(frames, "cast", CAST_SHEET, 12.0)
+	if not frames.has_animation("cast"):
+		return
+	_anim = AnimatedSprite2D.new()
+	_anim.name = "CombatAnim"
+	_anim.sprite_frames = frames
+	_anim.centered = true
+	_anim.position = Vector2(0.0, -58.0)
+	_anim.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_anim.visible = false
+	_anim.z_index = 1
+	add_child(_anim)
+	_anim.animation_finished.connect(_on_combat_anim_finished)
+
+
+func _add_strip(frames: SpriteFrames, anim_name: String, path: String, fps: float) -> void:
+	var sheet := _load_sheet_image(path)
+	if sheet == null:
+		return
+	_key_magenta(sheet)
+	var fw := maxi(1, int(sheet.get_width() / float(COMBAT_FRAMES)))
+	var fh := sheet.get_height()
+	if frames.has_animation(anim_name):
+		frames.remove_animation(anim_name)
+	frames.add_animation(anim_name)
+	frames.set_animation_loop(anim_name, false)
+	frames.set_animation_speed(anim_name, fps)
+	for i in range(COMBAT_FRAMES):
+		var cell := sheet.get_region(Rect2i(i * fw, 0, fw, fh))
+		frames.add_frame(anim_name, _fit_minion_frame(cell))
+
+
+func _load_sheet_image(path: String) -> Image:
+	var image := Image.new()
+	if image.load(path) == OK:
+		if image.get_format() != Image.FORMAT_RGBA8:
+			image.convert(Image.FORMAT_RGBA8)
+		return image
+	var disk := ProjectSettings.globalize_path(path) if path.begins_with("res://") else path
+	if FileAccess.file_exists(disk) and image.load(disk) == OK:
+		if image.get_format() != Image.FORMAT_RGBA8:
+			image.convert(Image.FORMAT_RGBA8)
+		return image
+	return null
+
+
+func _key_magenta(image: Image) -> void:
+	var w := image.get_width()
+	var h := image.get_height()
+	for y in range(h):
+		for x in range(w):
+			var c := image.get_pixel(x, y)
+			if c.a < 0.08:
+				image.set_pixel(x, y, Color.TRANSPARENT)
+				continue
+			if c.r > 0.72 and c.b > 0.72 and c.g < 0.45 and (c.r + c.b) > c.g * 3.2:
+				image.set_pixel(x, y, Color.TRANSPARENT)
+
+
+func _fit_minion_frame(source: Image) -> Texture2D:
+	var used := source.get_used_rect()
+	var canvas := Image.create(96, 128, false, Image.FORMAT_RGBA8)
+	canvas.fill(Color.TRANSPARENT)
+	if used.size.x < 1 or used.size.y < 1:
+		return ImageTexture.create_from_image(canvas)
+	var crop := source.get_region(used)
+	var available := Vector2i(88, 118)
+	var scale_factor := minf(
+		float(available.x) / float(crop.get_width()),
+		float(available.y) / float(crop.get_height())
+	)
+	var target := Vector2i(
+		maxi(1, int(round(crop.get_width() * scale_factor))),
+		maxi(1, int(round(crop.get_height() * scale_factor)))
+	)
+	crop.resize(target.x, target.y, Image.INTERPOLATE_LANCZOS)
+	var origin := Vector2i((96 - target.x) / 2, 128 - 4 - target.y)
+	canvas.blit_rect(crop, Rect2i(Vector2i.ZERO, target), origin)
+	return ImageTexture.create_from_image(canvas)
+
+
+func _play_combat_anim(anim_name: String) -> void:
+	if anim_name == "cast" and _anim != null and _anim.sprite_frames != null \
+			and _anim.sprite_frames.has_animation("cast"):
+		if _art != null:
+			_art.visible = false
+		_anim.visible = true
+		_anim.flip_h = _facing_left
+		_anim.play("cast")
+		return
+	if _art != null:
+		Fx.punch(_art, 0.08)
+
+
+func _on_combat_anim_finished() -> void:
+	if _dying:
+		return
+	if _anim != null:
+		_anim.visible = false
+	if _art != null:
+		_art.visible = true
+
+
+func _grant_kill_heal() -> void:
+	var killer := _last_hit_by if _last_hit_by != null else _player
+	if killer == null or not is_instance_valid(killer):
+		return
+	if not (killer is Slang) or not killer.has_method("heal"):
+		return
+	var slang := killer as Slang
+	var gained := slang.heal(slang.max_health * KILL_HEAL_RATIO)
+	if gained <= 0.0:
+		return
+	Fx.hit_flash(slang, Palette.GOLD_SUN)
+	var host: Node = get_parent()
+	if host != null:
+		Fx.damage_number(host, slang.global_position, int(round(gained)), Palette.GOLD_SUN)
+
+
+class _ShadowBolt extends Node2D:
+	var source: Node2D
+	var target: Node2D
+	var damage := 10.0
+	var speed := 340.0
+	var _spent := false
+	var _travel := 0.0
+	var _direction := Vector2.RIGHT
+
+	func _ready() -> void:
+		z_index = 22
+		var orb := Polygon2D.new()
+		orb.polygon = PackedVector2Array([
+			Vector2(0.0, -10.0), Vector2(8.0, 0.0),
+			Vector2(0.0, 10.0), Vector2(-8.0, 0.0),
+		])
+		orb.color = Color(0.72, 0.28, 0.92, 0.95)
+		add_child(orb)
+		var halo := Polygon2D.new()
+		halo.polygon = PackedVector2Array([
+			Vector2(0.0, -16.0), Vector2(13.0, 0.0),
+			Vector2(0.0, 16.0), Vector2(-13.0, 0.0),
+		])
+		halo.color = Color(0.42, 0.12, 0.62, 0.35)
+		halo.z_index = -1
+		add_child(halo)
+		move_child(halo, 0)
+
+	func aim_at_target() -> void:
+		if target == null or not is_instance_valid(target):
+			return
+		var aim := target.global_position + Vector2(0.0, -28.0)
+		if aim.distance_to(global_position) > 4.0:
+			_direction = (aim - global_position).normalized()
+
+	func _physics_process(delta: float) -> void:
+		if _spent:
+			return
+		if target != null and is_instance_valid(target) and target.is_inside_tree():
+			var aim := target.global_position + Vector2(0.0, -28.0)
+			var desired := aim - global_position
+			if desired.length() > 4.0:
+				_direction = _direction.lerp(desired.normalized(), minf(1.0, delta * 4.5)).normalized()
+			if desired.length() <= 28.0:
+				_impact()
+				return
+		global_position += _direction * speed * delta
+		_travel += speed * delta
+		rotation += delta * 8.0
+		if _travel >= 1100.0:
+			queue_free()
+
+	func _impact() -> void:
+		_spent = true
+		if target != null and is_instance_valid(target) and target.has_method("take_damage"):
+			target.take_damage(damage, source)
+			Fx.hit_flash(target as Node2D, Color(0.62, 0.28, 0.82))
+		queue_free()

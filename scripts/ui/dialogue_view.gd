@@ -235,6 +235,10 @@ func _style_speaker(speaker: String) -> void:
 		color = Palette.GOLD_SUN
 	elif "spirit" in key:
 		color = Palette.DREAM_AURORA
+	elif "harvest" in key:
+		color = Color(0.78, 0.32, 0.18)
+	elif "chief" in key:
+		color = Palette.GOLD_BRASS
 	elif "master" in key or "ancestor" in key:
 		color = Palette.GOLD_SUN
 	elif "shadow" in key:
@@ -248,7 +252,7 @@ func _set_portrait(speaker: String) -> void:
 	if portrait == null:
 		return
 	var path := _portrait_path(speaker)
-	var tex: Texture2D = load(path) as Texture2D if not path.is_empty() and ResourceLoader.exists(path) else null
+	var tex := PlaceholderProp.load_cutout_texture(path, speaker)
 	portrait.texture = tex
 	portrait.visible = tex != null
 	var well := portrait.get_parent() as CanvasItem
@@ -256,7 +260,7 @@ func _set_portrait(speaker: String) -> void:
 		well.visible = tex != null
 	if tex != null:
 		var key := speaker.to_lower()
-		if "fun kdungon" in key or "master" in key:
+		if "fun kdungon" in key or "master" in key or "chief" in key or "harvest" in key:
 			portrait.modulate = Color.WHITE
 			portrait.custom_minimum_size = Vector2(108, 148)
 		elif "spirit" in key:
@@ -278,6 +282,10 @@ func _portrait_path(speaker: String) -> String:
 		return "res://assets/images/characters/slang.png"
 	if "fun kdungon" in key:
 		return "res://assets/images/characters/fun_kdungon.png"
+	if "chief" in key:
+		return "res://assets/images/characters/the_chief.png"
+	if "harvest" in key:
+		return "res://assets/images/characters/harvest_queen.png"
 	if "spirit" in key:
 		return "res://assets/images/characters/spirit_of_the_fiber.png"
 	if "master" in key:

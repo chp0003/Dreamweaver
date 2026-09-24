@@ -205,7 +205,8 @@ func _silhouette_kind() -> String:
 	if "guno" in key or "house" in key:
 		return "house"
 	if "slang" in key or "spirit" in key or "weaver" in key or "villager" in key \
-			or "minion" in key or "statue" in key or "kdungon" in key:
+			or "minion" in key or "statue" in key or "kdungon" in key \
+			or "chief" in key or "queen" in key:
 		return "person"
 	if "plant" in key or "grass" in key or "flower" in key or "abaca" in key:
 		return "plant"
@@ -386,22 +387,7 @@ func label_text() -> String:
 func _load_texture() -> void:
 	if texture_path.is_empty():
 		return
-	var texture: Texture2D = null
-	if ResourceLoader.exists(texture_path):
-		var loaded := load(texture_path)
-		if loaded is Texture2D:
-			texture = loaded
-	if texture == null:
-		# Freshly-written PNGs may not have a .import yet; load the pixels
-		# directly so art still shows up the same session it is dropped in.
-		var disk := texture_path
-		if disk.begins_with("res://"):
-			disk = ProjectSettings.globalize_path(disk)
-		if FileAccess.file_exists(disk) or FileAccess.file_exists(texture_path):
-			var image := Image.new()
-			var path := disk if FileAccess.file_exists(disk) else texture_path
-			if image.load(path) == OK:
-				texture = ImageTexture.create_from_image(image)
+	var texture := load_cutout_texture(texture_path, prop_label)
 	if texture == null:
 		push_warning("PlaceholderProp: failed to load %s" % texture_path)
 		queue_redraw()
@@ -410,10 +396,7 @@ func _load_texture() -> void:
 	_sprite = Sprite2D.new()
 	_sprite.texture = texture
 	_sprite.centered = false
-	_sprite.texture_filter = (
-		CanvasItem.TEXTURE_FILTER_NEAREST if nearest_filter
-		else CanvasItem.TEXTURE_FILTER_LINEAR
-	)
+	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if nearest_filter else CanvasItem.TEXTURE_FILTER_LINEAR
 	_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
 	var tex_size := texture.get_size()
 	# Scale the art to the prop's footprint so AI sheets of any resolution sit
@@ -457,3 +440,147 @@ func _build_label() -> void:
 	_label.add_theme_constant_override("outline_size", 4)
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_label)
+
+
+static func _read_cutout_image(path: String) -> Image:
+	var image := Image.new()
+	if _try_load_image(image, path):
+		return image
+	var disk := ProjectSettings.globalize_path(path) if path.begins_with("res://") else path
+	if FileAccess.file_exists(disk) and _try_load_image(image, disk):
+		return image
+	if ResourceLoader.exists(path):
+		var loaded := load(path)
+		if loaded is Texture2D:
+			var tex := (loaded as Texture2D).get_image()
+			if tex != null:
+				if tex.get_format() != Image.FORMAT_RGBA8:
+					tex.convert(Image.FORMAT_RGBA8)
+				return tex
+	return null
+
+
+static func _try_load_image(image: Image, path: String) -> bool:
+	if image.load(path) == OK:
+		if image.get_format() != Image.FORMAT_RGBA8:
+			image.convert(Image.FORMAT_RGBA8)
+		return true
+	if not FileAccess.file_exists(path):
+		return false
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return false
+	var buf := file.get_buffer(file.get_length())
+	file.close()
+	if image.load_png_from_buffer(buf) == OK or image.load_jpg_from_buffer(buf) == OK:
+		if image.get_format() != Image.FORMAT_RGBA8:
+			image.convert(Image.FORMAT_RGBA8)
+		return true
+	return false
+
+
+## Load a PNG/JPEG and knock studio magenta / lime / foot-ovals to alpha.
+static func load_cutout_texture(path: String, label := "") -> Texture2D:
+	if path.is_empty():
+		return null
+	var image := _read_cutout_image(path)
+	if image != null:
+		if _should_clean_cutout(path, label):
+			clean_cutout(image)
+			var used := image.get_used_rect()
+			if used.size.x > 8 and used.size.y > 8:
+				image = image.get_region(used)
+		return ImageTexture.create_from_image(image)
+	if ResourceLoader.exists(path):
+		var loaded := load(path)
+		if loaded is Texture2D:
+			return loaded
+	return null
+
+
+static func _should_clean_cutout(path: String, label: String) -> bool:
+	var key := (path + " " + label).to_lower()
+	return "characters/" in key or "kdungon" in key or "chief" in key \
+		or "harvest" in key or "queen" in key or "fun_kdungon" in key
+
+
+## Knock studio plates and the painted foot-oval off character PNGs.
+static func clean_cutout(image: Image) -> void:
+	if image == null:
+		return
+	var w := image.get_width()
+	var h := image.get_height()
+	var seed := image.get_pixel(0, 0)
+	var seen := PackedByteArray()
+	seen.resize(w * h)
+	var pending: Array[Vector2i] = []
+	for x in range(w):
+		pending.append(Vector2i(x, 0))
+		pending.append(Vector2i(x, h - 1))
+	for y in range(h):
+		pending.append(Vector2i(0, y))
+		pending.append(Vector2i(w - 1, y))
+	while not pending.is_empty():
+		var point: Vector2i = pending.pop_back()
+		if point.x < 0 or point.y < 0 or point.x >= w or point.y >= h:
+			continue
+		var index: int = point.y * w + point.x
+		if seen[index] == 1:
+			continue
+		seen[index] = 1
+		var color := image.get_pixelv(point)
+		if not _is_plate_or_seed(color, seed):
+			continue
+		image.set_pixelv(point, Color.TRANSPARENT)
+		pending.append(point + Vector2i.RIGHT)
+		pending.append(point + Vector2i.LEFT)
+		pending.append(point + Vector2i.DOWN)
+		pending.append(point + Vector2i.UP)
+	var y_cut := int(float(h) * 0.58)
+	for x in range(w):
+		var last_body := -1
+		for y in range(h):
+			var c := image.get_pixel(x, y)
+			if c.a > 0.08 and not _is_foot_disc(c):
+				last_body = y
+		var start := last_body + 1 if last_body >= 0 else y_cut
+		for y in range(maxi(start, y_cut), h):
+			if _is_foot_disc(image.get_pixel(x, y)):
+				image.set_pixel(x, y, Color.TRANSPARENT)
+
+
+static func _is_plate_or_seed(c: Color, seed: Color) -> bool:
+	if _is_studio_plate(c):
+		return true
+	var dr := absf(c.r - seed.r)
+	var dg := absf(c.g - seed.g)
+	var db := absf(c.b - seed.b)
+	return (dr + dg + db) < 0.42 and maxf(dr, maxf(dg, db)) < 0.26
+
+
+static func _is_studio_plate(c: Color) -> bool:
+	if c.a < 0.08:
+		return true
+	var luma := c.r * 0.299 + c.g * 0.587 + c.b * 0.114
+	var chroma := maxf(c.r, maxf(c.g, c.b)) - minf(c.r, minf(c.g, c.b))
+	if luma > 0.88 and chroma < 0.12:
+		return true
+	if luma < 0.08 and chroma < 0.08:
+		return true
+	if c.g > 0.70 and c.r < 0.48 and c.b < 0.48:
+		return true
+	if c.r > 0.55 and c.b > 0.45 and c.g < 0.55 and (c.r + c.b) > c.g * 2.2:
+		return true
+	return false
+
+
+static func _is_foot_disc(c: Color) -> bool:
+	if c.a < 0.08:
+		return true
+	if _is_studio_plate(c):
+		return true
+	if c.v < 0.28 or c.v > 0.86:
+		return false
+	if c.s < 0.08 or c.s > 0.70:
+		return false
+	return c.h > 0.02 and c.h < 0.18

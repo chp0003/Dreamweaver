@@ -11,6 +11,8 @@ const SPAWN_UV := Vector2(0.50, 0.66)
 ## Open floor to the right of the painted loom — not on the seat.
 const SPIRIT_UV := Vector2(0.40, 0.58)
 const SPIRIT_REACH_UV := Vector2(0.40, 0.60)
+const CHIEF_UV := Vector2(0.26, 0.58)
+const CHIEF_REACH_UV := Vector2(0.26, 0.60)
 const RACK_UV := Vector2(0.50, 0.30)
 const RACK_REACH_UV := Vector2(0.50, 0.40)
 const VAT_UV := Vector2(0.78, 0.38)
@@ -102,6 +104,14 @@ func spirit_world() -> Vector2:
 
 func spirit_reach_world() -> Vector2:
 	return uv_to_global(SPIRIT_REACH_UV)
+
+
+func chief_world() -> Vector2:
+	return uv_to_global(CHIEF_UV)
+
+
+func chief_reach_world() -> Vector2:
+	return uv_to_global(CHIEF_REACH_UV)
 
 
 func rack_world() -> Vector2:

@@ -200,11 +200,11 @@ func _push_lights() -> void:
 	if _material == null:
 		return
 	_material.set_shader_parameter("loom_uv", LOOM_UV)
-	_material.set_shader_parameter("loom_energy", 0.55)
+	_material.set_shader_parameter("loom_energy", 0.12)
 	_material.set_shader_parameter("player_uv", SPAWN_UV)
-	_material.set_shader_parameter("player_radius", 0.36)
-	_material.set_shader_parameter("restore", 0.28)
-	_material.set_shader_parameter("sanctity", 0.10)
+	_material.set_shader_parameter("player_radius", 0.22)
+	_material.set_shader_parameter("restore", 0.0)
+	_material.set_shader_parameter("sanctity", 0.0)
 
 
 func _load_disk_image() -> Image:

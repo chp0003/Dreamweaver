@@ -80,7 +80,7 @@ func _show_welcome() -> void:
 func _set_detail_portrait(path: String) -> void:
 	if detail_portrait == null:
 		return
-	var tex: Texture2D = load(path) as Texture2D if not path.is_empty() and ResourceLoader.exists(path) else null
+	var tex := PlaceholderProp.load_cutout_texture(path)
 	detail_portrait.texture = tex
 	detail_portrait.visible = tex != null
 

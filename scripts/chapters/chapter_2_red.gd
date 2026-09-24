@@ -13,6 +13,7 @@ const ROOT_SHADOW_CAP := 8
 const PIGMENT_MASHING := "res://scenes/minigames/PigmentMashing.tscn"
 const COLLISION_SCENE := "res://scenes/world/House2Collision.tscn"
 const STEPS: Array[String] = [
+	"Speak with the Harvest Queen",
 	"Cut the Shadow Vines",
 	"Find hulo  ·  5",
 	"Crush at the mortar",
@@ -25,6 +26,8 @@ var _vine_barrier: StaticBody2D
 var _roots := 0
 var _mortar: Node2D
 var _mortar_trigger: Interactable
+var _queen: PlaceholderProp
+var _queen_trigger: Interactable
 var _flowers: Node2D
 var _vine_anchor: Node2D
 var _beacon: QuestBeacon
@@ -136,6 +139,23 @@ func _build_work_line() -> void:
 	_vine_anchor = _anchor("VineAnchor", _plate.barrier_world())
 	_mark_station("vines", _vine_anchor, "VINES", Vector2(0.0, -80.0))
 
+	_queen = place_prop("HARVEST QUEEN", _plate.queen_world(), {
+		"texture_path": "res://assets/images/characters/harvest_queen.png",
+		"prop_size": Vector2(118.0, 200.0),
+		"body_color": Color(0.18, 0.32, 0.16),
+		"accent_color": Color(0.78, 0.22, 0.16),
+		"float_amplitude": 0.0,
+		"show_label": false,
+		"blocks_movement": false,
+		"cast_shadow": false,
+	})
+	_queen.set_tint(Color(0.52, 0.52, 0.54))
+	_queen_trigger = place_interactable("Speak with the Harvest Queen", _plate.queen_reach_world(), {
+		"enabled": false,
+		"radius": 96.0,
+	})
+	_mark_station("queen", _queen, "HARVEST QUEEN", Vector2(0.0, -108.0))
+
 
 func _grow_vines() -> void:
 	var count := mini(VINE_COUNT, Chapter2Plate.VINE_UVS.size())
@@ -237,6 +257,8 @@ func _light_station(id: String, action := "[E]") -> void:
 			mark.set_lit(str(key) == id, action)
 	var target: Node2D = null
 	match id:
+		"queen":
+			target = _queen
 		"vines":
 			target = _vine_anchor
 		"mortar":
@@ -247,9 +269,9 @@ func _light_station(id: String, action := "[E]") -> void:
 
 func _set_steps(index: int, gather_count := -1) -> void:
 	var steps := STEPS.duplicate()
-	steps[0] = "Cut the Shadow Vines  ·  %d / %d" % [_vines_cleared, VINE_COUNT]
+	steps[1] = "Cut the Shadow Vines  ·  %d / %d" % [_vines_cleared, VINE_COUNT]
 	if gather_count >= 0:
-		steps[1] = "Find hulo  ·  %d / %d" % [gather_count, ROOT_TOTAL]
+		steps[2] = "Find hulo  ·  %d / %d" % [gather_count, ROOT_TOTAL]
 	if hud != null and hud.has_method("set_quest_steps"):
 		hud.call("set_quest_steps", steps, index)
 
@@ -262,19 +284,21 @@ func _clear_steps() -> void:
 func _on_vine_cleared(vine: ShadowVine) -> void:
 	_vines.erase(vine)
 	_vines_cleared += 1
-	_set_steps(0)
+	_set_steps(1)
 
 
 func _on_root_collected(pickup: Collectible) -> void:
 	_pickups.erase(pickup)
 	_roots += 1
-	_set_steps(1, _roots)
+	_set_steps(2, _roots)
 
 
 func apply_restored_color() -> void:
 	super.apply_restored_color()
 	if _plate != null:
 		_plate.set_restore(1.0)
+	if _queen != null:
+		_queen.set_tint(Color.WHITE)
 
 
 func _run_chapter() -> void:
@@ -282,14 +306,27 @@ func _run_chapter() -> void:
 		player.has_staff = true
 	Audio.set_ambience(0.38, 0.0)
 	_set_steps(0)
-	_light_station("vines", "[SPACE]")
-	objective("Vines block the step. Walk up and press [Space] to cut them.")
+	_light_station("queen")
+	objective("The Harvest Queen waits on the porch. Walk to her and press [E].")
 	await wait(0.35)
 	await say([
-		"The porch is a garden, same as the last house. The hall beyond is not. Something has grown across the step — the shape of a plant, remembered wrongly.",
-		{"speaker": "S'lang", "text": "It is between me and the red. So it is between me and the mortar."},
+		"The porch is a garden, same as the last house. A woman in green stands in the gray — the forest still knows her, even if the hall does not.",
+		{"speaker": "S'lang", "text": "If she is the land, then the thorns are a wound in her."},
 	])
+	_queen_trigger.set_enabled(true)
+	await _queen_trigger.interacted
+	_queen_trigger.set_enabled(false)
+	_grant_life_thread()
+	await say([
+		{"speaker": "The Harvest Queen", "text": "I am the abundance of this land. The red in the root, the grain in the basket, the cycle that weaving copies."},
+		{"speaker": "S'lang", "text": "The step is blocked. Wrong plants."},
+		{"speaker": "The Harvest Queen", "text": "Life-Thread. A stitch that grows until it bursts. Press [Q]. The corrupted thorns will come apart like a harvest, not a fight. Then the red dye can be remembered."},
+	])
+	GameState.unlock_lore("harvest_queen")
 
+	_set_steps(1)
+	_light_station("vines", "[Q]")
+	objective("Vines block the step. Press [Q] for Life-Thread, or [Space] to cut.")
 	await until(func() -> bool: return _vines_cleared >= VINE_COUNT)
 	_drop_vine_barrier()
 	if _beacon != null:
@@ -301,7 +338,7 @@ func _run_chapter() -> void:
 	])
 
 	_scatter_roots()
-	_set_steps(1, 0)
+	_set_steps(2, 0)
 	_light_station("")
 	if _beacon != null:
 		_beacon.clear()
@@ -315,10 +352,10 @@ func _run_chapter() -> void:
 
 	await say([
 		{"speaker": "S'lang", "text": "Five roots. Beaten in a mortar until they give the colour away."},
-		{"speaker": "Fun Kdungon", "text": "Courage is not found. It is crushed out of what you already carried."},
+		{"speaker": "The Harvest Queen", "text": "Courage is not found. It is grown, crushed, and sown again. That is the cycle."},
 	])
 
-	_set_steps(2)
+	_set_steps(3)
 	_light_station("mortar")
 	_mortar_trigger.set_enabled(true)
 	objective("The mortar at the back of the hall. Press [E] to crush the hulo.")
@@ -328,7 +365,7 @@ func _run_chapter() -> void:
 	var mashed: bool = await run_mini_game(PIGMENT_MASHING)
 	if not mashed:
 		await say([
-			{"speaker": "Fun Kdungon", "text": "The pestle struck dry stone. Come back when the root has given its red."},
+		{"speaker": "The Harvest Queen", "text": "The pestle struck dry stone. Come back when the root has given its red."},
 		])
 		_clear_steps()
 		if _beacon != null:
@@ -356,9 +393,20 @@ func _run_chapter() -> void:
 	GameState.unlock_lore("sacred_colors")
 	await complete_chapter([
 		"Red climbs the stone, then the hall remembers itself — wood, flower, and the colour of courage.",
-		{"speaker": "S'lang", "text": "This house is no longer gray. The ridge still is."},
+		{"speaker": "The Harvest Queen", "text": "The land remembers its plenty. Carry the red. The next house has forgotten the sun."},
 		{"speaker": "Fun Kdungon", "text": "Leave by the porch at the garden's edge. The House of the Golden Sun is dark, and it will stay dark until you bring it light."},
 	])
+
+
+func _grant_life_thread() -> void:
+	if _queen != null:
+		_queen.set_tint(Color.WHITE)
+		Fx.hit_flash(_queen, Color(0.82, 0.28, 0.18))
+		Fx.fiber_burst(_queen, Color(0.78, 0.22, 0.16))
+	Audio.play_sfx(Audio.Sfx.CHIME)
+	GameState.add_item("life_thread")
+	if player != null and is_instance_valid(player):
+		player.has_life_thread = true
 
 
 func _arm_root_ambushes() -> void:

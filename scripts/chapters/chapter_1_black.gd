@@ -12,6 +12,7 @@ const TNALAK_WEAVING := "res://scenes/minigames/TnalakWeaving.tscn"
 const COLLISION_SCENE := "res://scenes/world/House1Collision.tscn"
 const STEPS: Array[String] = [
 	"Speak with Fun Kdungon",
+	"Restore the Chief",
 	"Find abaca  ·  10",
 	"Sort at the rack",
 	"Weave the T'nalak",
@@ -20,6 +21,8 @@ const STEPS: Array[String] = [
 var _plate: Chapter1Plate
 var _spirit: PlaceholderProp
 var _spirit_trigger: Interactable
+var _chief: PlaceholderProp
+var _chief_trigger: Interactable
 var _rack: Node2D
 var _rack_trigger: Interactable
 var _vat: Node2D
@@ -123,7 +126,7 @@ func _build_work_line() -> void:
 		"float_amplitude": 0.0,
 		"show_label": false,
 		"blocks_movement": false,
-		"cast_shadow": true,
+		"cast_shadow": false,
 	})
 	_spirit_trigger = place_interactable("Speak with Fun Kdungon", _plate.spirit_reach_world(), {
 		"enabled": false,
@@ -131,6 +134,23 @@ func _build_work_line() -> void:
 	})
 	_mark_station("spirit", _spirit, "FUN KDUNGON", Vector2(0.0, -96.0))
 	_light_spirit()
+
+	_chief = place_prop("THE CHIEF", _plate.chief_world(), {
+		"texture_path": "res://assets/images/characters/the_chief.png",
+		"prop_size": Vector2(118.0, 196.0),
+		"body_color": Color(0.28, 0.22, 0.18),
+		"accent_color": Palette.GOLD_SACRED,
+		"float_amplitude": 0.0,
+		"show_label": false,
+		"blocks_movement": false,
+		"cast_shadow": false,
+	})
+	_chief.set_tint(Color(0.52, 0.52, 0.54))
+	_chief_trigger = place_interactable("Speak with the Chief", _plate.chief_reach_world(), {
+		"enabled": false,
+		"radius": 96.0,
+	})
+	_mark_station("chief", _chief, "CHIEF", Vector2(0.0, -102.0))
 
 	_rack = _anchor("RackAnchor", _plate.rack_world())
 	_rack_trigger = place_interactable("Sort the strands", _plate.rack_reach_world(), {
@@ -171,6 +191,18 @@ func _light_spirit() -> void:
 	lamp.position = Vector2(0.0, -96.0)
 	lamp.texture = _radial_light()
 	_spirit.add_child(lamp)
+
+
+func _restore_chief() -> void:
+	if _chief == null:
+		return
+	_chief.set_tint(Color.WHITE)
+	Fx.hit_flash(_chief, Palette.GOLD_SUN)
+	Fx.fiber_burst(_chief, Palette.GOLD_BRASS)
+	Audio.play_sfx(Audio.Sfx.CHIME)
+	var still := _chief.get_sprite()
+	if still != null:
+		still.visible = true
 
 
 func _radial_light() -> GradientTexture2D:
@@ -242,6 +274,8 @@ func _light_station(id: String, action := "[E]") -> void:
 	match id:
 		"spirit":
 			target = _spirit
+		"chief":
+			target = _chief
 		"rack":
 			target = _rack
 		"vat":
@@ -253,7 +287,7 @@ func _light_station(id: String, action := "[E]") -> void:
 func _set_steps(index: int, gather_count := -1) -> void:
 	var steps := STEPS.duplicate()
 	if gather_count >= 0:
-		steps[1] = "Find abaca  ·  %d / %d" % [gather_count, STRAND_TOTAL]
+		steps[2] = "Find abaca  ·  %d / %d" % [gather_count, STRAND_TOTAL]
 	if hud != null and hud.has_method("set_quest_steps"):
 		hud.call("set_quest_steps", steps, index)
 
@@ -266,7 +300,7 @@ func _clear_steps() -> void:
 func _on_strand_collected(pickup: Collectible) -> void:
 	_strands.erase(pickup)
 	_collected += 1
-	_set_steps(1, _collected)
+	_set_steps(2, _collected)
 
 
 func apply_restored_color() -> void:
@@ -275,6 +309,8 @@ func apply_restored_color() -> void:
 		_plate.set_restore(1.0)
 	if _spirit != null:
 		_spirit.set_tint(Color.WHITE)
+	if _chief != null:
+		_chief.set_tint(Color.WHITE)
 
 
 func _run_chapter() -> void:
@@ -295,12 +331,26 @@ func _run_chapter() -> void:
 	await say([
 		{"speaker": "Fun Kdungon", "text": "Weaver's hands. Then tell me — what comes first?"},
 		{"speaker": "S'lang", "text": "The abaca. Strip it, comb it, knot it."},
-		{"speaker": "Fun Kdungon", "text": "Good. The grayness took that out of this house. Ten pale strands remain — tucked, faded, easy to walk past. Search the hall and the garden. Bring them here."},
+		{"speaker": "Fun Kdungon", "text": "Good. The grayness took that out of this house — and it took the Chief with it. He still stands to the left of the loom. Restore him first. He remembers where the shadow struck, and he holds the map of this hall."},
 	])
 	GameState.unlock_lore("abaca")
 
+	_set_steps(1)
+	_light_station("chief")
+	objective("The Chief stands to the left of the loom. Walk to him and press [E].")
+	_chief_trigger.set_enabled(true)
+	await _chief_trigger.interacted
+	_chief_trigger.set_enabled(false)
+	_restore_chief()
+	await say([
+		{"speaker": "The Chief", "text": "I am still here. The grayness took my name first, then the paths."},
+		{"speaker": "S'lang", "text": "Then give them back. Where did the shadow strike first?"},
+		{"speaker": "The Chief", "text": "Here. This hall. I keep the valley's memory — and the first map. Ten pale strands hide in the hall and the garden below. Walk them. Remember them. That is how a village is defended: by knowing the ground before the dark does."},
+	])
+	GameState.unlock_lore("the_chief")
+
 	_scatter_strands()
-	_set_steps(1, 0)
+	_set_steps(2, 0)
 	_light_station("")
 	if _beacon != null:
 		_beacon.clear()
@@ -314,7 +364,7 @@ func _run_chapter() -> void:
 		{"speaker": "Fun Kdungon", "text": "Then sort them. Brittle from viable. The rack in the centre is waiting."},
 	])
 
-	_set_steps(2)
+	_set_steps(3)
 	_light_station("rack")
 	_rack_trigger.set_enabled(true)
 	objective("The centre rack. Press [E] to sort brittle from viable.")
@@ -337,7 +387,7 @@ func _run_chapter() -> void:
 		{"speaker": "Fun Kdungon", "text": "The vat on the right. The sorted fibre is waiting. Click a strand, then its match. Four pairs make a cloth."},
 	])
 
-	_set_steps(3)
+	_set_steps(4)
 	_light_station("vat")
 	_vat_trigger.set_enabled(true)
 	objective("The vat on the right. Press [E] to match the sorted abaca into a cloth.")
@@ -345,14 +395,7 @@ func _run_chapter() -> void:
 	_vat_trigger.set_enabled(false)
 
 	_finished_cloth = {}
-	var woven: bool = await run_mini_game(TNALAK_WEAVING, {}, func(game: Node) -> void:
-		if game.has_signal("cloth_completed"):
-			game.cloth_completed.connect(func(cloth: Variant) -> void:
-				if cloth != null and cloth.has_method("to_dictionary"):
-					_finished_cloth = cloth.to_dictionary()
-				GameState.add_item("tnalak_cloth")
-			)
-	)
+	var woven: bool = await run_mini_game(TNALAK_WEAVING, {}, _bind_weaving_game)
 	if not woven:
 		await say([
 			{"speaker": "Fun Kdungon", "text": "The cloth is not yet on the loom. Come back when the last strand is in."},
@@ -384,5 +427,17 @@ func _run_chapter() -> void:
 	await complete_chapter([
 		"The cloth is on the loom. Each sorted strand found its twin.",
 		{"speaker": "Fun Kdungon", "text": "The foundation is laid. A T'nalak remembers. I will not let this house forget again."},
+		{"speaker": "The Chief", "text": "The first strike is named. Keep this house. The next one will try to grow over its own door."},
 		{"speaker": "Fun Kdungon", "text": "Leave by the porch at the garden's edge. The House of Red Courage is next — something has grown across its door."},
 	])
+
+
+func _bind_weaving_game(game: Node) -> void:
+	if game != null and game.has_signal("cloth_completed"):
+		game.cloth_completed.connect(_on_cloth_completed)
+
+
+func _on_cloth_completed(cloth: Variant) -> void:
+	if cloth != null and cloth.has_method("to_dictionary"):
+		_finished_cloth = cloth.to_dictionary()
+	GameState.add_item("tnalak_cloth")

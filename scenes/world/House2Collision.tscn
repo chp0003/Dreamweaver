@@ -22,7 +22,7 @@ show_collision_debug = true
 polygon = PackedVector2Array(-768, -576, 768, -576, 768, -250, -247, -576, -228, -230, -300, -95, -375, 46, -510, 40, -444, -61, -344, -230)
 
 [node name="BackWall" type="CollisionPolygon2D" parent="HallCollision" unique_id=1821801090]
-polygon = PackedVector2Array(-768, -576, 768, -576, 592.3849, -428.70993, 334, -212, 438, 33, 299, 33, 230, -199, -83, -177, -247, -576, -250, -425, -228, -230, -300, -95, -375, 46, -510, 40, -444, -61, -344, -230)
+polygon = PackedVector2Array(-768, -576, 768, -576, 592.3849, -428.70993, 334, -212, 438, 33, 299, 33, 177, -287, 117, -224, 61, -92, -43, -102, -83, -117, -131, -365, -247, -576, -250, -425, -228, -230, -300, -95, -375, 46, -510, 40, -444, -61, -344, -230)
 
 [node name="RightCrates2" type="CollisionPolygon2D" parent="HallCollision" unique_id=1228705341]
 position = Vector2(-920, 260)
@@ -30,4 +30,4 @@ polygon = PackedVector2Array(140, -801, 140, -836, 193, -155, 507, -142, 620, -1
 
 [node name="RightCrates" type="CollisionPolygon2D" parent="HallCollision" unique_id=1537401846]
 position = Vector2(128, 260)
-polygon = PackedVector2Array(187, -142, 203, -132, 193, -155, 507, -142, 620, -155, 667, -57, 582, 269, 165, 322)
+polygon = PackedVector2Array(187, -142, 137, -42, 137, -136, 507, -142, 620, -155, 667, -57, 623, 316, 165, 322, 121, 2)

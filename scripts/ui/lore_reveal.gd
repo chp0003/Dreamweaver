@@ -30,7 +30,7 @@ func present(entry_id: String) -> void:
 	_title.text = str(entry.get("title", "Remembered"))
 	_body.text = str(entry.get("text", ""))
 	var art_path := str(entry.get("illustration", entry.get("portrait", "")))
-	var tex: Texture2D = load(art_path) as Texture2D if not art_path.is_empty() and ResourceLoader.exists(art_path) else null
+	var tex := PlaceholderProp.load_cutout_texture(art_path)
 	_art.texture = tex
 	_art.visible = tex != null
 	await _fade_in(0.45)
