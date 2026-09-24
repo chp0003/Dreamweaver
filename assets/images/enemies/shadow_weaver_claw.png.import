@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cmst63d4xxyh2"
-valid=false
+uid="uid://c4kuopkf2aeqy"
+path="res://.godot/imported/shadow_weaver_claw.png-d7c7b5db476d7ccc960b2b93faed5fe8.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/enemies/shadow_weaver_claw.png"
+dest_files=["res://.godot/imported/shadow_weaver_claw.png-d7c7b5db476d7ccc960b2b93faed5fe8.ctex"]
 
 [params]
 

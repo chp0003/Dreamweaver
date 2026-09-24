@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ba4lkwdwupbu3"
-valid=false
+uid="uid://8qqd0212r3nn"
+path="res://.godot/imported/shadow_weaver_idle.png-57af289c5ba1aeafd599d2b9c982efdd.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/enemies/shadow_weaver_idle.png"
+dest_files=["res://.godot/imported/shadow_weaver_idle.png-57af289c5ba1aeafd599d2b9c982efdd.ctex"]
 
 [params]
 

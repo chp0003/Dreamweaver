@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://06js0u1kgs18"
-valid=false
+uid="uid://c10h2j42vfhth"
+path="res://.godot/imported/shadow_weaver_stagger.png-f2f5d57626d81514e772955170cf5701.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/enemies/shadow_weaver_stagger.png"
+dest_files=["res://.godot/imported/shadow_weaver_stagger.png-f2f5d57626d81514e772955170cf5701.ctex"]
 
 [params]
 

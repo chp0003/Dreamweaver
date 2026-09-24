@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bxdiosxhsukpl"
-valid=false
+uid="uid://u5rsow4wenn6"
+path="res://.godot/imported/shadow_weaver_death.png-036967ffe5f5d34e33dd9f2375b1cf29.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/enemies/shadow_weaver_death.png"
+dest_files=["res://.godot/imported/shadow_weaver_death.png-036967ffe5f5d34e33dd9f2375b1cf29.ctex"]
 
 [params]
 

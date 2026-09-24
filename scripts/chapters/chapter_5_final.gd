@@ -176,22 +176,22 @@ func _build_hall() -> void:
 		_dress_shadow_pool(pool)
 		_pools.append(pool)
 
-	_ancestor = place_prop("MASTER WEAVER", _plate.ghost_world(), {
-		"texture_path": "res://assets/images/characters/master_weaver_ghost.png",
+	_ancestor = place_prop("FUN KDUNGON", _plate.ghost_world(), {
+		"texture_path": "res://assets/images/characters/fun_kdungon.png",
 		"prop_size": Vector2(110.0, 188.0),
-		"body_color": Color(0.55, 0.52, 0.48),
-		"accent_color": Color(0.82, 0.74, 0.5),
+		"body_color": Palette.BLACK_CHARCOAL,
+		"accent_color": Palette.GOLD_SACRED,
 		"show_label": false,
-		"float_amplitude": 5.0,
-		"float_speed": 0.9,
+		"float_amplitude": 0.0,
+		"float_speed": 0.7,
 		"blocks_movement": false,
-		"cast_shadow": false,
+		"cast_shadow": true,
 	})
 	_ancestor.modulate.a = 0.0
 	_ancestor.visible = false
 
 	_boss = ShadowWeaverBoss.new()
-	_boss.max_health = 560.0
+	_boss.max_health = 680.0
 	if world != null:
 		world.add_child(_boss)
 	else:
@@ -735,6 +735,8 @@ func _on_telegraph_started(_window: float) -> void:
 			counter("NOVA — roll through the ring")
 		"summon":
 			counter("SUMMON — kill the shadows")
+		"blind":
+			counter("BLIND — the hall goes dark")
 		_:
 			counter("CLAW — roll aside")
 
@@ -954,7 +956,7 @@ func _closing_cutscene() -> void:
 	await wait(0.6)
 
 	await say([
-		"The Master Weaver nods once, then is only light.",
+		"Fun Kdungon nods once, then is only light.",
 		{"speaker": "S'lang", "text": "I will teach it. To anyone who will sit still and learn."},
 	])
 

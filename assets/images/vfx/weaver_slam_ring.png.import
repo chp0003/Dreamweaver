@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cwkdpcnl2ljwo"
-valid=false
+uid="uid://daolnev4d33rv"
+path="res://.godot/imported/weaver_slam_ring.png-ae9c7243bc732ad22d1229230aad3428.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/vfx/weaver_slam_ring.png"
+dest_files=["res://.godot/imported/weaver_slam_ring.png-ae9c7243bc732ad22d1229230aad3428.ctex"]
 
 [params]
 

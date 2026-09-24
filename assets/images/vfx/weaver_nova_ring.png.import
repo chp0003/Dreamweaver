@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dchik6tmlvinv"
-valid=false
+uid="uid://bli37iojdp2xx"
+path="res://.godot/imported/weaver_nova_ring.png-1a522df01161e29699f4050cc30edb71.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/vfx/weaver_nova_ring.png"
+dest_files=["res://.godot/imported/weaver_nova_ring.png-1a522df01161e29699f4050cc30edb71.ctex"]
 
 [params]
 

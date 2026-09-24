@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://5vqpp6m5lgg0"]
 
-[ext_resource type="Texture2D" path="res://assets/images/environments/house_ancestors/master_weaver_hall.png" id="1_hall"]
+[ext_resource type="Texture2D" uid="uid://bhiicxb4ifnxo" path="res://assets/images/environments/house_ancestors/master_weaver_hall.png" id="1_hall"]
 [ext_resource type="Script" uid="uid://c282enk2jiljv" path="res://scripts/world/editor_plate_ref.gd" id="2_ref"]
 [ext_resource type="Script" uid="uid://clye7sh26pu3e" path="res://scripts/world/hub_collision_debug.gd" id="3_debug"]
 

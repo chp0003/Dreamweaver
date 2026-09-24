@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bx8in4auspdnf"
-valid=false
+uid="uid://1mitjauwitxq"
+path="res://.godot/imported/weaver_claw_slash.png-3b8a5bb76b4d2110438f351c7c4b2668.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/vfx/weaver_claw_slash.png"
+dest_files=["res://.godot/imported/weaver_claw_slash.png-3b8a5bb76b4d2110438f351c7c4b2668.ctex"]
 
 [params]
 

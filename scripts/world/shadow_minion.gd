@@ -51,8 +51,8 @@ func _ready() -> void:
 	add_to_group("hittable")
 	add_to_group("shadow_minion")
 	health = max_health
-	collision_layer = 2
-	collision_mask = 0
+	collision_layer = PhysicsLayers.LAYER_ENEMIES
+	collision_mask = PhysicsLayers.LAYER_WORLD
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 	# Stop the grayscale veil from leaving afterimage trails on this body.
 	z_as_relative = true

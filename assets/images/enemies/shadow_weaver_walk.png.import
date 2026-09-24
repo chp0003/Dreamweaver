@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bxo5r6ufib8xx"
-valid=false
+uid="uid://k3du1lhc7u1u"
+path="res://.godot/imported/shadow_weaver_walk.png-2b849bbcabfdadf87a55dd09c3d358df.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/enemies/shadow_weaver_walk.png"
+dest_files=["res://.godot/imported/shadow_weaver_walk.png-2b849bbcabfdadf87a55dd09c3d358df.ctex"]
 
 [params]
 

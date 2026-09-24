@@ -13,7 +13,26 @@ func _ready() -> void:
 	z_index = 50
 	if Engine.is_editor_hint():
 		call_deferred("_flatten_collision_tree")
+	else:
+		_bake_polygon_scales()
 	queue_redraw()
+
+
+## Godot draws a scaled CollisionPolygon2D with the stretch, then physics drops
+## that non-uniform scale. Bake it into the points so the blocker matches the overlay.
+func _bake_polygon_scales() -> void:
+	for child in get_children():
+		var poly := child as CollisionPolygon2D
+		if poly == null:
+			continue
+		var stretched := poly.scale
+		if is_equal_approx(stretched.x, 1.0) and is_equal_approx(stretched.y, 1.0):
+			continue
+		var baked := PackedVector2Array()
+		for point in poly.polygon:
+			baked.append(Vector2(point.x * stretched.x, point.y * stretched.y))
+		poly.polygon = baked
+		poly.scale = Vector2.ONE
 
 
 func _process(_delta: float) -> void:

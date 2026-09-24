@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b6ngordh5w3oc"
-valid=false
+uid="uid://bb1r3gvskbjun"
+path="res://.godot/imported/shadow_weaver_lunge.png-ef0fd95d9948606d97b83f14cd063862.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/enemies/shadow_weaver_lunge.png"
+dest_files=["res://.godot/imported/shadow_weaver_lunge.png-ef0fd95d9948606d97b83f14cd063862.ctex"]
 
 [params]
 

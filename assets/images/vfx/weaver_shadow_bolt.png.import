@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ce4gnfxasu3e1"
-valid=false
+uid="uid://cuxvddm242bvy"
+path="res://.godot/imported/weaver_shadow_bolt.png-690312e17182a4c81522732c7fffcb9a.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/vfx/weaver_shadow_bolt.png"
+dest_files=["res://.godot/imported/weaver_shadow_bolt.png-690312e17182a4c81522732c7fffcb9a.ctex"]
 
 [params]
 

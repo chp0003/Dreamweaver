@@ -462,17 +462,26 @@ func _face_locked_target() -> void:
 ## Prefer the hittable under the cursor; otherwise the closest near the click.
 func _pick_click_target(world_point: Vector2) -> Node2D:
 	var best: Node2D = null
-	var best_d := CLICK_PICK_RADIUS
+	var best_d := 100000.0
 	for node in get_tree().get_nodes_in_group("hittable"):
 		if not _is_valid_hit(node):
 			continue
 		var target := node as Node2D
+		if target.has_method("click_points"):
+			var pts: Variant = target.call("click_points")
+			if pts is PackedVector2Array:
+				for point in pts:
+					var body_d := world_point.distance_to(point)
+					if body_d < 150.0 and body_d < best_d:
+						best_d = body_d
+						best = target
+				continue
 		# Prefer enemies near the cursor; also accept clicks a little below their feet.
 		var d := minf(
 			world_point.distance_to(target.global_position + Vector2(0.0, -28.0)),
 			world_point.distance_to(target.global_position)
 		)
-		if d < best_d:
+		if d < CLICK_PICK_RADIUS and d < best_d:
 			best_d = d
 			best = target
 	return best

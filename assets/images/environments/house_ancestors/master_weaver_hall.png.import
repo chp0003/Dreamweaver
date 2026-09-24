@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://co3fgxmsopbvu"
-valid=false
+uid="uid://bhiicxb4ifnxo"
+path="res://.godot/imported/master_weaver_hall.png-527e176f95cd3db6a052d661047f5d2e.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/environments/house_ancestors/master_weaver_hall.png"
+dest_files=["res://.godot/imported/master_weaver_hall.png-527e176f95cd3db6a052d661047f5d2e.ctex"]
 
 [params]
 

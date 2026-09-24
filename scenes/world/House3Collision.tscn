@@ -1,46 +1,40 @@
-[gd_scene format=3 uid="uid://c3r3ig45xgold3"]
+[gd_scene format=3 uid="uid://d1bmbr3vvtk6q"]
 
 [ext_resource type="Texture2D" uid="uid://la2bsbrhtbwl" path="res://assets/images/environments/house_gold/golden_sun_hall.png" id="1_hall"]
 [ext_resource type="Script" uid="uid://c282enk2jiljv" path="res://scripts/world/editor_plate_ref.gd" id="2_ref"]
 [ext_resource type="Script" uid="uid://clye7sh26pu3e" path="res://scripts/world/hub_collision_debug.gd" id="3_debug"]
 
-[node name="House3Collision" type="Node2D"]
+[node name="House3Collision" type="Node2D" unique_id=936690887]
 
-[node name="PlateRef" type="Sprite2D" parent="."]
+[node name="PlateRef" type="Sprite2D" parent="." unique_id=1233996023]
 z_index = -120
 texture = ExtResource("1_hall")
 script = ExtResource("2_ref")
 
-[node name="HallCollision" type="StaticBody2D" parent="."]
+[node name="HallCollision" type="StaticBody2D" parent="." unique_id=873783106]
 z_index = 50
 collision_layer = 4
 collision_mask = 0
 script = ExtResource("3_debug")
 show_collision_debug = true
 
-[node name="BackWall" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-576, -432, 576, -432, 576, -198, 95, -155, -95, -155, -576, -198)
+[node name="BackWall" type="CollisionPolygon2D" parent="HallCollision" unique_id=191154016]
+polygon = PackedVector2Array(-576, -432, 576, -432, 576, -198, 79, -207, 127, -87, -86, -81, -73, -195, -576, -198)
 
-[node name="SpindleStand" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-85, -150, 85, -150, 110, -65, 55, -55, -55, -55, -110, -65)
+[node name="RightShelves" type="CollisionPolygon2D" parent="HallCollision" unique_id=1400666937]
+polygon = PackedVector2Array(256, -204, 568, -168, 568, -8, 363, -101, 255, -159)
 
-[node name="BellRack" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-530, -108, -142, -68, -108, 54, -505, 64)
-
-[node name="RightShelves" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(318, -168, 568, -168, 568, -8, 338, 10)
-
-[node name="Chest" type="CollisionPolygon2D" parent="HallCollision"]
+[node name="Chest" type="CollisionPolygon2D" parent="HallCollision" unique_id=649264504]
 polygon = PackedVector2Array(205, -16, 448, -20, 470, 64, 214, 68)
 
-[node name="LeftGarden" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-576, 32, -175, 44, -138, 70, -132, 118, -122, 175, -112, 245, -102, 310, -94, 358, -118, 402, -154, 432, -576, 432)
+[node name="LeftGarden" type="CollisionPolygon2D" parent="HallCollision" unique_id=1471581529]
+polygon = PackedVector2Array(-576, 32, -426, 83, -259, 92, -201, 94, -172, 147, -178, 170, -213, 269, -126, 305, -146, 349, -165, 386, -154, 432, -576, 432)
 
-[node name="RightGarden" type="CollisionPolygon2D" parent="HallCollision"]
+[node name="RightGarden" type="CollisionPolygon2D" parent="HallCollision" unique_id=627256833]
 polygon = PackedVector2Array(576, 32, 175, 44, 138, 70, 132, 118, 122, 175, 112, 245, 102, 310, 94, 358, 118, 402, 154, 432, 576, 432)
 
-[node name="LeftWall" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(-576, -432, -292, -432, -292, -112, -438, -112, -438, 58, -576, 58)
+[node name="LeftWall" type="CollisionPolygon2D" parent="HallCollision" unique_id=918632043]
+polygon = PackedVector2Array(-576, -432, -292, -432, -316, -69, -383, -35, -447, 9, -438, 58, -576, 58)
 
-[node name="RightWall" type="CollisionPolygon2D" parent="HallCollision"]
-polygon = PackedVector2Array(292, -432, 576, -432, 576, 58, 438, 58, 438, -112, 292, -112)
+[node name="RightWall" type="CollisionPolygon2D" parent="HallCollision" unique_id=453894599]
+polygon = PackedVector2Array(292, -432, 576, -432, 576, 58, 438, 58, 438, -112, 386, -115)

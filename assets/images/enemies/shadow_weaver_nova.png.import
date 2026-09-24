@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cyuejci382qn"
-valid=false
+uid="uid://bcmhe26wdxfh0"
+path="res://.godot/imported/shadow_weaver_nova.png-ea216f31f41a7f0d374a222e034cf4ce.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/enemies/shadow_weaver_nova.png"
+dest_files=["res://.godot/imported/shadow_weaver_nova.png-ea216f31f41a7f0d374a222e034cf4ce.ctex"]
 
 [params]
 
