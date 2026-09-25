@@ -445,17 +445,35 @@ func _load_sheet_image(path: String) -> Image:
 	return Palette.read_image(path)
 
 
+## Sheets ship on a flat magenta backdrop whose exact shade varies per file,
+## so the key color is sampled from the corner rather than hard-coded.
 func _key_magenta(image: Image) -> void:
 	var w := image.get_width()
 	var h := image.get_height()
+	var key := image.get_pixel(1, 1)
+	if key.a < 0.08 or key.g > 0.4 or minf(key.r, key.b) < 0.35:
+		key = Color(0.76, 0.06, 0.61)
+	const HARD := 0.2
+	const SOFT := 0.36
 	for y in range(h):
 		for x in range(w):
 			var c := image.get_pixel(x, y)
 			if c.a < 0.08:
 				image.set_pixel(x, y, Color.TRANSPARENT)
 				continue
-			if c.r > 0.72 and c.b > 0.72 and c.g < 0.45 and (c.r + c.b) > c.g * 3.2:
+			var d := Vector3(c.r - key.r, c.g - key.g, c.b - key.b).length()
+			var bright_magenta := c.r > 0.72 and c.b > 0.72 and c.g < 0.45 \
+					and (c.r + c.b) > c.g * 3.2
+			if d < HARD or bright_magenta:
 				image.set_pixel(x, y, Color.TRANSPARENT)
+			elif d < SOFT:
+				var keep := (d - HARD) / (SOFT - HARD)
+				var spill := minf(c.r, c.b) - c.g
+				if spill > 0.0:
+					c.r -= spill * (1.0 - keep)
+					c.b -= spill * (1.0 - keep)
+				c.a *= keep
+				image.set_pixel(x, y, c)
 
 
 func _fit_minion_frame(source: Image) -> Texture2D:
