@@ -25,6 +25,8 @@ var lore: Array = []
 var score := 0
 var quiz_mistakes := 0
 var game_completed := false
+## Set by the menu test jump. Not saved. Lets a finished House play again.
+var replay_house_id := 0
 var objective := ""
 ## Score when the current House began. Chapter 4 restores this on a failed retake.
 var house_score_mark := 0
@@ -50,6 +52,7 @@ func new_game() -> void:
 	quiz_mistakes = 0
 	game_completed = false
 	objective = ""
+	replay_house_id = 0
 	ColorRestoration.reset()
 	save()
 	_announce_all()
@@ -69,6 +72,7 @@ func load_from_account() -> void:
 	game_completed = bool(data.get("game_completed", false))
 	quiz_mistakes = 0
 	objective = ""
+	replay_house_id = 0
 	if unlocked_houses.is_empty():
 		unlocked_houses = [1]
 	sync_house_unlocks()
@@ -222,9 +226,48 @@ func has_item(item_id: String) -> bool:
 
 
 ## True once Black + Red + Gold essences and the Master Pattern are secured.
+func wants_replay(house_id: int) -> bool:
+	return replay_house_id == house_id
+
+
+func clear_replay() -> void:
+	replay_house_id = 0
+
+
 func can_face_the_shadow_weaver() -> bool:
 	return has_essence("black") and has_essence("red") and has_essence("gold") \
 		and has_item("master_pattern")
+
+
+## Opens one House for a menu test jump. Earlier houses are not marked finished.
+## The staff, their colours, and any pattern that House expects are granted so
+## the room is playable on its own.
+func prepare_chapter_jump(house_id: int) -> void:
+	house_id = clampi(house_id, 1, Houses.count())
+	if has_save():
+		load_from_account()
+	else:
+		new_game()
+	if not items.has("lewet_staff"):
+		items.append("lewet_staff")
+	for id in range(1, house_id + 1):
+		if not is_house_unlocked(id):
+			unlocked_houses.append(id)
+	for id in range(1, house_id):
+		var house := Houses.get_house(id)
+		var essence := str(house.get("essence", ""))
+		if not essence.is_empty() and not essences.has(essence):
+			essences.append(essence)
+		var reward := str(house.get("reward_item", ""))
+		if not reward.is_empty() and not items.has(reward):
+			items.append(reward)
+	current_chapter = house_id
+	quiz_mistakes = 0
+	replay_house_id = house_id
+	ColorRestoration.sync_essences()
+	inventory_changed.emit()
+	progress_changed.emit()
+	save()
 
 
 func set_current_chapter(house_id: int) -> void:

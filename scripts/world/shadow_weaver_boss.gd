@@ -13,7 +13,7 @@ signal defeated
 enum Skill { None, Claw, Lunge, Slam, Volley, Dash, Nova, Summon, Blind }
 enum Phase { Approach, Windup, Active, Recover, Stagger, Dead }
 
-const BODY_SIZE := Vector2i(360, 460)
+const BODY_SIZE := Vector2i(520, 640)
 const BODY_DRAW_H := 300
 const FRAME_GUTTER := 12
 const STRIKE_SPLIT := 4
@@ -90,9 +90,8 @@ var _ghost_cd := 0.0
 var _nova_flashed := false
 var _pose_tween: Tween
 var _dash_dest := Vector2.ZERO
-var _hp_bar: ProgressBar
-var _hp_label: Label
 var _veil: CanvasLayer
+var _sprite_home := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -281,6 +280,7 @@ func stagger(duration: float = -1.0) -> void:
 		_pose_tween.kill()
 	if _sprite != null:
 		_sprite.scale = SPRITE_SCALE
+		_sprite.position = _sprite_home
 	_stagger_left = stagger_duration if duration < 0.0 else duration
 	_poise = 0.0
 	Audio.play_sfx(Audio.Sfx.SUCCESS)
@@ -351,6 +351,7 @@ func _enter_approach(delay: float) -> void:
 	if _sprite != null:
 		_sprite.scale = SPRITE_SCALE
 		_sprite.modulate = Color.WHITE
+		_sprite.position = _sprite_home
 	_play_visual("idle")
 
 
@@ -885,10 +886,14 @@ func _drive_skill_pose() -> void:
 	var frame := 0
 	match _phase:
 		Phase.Windup:
+			# Hold the tell, then ease into the last windup frame.
 			var t := clampf(_phase_t / maxf(_windup, 0.05), 0.0, 0.999)
+			t = t * t * (3.0 - 2.0 * t)
 			frame = int(t * float(cut))
 		Phase.Active:
+			# The strike frames arrive quickly, then the follow-through settles.
 			var t := clampf(_phase_t / maxf(_active_len, 0.05), 0.0, 0.999)
+			t = 1.0 - pow(1.0 - t, 2.4)
 			frame = cut + int(t * float(count - cut))
 		Phase.Recover:
 			frame = count - 1
@@ -898,6 +903,7 @@ func _drive_skill_pose() -> void:
 		_sprite.pause()
 	_sprite.frame = clampi(frame, 0, count - 1)
 	_paint_skill_glow()
+	_ease_body_lean()
 
 
 func _paint_skill_glow() -> void:
@@ -907,11 +913,10 @@ func _paint_skill_glow() -> void:
 	match _phase:
 		Phase.Windup:
 			var t := clampf(_phase_t / maxf(_windup, 0.05), 0.0, 1.0)
-			var pulse := 0.65 + 0.35 * sin(_phase_t * 16.0)
-			_sprite.modulate = Color.WHITE.lerp(ink, (0.12 + t * 0.5) * pulse)
+			_sprite.modulate = Color.WHITE.lerp(ink, 0.08 + t * 0.14)
 		Phase.Active:
 			var t := clampf(_phase_t / maxf(_active_len, 0.05), 0.0, 1.0)
-			_sprite.modulate = Color.WHITE.lerp(ink, (1.0 - t) * 0.28)
+			_sprite.modulate = Color.WHITE.lerp(ink, (1.0 - t) * 0.12)
 		_:
 			_sprite.modulate = Color.WHITE
 
@@ -936,14 +941,28 @@ func _skill_color() -> Color:
 			return Color(0.74, 0.22, 0.98)
 
 
+func _ease_body_lean() -> void:
+	if _sprite == null:
+		return
+	var lean := 0.0
+	match _phase:
+		Phase.Windup:
+			var t := clampf(_phase_t / maxf(_windup, 0.05), 0.0, 1.0)
+			lean = -8.0 * t
+		Phase.Active:
+			var t := clampf(_phase_t / maxf(_active_len, 0.05), 0.0, 1.0)
+			lean = lerpf(12.0, 0.0, t)
+		Phase.Recover:
+			lean = 0.0
+		_:
+			lean = 0.0
+	var facing := -1.0 if _sprite.flip_h else 1.0
+	_sprite.position = _sprite_home + Vector2(lean * facing, 0.0)
+
+
 func _strike_flourish() -> void:
 	if _sprite != null:
-		if _pose_tween != null:
-			_pose_tween.kill()
-		_sprite.scale = Vector2(SPRITE_SCALE.x * 1.14, SPRITE_SCALE.y * 0.84)
-		_pose_tween = create_tween()
-		_pose_tween.tween_property(_sprite, "scale", SPRITE_SCALE, 0.16)\
-			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_sprite.scale = SPRITE_SCALE
 	Fx.light_burst(self, _skill_color())
 	Fx.fiber_burst(self, _skill_color())
 
@@ -1008,15 +1027,7 @@ func _ensure_feet() -> void:
 
 
 func _sync_hp_bar() -> void:
-	if _hp_bar == null:
-		return
-	_hp_bar.max_value = max_health
-	_hp_bar.value = health
-	var show := _active and not _dead and health > 0.0
-	_hp_bar.visible = show
-	if _hp_label != null:
-		_hp_label.visible = show
-		_hp_label.text = "SHADOW WEAVER  %d" % roundi(health)
+	pass
 
 
 func _cast_blind() -> void:
@@ -1048,7 +1059,10 @@ func _build_visuals() -> void:
 		_sprite.name = "ShadowWeaverArt"
 		_sprite.sprite_frames = boss_frames
 		_sprite.centered = true
-		_sprite.position = Vector2(0.0, -(float(BODY_SIZE.y) * 0.5 - 8.0))
+		# Pin the robe hem to the feet. Canvas headroom must not lift the body.
+		var hem := (float(BODY_SIZE.y) * 0.5 - 8.0) * SPRITE_SCALE.y
+		_sprite.position = Vector2(0.0, 4.0 - hem)
+		_sprite_home = _sprite.position
 		_sprite.scale = SPRITE_SCALE
 		_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		_sprite.animation_finished.connect(_on_visual_finished)
@@ -1114,33 +1128,6 @@ func _build_visuals() -> void:
 	add_child(_select_ring)
 	move_child(_select_ring, 0)
 
-	_hp_bar = ProgressBar.new()
-	_hp_bar.name = "BossHp"
-	_hp_bar.show_percentage = false
-	_hp_bar.custom_minimum_size = Vector2(168.0, 12.0)
-	_hp_bar.size = Vector2(168.0, 12.0)
-	_hp_bar.position = Vector2(-84.0, -368.0)
-	_hp_bar.max_value = max_health
-	_hp_bar.value = health
-	_hp_bar.visible = false
-	_hp_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hp_bar.z_index = 40
-	_hp_bar.add_theme_stylebox_override("background", UiStyle.bar_track(6))
-	_hp_bar.add_theme_stylebox_override("fill", UiStyle.bar_fill(Color(0.62, 0.16, 0.72), 6))
-	add_child(_hp_bar)
-	_hp_label = Label.new()
-	_hp_label.name = "BossHpLabel"
-	_hp_label.text = "SHADOW WEAVER"
-	_hp_label.position = Vector2(-84.0, -390.0)
-	_hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hp_label.z_index = 40
-	_hp_label.add_theme_font_size_override("font_size", 14)
-	_hp_label.add_theme_color_override("font_color", Color(0.93, 0.86, 0.96))
-	_hp_label.add_theme_color_override("font_outline_color", Color(0.05, 0.02, 0.08))
-	_hp_label.add_theme_constant_override("outline_size", 4)
-	add_child(_hp_label)
-	_hp_label.visible = false
-
 	_tell = Node2D.new()
 	_tell.name = "Telegraph"
 	_tell.visible = false
@@ -1162,9 +1149,10 @@ func _build_visuals() -> void:
 func _build_sprite_frames() -> SpriteFrames:
 	var frames := SpriteFrames.new()
 	frames.remove_animation(&"default")
+	var body_scale := _reference_body_scale(SHEET_IDLE)
 	var specs: Array = [
 		[&"idle", SHEET_IDLE, 5.5, true],
-		[&"walk", SHEET_WALK, 8.0, true],
+		[&"walk", SHEET_WALK, 11.0, true],
 		[&"claw", SHEET_CLAW, 10.0, false],
 		[&"lunge", SHEET_LUNGE, 12.0, false],
 		[&"slam", SHEET_SLAM, 9.0, false],
@@ -1177,11 +1165,11 @@ func _build_sprite_frames() -> SpriteFrames:
 		[&"blind", SHEET_BLIND, 9.0, false],
 	]
 	for spec in specs:
-		_add_sheet_anim(frames, spec[0], spec[1], float(spec[2]), bool(spec[3]))
+		_add_sheet_anim(frames, spec[0], spec[1], float(spec[2]), bool(spec[3]), body_scale)
 	if not frames.has_animation(&"dash") and frames.has_animation(&"lunge"):
-		_add_sheet_anim(frames, &"dash", SHEET_LUNGE, 14.0, false)
+		_add_sheet_anim(frames, &"dash", SHEET_LUNGE, 14.0, false, body_scale)
 	if not frames.has_animation(&"blind") and frames.has_animation(&"nova"):
-		_add_sheet_anim(frames, &"blind", SHEET_NOVA, 9.0, false)
+		_add_sheet_anim(frames, &"blind", SHEET_NOVA, 9.0, false, body_scale)
 	if frames.has_animation(&"idle") and frames.has_animation(&"claw") and frames.has_animation(&"slam"):
 		return frames
 	push_warning("ShadowWeaverBoss: skill sheets missing, using combined sheet")
@@ -1263,8 +1251,8 @@ func _is_black_plate(color: Color) -> bool:
 	return luma < 0.09 and chroma < 0.07
 
 
-func _add_sheet_anim(frames: SpriteFrames, anim: StringName, path: String, fps: float, loop: bool) -> bool:
-	var textures := _slice_strip(path, true)
+func _add_sheet_anim(frames: SpriteFrames, anim: StringName, path: String, fps: float, loop: bool, body_scale: float) -> bool:
+	var textures := _slice_strip(path, true, body_scale)
 	if textures.is_empty():
 		return false
 	_add_visual_anim(frames, anim, textures, fps, loop)
@@ -1297,7 +1285,7 @@ func _first_tex(frames: SpriteFrames, anim: StringName) -> Texture2D:
 	return null
 
 
-func _slice_strip(path: String, fit_body: bool) -> Array[Texture2D]:
+func _slice_strip(path: String, fit_body: bool, body_scale := 1.0) -> Array[Texture2D]:
 	var image := _load_image(path)
 	if image == null:
 		return []
@@ -1305,7 +1293,56 @@ func _slice_strip(path: String, fit_body: bool) -> Array[Texture2D]:
 	var cells := _cut_cells(image, FRAME_GUTTER if fit_body else 0)
 	if not fit_body:
 		return _pack_vfx_frames(cells)
-	return _pack_body_frames(cells)
+	return _pack_body_frames(cells, body_scale)
+
+
+## One scale for every sheet, taken from the standing idle robe.
+## Attack flashes used to shrink or grow the whole body.
+func _reference_body_scale(path: String) -> float:
+	var image := _load_image(path)
+	if image == null:
+		return 1.0
+	_key_plate(image)
+	var heights: Array[int] = []
+	for cell in _cut_cells(image, FRAME_GUTTER):
+		var robe := _robe_bounds(cell)
+		if robe.size.y > 8:
+			heights.append(robe.size.y)
+	if heights.is_empty():
+		return 1.0
+	heights.sort()
+	var median := heights[heights.size() / 2]
+	return clampf(float(BODY_DRAW_H) / float(median), 0.15, 6.0)
+
+
+## Center of the cell, ignoring slash trails and white blast cores.
+func _robe_bounds(cell: Image) -> Rect2i:
+	var w := cell.get_width()
+	var h := cell.get_height()
+	var x0 := int(float(w) * 0.30)
+	var x1 := int(float(w) * 0.70)
+	var min_x := w
+	var min_y := h
+	var max_x := -1
+	var max_y := -1
+	for y in h:
+		for x in range(x0, x1):
+			if not _is_robe_pixel(cell.get_pixel(x, y)):
+				continue
+			min_x = mini(min_x, x)
+			min_y = mini(min_y, y)
+			max_x = maxi(max_x, x)
+			max_y = maxi(max_y, y)
+	if max_y < 0:
+		return cell.get_used_rect()
+	return Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+
+
+func _is_robe_pixel(color: Color) -> bool:
+	if color.a < 0.22:
+		return false
+	var luma := color.r * 0.299 + color.g * 0.587 + color.b * 0.114
+	return luma < 0.78
 
 
 func _cut_cells(image: Image, gutter: int) -> Array[Image]:
@@ -1326,30 +1363,10 @@ func _cut_cells(image: Image, gutter: int) -> Array[Image]:
 	return cells
 
 
-func _pack_body_frames(cells: Array[Image]) -> Array[Texture2D]:
-	var rects: Array[Rect2i] = []
-	var heights: Array[int] = []
-	var max_w := 1
-	var tallest := 1
-	for cell in cells:
-		var used := cell.get_used_rect()
-		rects.append(used)
-		tallest = maxi(tallest, used.size.y)
-		if used.size.x > 8 and used.size.y > 8:
-			heights.append(used.size.y)
-			max_w = maxi(max_w, used.size.x)
-	var median := 1
-	if not heights.is_empty():
-		heights.sort()
-		median = heights[heights.size() / 2]
-	# Same on-screen body height for every move. Extra canvas is headroom for bursts.
-	var scale_factor := float(BODY_DRAW_H) / float(maxi(median, 1))
-	scale_factor = minf(scale_factor, float(BODY_SIZE.x - 24) / float(maxi(max_w, 1)))
-	if float(tallest) * scale_factor > float(BODY_SIZE.y - 16):
-		scale_factor = float(BODY_SIZE.y - 16) / float(tallest)
+func _pack_body_frames(cells: Array[Image], scale_factor: float) -> Array[Texture2D]:
 	var textures: Array[Texture2D] = []
-	for i in range(cells.size()):
-		textures.append(_blit_scaled_cell(cells[i], rects[i], scale_factor))
+	for cell in cells:
+		textures.append(_blit_scaled_cell(cell, scale_factor))
 	return textures
 
 
@@ -1375,18 +1392,22 @@ func _pack_vfx_frames(cells: Array[Image]) -> Array[Texture2D]:
 	return textures
 
 
-func _blit_scaled_cell(cell: Image, used: Rect2i, scale_factor: float) -> Texture2D:
+func _blit_scaled_cell(cell: Image, scale_factor: float) -> Texture2D:
 	var canvas := Image.create(BODY_SIZE.x, BODY_SIZE.y, false, Image.FORMAT_RGBA8)
 	canvas.fill(Color.TRANSPARENT)
-	if used.size.x < 1 or used.size.y < 1:
+	var robe := _robe_bounds(cell)
+	if robe.size.x < 1 or robe.size.y < 1:
 		return ImageTexture.create_from_image(canvas)
 	var scaled := cell.duplicate()
 	var tw := maxi(1, int(round(float(cell.get_width()) * scale_factor)))
 	var th := maxi(1, int(round(float(cell.get_height()) * scale_factor)))
 	scaled.resize(tw, th, Image.INTERPOLATE_LANCZOS)
-	var foot := int(round(float(used.position.y + used.size.y) * scale_factor))
-	var cell_cx := int(round(float(cell.get_width()) * 0.5 * scale_factor))
-	var origin := Vector2i(int(BODY_SIZE.x / 2.0) - cell_cx, BODY_SIZE.y - 8 - foot)
+	var robe_cx := float(robe.position.x) + float(robe.size.x) * 0.5
+	var foot := int(round(float(robe.position.y + robe.size.y) * scale_factor))
+	var origin := Vector2i(
+		int(BODY_SIZE.x / 2.0) - int(round(robe_cx * scale_factor)),
+		BODY_SIZE.y - 8 - foot
+	)
 	var src_rect := Rect2i(Vector2i.ZERO, scaled.get_size())
 	if origin.x < 0:
 		src_rect.position.x = -origin.x

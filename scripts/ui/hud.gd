@@ -21,6 +21,9 @@ extends CanvasLayer
 @onready var mode_label: Label = %ModeLabel
 @onready var integrity_box: VBoxContainer = %IntegrityBox
 @onready var integrity_bar: ProgressBar = %IntegrityBar
+@onready var boss_plate: VBoxContainer = %BossPlate
+@onready var boss_bar: ProgressBar = %BossBar
+@onready var boss_name: Label = %BossName
 @onready var bottom_dock: Control = %BottomDock
 @onready var health_value: Label = %HealthValue
 @onready var quest_plate: Control = %QuestPlate
@@ -50,6 +53,10 @@ func _ready() -> void:
 	mode_label.visible = false
 	integrity_box.visible = false
 	chime_bar.visible = false
+	if boss_bar != null:
+		boss_bar.add_theme_stylebox_override("fill", UiStyle.bar_fill(Color(0.55, 0.12, 0.62), 8))
+	if boss_plate != null:
+		boss_plate.visible = false
 
 	_on_lives_changed(GameState.lives)
 	_on_score_changed(GameState.score)
@@ -290,13 +297,20 @@ func set_loom_integrity(ratio: float) -> void:
 
 
 func show_boss_health(visible_now: bool) -> void:
-	integrity_box.visible = visible_now
-	_set_integrity_tag("WEAVER")
+	if boss_plate != null:
+		boss_plate.visible = visible_now
+	if not visible_now and integrity_box != null:
+		integrity_box.visible = false
 
 
 func set_boss_health(current: float, maximum: float) -> void:
-	var ratio := 0.0 if maximum <= 0.0 else current / maximum
-	UiMotion.slide_bar(integrity_bar, clampf(ratio, 0.0, 1.0) * 100.0)
+	if boss_bar == null:
+		return
+	var safe_max := maxf(1.0, maximum)
+	boss_bar.max_value = safe_max
+	UiMotion.slide_bar(boss_bar, clampf(current, 0.0, safe_max))
+	if boss_name != null:
+		boss_name.text = "SHADOW WEAVER   %d" % roundi(current)
 
 
 func _set_integrity_tag(text: String) -> void:

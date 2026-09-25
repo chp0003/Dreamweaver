@@ -296,6 +296,42 @@ theme_override_font_sizes/font_size = 18
 text = "0"
 horizontal_alignment = 2
 
+[node name="BossPlate" type="VBoxContainer" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -230.0
+offset_top = 14.0
+offset_right = 230.0
+offset_bottom = 58.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+alignment = 1
+
+[node name="BossName" type="Label" parent="Root/BossPlate"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.84, 0.96, 0.95)
+theme_override_colors/font_outline_color = Color(0.04, 0.02, 0.06, 0.9)
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = ExtResource("5_cinzel")
+theme_override_font_sizes/font_size = 14
+text = "SHADOW WEAVER"
+horizontal_alignment = 1
+
+[node name="BossBar" type="ProgressBar" parent="Root/BossPlate"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(460, 14)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_health_fill")
+value = 100.0
+show_percentage = false
+
 [node name="CenterTop" type="VBoxContainer" parent="Root"]
 layout_mode = 1
 anchors_preset = 10

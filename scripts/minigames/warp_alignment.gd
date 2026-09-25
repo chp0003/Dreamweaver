@@ -3,7 +3,7 @@ extends MiniGameBase
 ## until the complete woven pattern is restored.
 ##
 ## Easy: 3x3 of a complete T'boli cloth (9 pieces), light scramble.
-## Medium: 3x4 of Fun Kdungon on a wood board (12 pieces).
+## Medium: 3x4 of Fun Kdungon on a plain wood board. Only her pieces must match.
 ## Hard: 5x4 slices of the Golden Era village (prologue panel).
 ##
 ## Drag a piece, or click it and then a neighbor, to slide them.
@@ -37,6 +37,9 @@ var _rows := 3
 var _scramble := 8
 var _cloth: Texture2D
 var _regions: Array[Rect2] = []
+## Medium only: slots that show Fun Kdungon. Plain wood slots are not part of the solve.
+var _figure_slots: Array[bool] = []
+var _portrait_on_plate := Rect2i()
 var _board_size := Vector2(420.0, 420.0)
 var _cell := Vector2.ZERO
 var _gap := 4.0
@@ -151,7 +154,10 @@ func _reset_round() -> void:
 	_deal()
 	_rebuild_tiles()
 	_refresh_hud()
-	set_status("Slide neighboring sections until the complete cloth returns.")
+	if difficulty == Difficulty.Medium:
+		set_status("Slide neighboring sections until Fun Kdungon stands whole. The wood does not have to match.")
+	else:
+		set_status("Slide neighboring sections until the complete cloth returns.")
 
 
 func _process(delta: float) -> void:
@@ -162,6 +168,7 @@ func _load_cloth() -> void:
 	var path := cloth_path.strip_edges()
 	if path.is_empty():
 		path = _default_cloth_path()
+	_portrait_on_plate = Rect2i()
 	_cloth = _load_texture(path)
 	if _cloth == null and difficulty == Difficulty.Hard:
 		_cloth = _load_texture(HARD_FALLBACK_PATH)
@@ -257,6 +264,7 @@ func _compose_portrait_plate(source: Texture2D) -> Texture2D:
 	var plate := Image.create(PORTRAIT_PLATE.x, PORTRAIT_PLATE.y, false, Image.FORMAT_RGBA8)
 	_paint_wood(plate)
 	var origin := Vector2i((PORTRAIT_PLATE.x - dw) / 2, (PORTRAIT_PLATE.y - dh) / 2)
+	_portrait_on_plate = Rect2i(origin.x, origin.y, dw, dh)
 	plate.blend_rect(cropped, Rect2i(0, 0, dw, dh), origin)
 	return ImageTexture.create_from_image(plate)
 
@@ -285,28 +293,8 @@ func _opaque_bounds(image: Image) -> Rect2i:
 
 
 func _paint_wood(plate: Image) -> void:
-	var width: int = plate.get_width()
-	var height: int = plate.get_height()
-	var boards: Array[Color] = [
-		Palette.EARTH_WOOD,
-		Palette.EARTH_WOOD.lightened(0.08),
-		Palette.EARTH_BAMBOO.darkened(0.18),
-		Palette.EARTH_WOOD.darkened(0.06),
-	]
-	var plank := 54
-	var y := 0
-	var i := 0
-	while y < height:
-		var h := mini(plank, height - y)
-		plate.fill_rect(Rect2i(0, y, width, h), boards[i % boards.size()])
-		if y > 0:
-			plate.fill_rect(Rect2i(0, y, width, 2), Palette.EARTH_LOAM)
-		y += plank
-		i += 1
-	plate.fill_rect(Rect2i(0, 0, width, 8), Palette.EARTH_LOAM)
-	plate.fill_rect(Rect2i(0, height - 8, width, 8), Palette.EARTH_LOAM)
-	plate.fill_rect(Rect2i(0, 0, 8, height), Palette.EARTH_LOAM)
-	plate.fill_rect(Rect2i(width - 8, 0, 8, height), Palette.EARTH_LOAM)
+	# One flat board. Plank lines were a second pattern and read as part of the solve.
+	plate.fill(Palette.EARTH_WOOD)
 
 
 func _slice_regions() -> Array[Rect2]:
@@ -316,19 +304,47 @@ func _slice_regions() -> Array[Rect2]:
 	for row in range(_rows):
 		for col in range(_cols):
 			out.append(Rect2(source.position + Vector2(col * cell.x, row * cell.y), cell))
+	_mark_figure_slots(out)
 	return out
+
+
+func _mark_figure_slots(regions: Array[Rect2]) -> void:
+	_figure_slots.clear()
+	var figure_only := difficulty == Difficulty.Medium and _portrait_on_plate.size.x > 0
+	for region in regions:
+		if not figure_only:
+			_figure_slots.append(true)
+			continue
+		var cell := Rect2i(int(region.position.x), int(region.position.y), int(ceil(region.size.x)), int(ceil(region.size.y)))
+		var overlap := cell.intersection(_portrait_on_plate)
+		_figure_slots.append(overlap.size.x > 0 and overlap.size.y > 0)
+
+
+func _slot_matters(index: int) -> bool:
+	if index < 0 or index >= _figure_slots.size():
+		return true
+	return _figure_slots[index]
+
+
+func _solve_total() -> int:
+	var total := 0
+	for i in range(_current.size()):
+		if _slot_matters(i):
+			total += 1
+	return total
 
 
 func _matched_count() -> int:
 	var matched := 0
 	for i in range(_current.size()):
-		if int(_current[i]) == int(_target[i]):
+		if _slot_matters(i) and int(_current[i]) == int(_target[i]):
 			matched += 1
 	return matched
 
 
 func _is_solved() -> bool:
-	return not _current.is_empty() and _matched_count() == _current.size()
+	var total := _solve_total()
+	return total > 0 and _matched_count() == total
 
 
 func _deal() -> void:
@@ -345,12 +361,17 @@ func _deal() -> void:
 		if nbs.is_empty():
 			continue
 		_swap_values(index, nbs[randi() % nbs.size()])
-		if guard >= _scramble and _matched_count() <= count - 3:
+		if guard >= _scramble and _matched_count() < _solve_total():
 			break
 	if _is_solved():
-		_swap_values(0, 1)
-		if count > 2:
-			_swap_values(1, 2)
+		for i in range(count):
+			if not _slot_matters(i):
+				continue
+			var nbs := _neighbors(i)
+			if nbs.is_empty():
+				continue
+			_swap_values(i, nbs[0])
+			break
 
 
 func _neighbors(index: int) -> Array[int]:
@@ -552,7 +573,10 @@ func _slide_animated(a: int, b: int) -> void:
 
 	if _is_solved():
 		await _celebrate()
-		succeed("The warp matches the dream. The cloth remembers itself.")
+		if difficulty == Difficulty.Medium:
+			succeed("Fun Kdungon stands whole.")
+		else:
+			succeed("The warp matches the dream. The cloth remembers itself.")
 
 
 func _make_fly(source: TextureButton) -> TextureRect:
@@ -568,7 +592,10 @@ func _make_fly(source: TextureButton) -> TextureRect:
 
 
 func _refresh_hud() -> void:
-	set_status("Cloth in place  %d / %d. Slide neighboring boxes." % [_matched_count(), _current.size()])
+	if difficulty == Difficulty.Medium:
+		set_status("Fun Kdungon  %d / %d. The wood can sit anywhere." % [_matched_count(), _solve_total()])
+	else:
+		set_status("Cloth in place  %d / %d. Slide neighboring boxes." % [_matched_count(), _current.size()])
 
 
 func _celebrate() -> void:

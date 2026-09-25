@@ -28,6 +28,7 @@ const SETTINGS_SCENE := "res://scenes/ui/SettingsOverlay.tscn"
 @onready var background: TextureRect = %Background
 
 var _settings: CanvasLayer
+var _chapter_picker: Control
 
 
 func _ready() -> void:
@@ -46,6 +47,7 @@ func _ready() -> void:
 	logout_button.pressed.connect(_on_logout_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
 	confirm_dialog.confirmed.connect(_start_new_game)
+	_build_chapter_picker()
 	get_viewport().size_changed.connect(_fit_embers)
 	_fit_embers()
 
@@ -135,6 +137,86 @@ func _on_load_game_pressed() -> void:
 		return
 	GameState.load_from_account()
 	SceneFader.fade_to_scene(AccountManager.MAIN_GAME_SCENE)
+
+
+func _build_chapter_picker() -> void:
+	var toggle := Button.new()
+	toggle.name = "TestChapterButton"
+	toggle.text = "Test Chapter"
+	toggle.custom_minimum_size = Vector2(0, 40)
+	toggle.theme_type_variation = &"GhostButton"
+	toggle.add_theme_font_size_override("font_size", 14)
+	toggle.add_theme_color_override("font_color", Color(0.86, 0.78, 0.62, 0.9))
+	toggle.flat = true
+	var slot := load_game_button.get_index() + 1
+	menu_column.add_child(toggle)
+	menu_column.move_child(toggle, slot)
+	toggle.pressed.connect(_toggle_chapter_picker)
+
+	var picker := WovenFrame.new()
+	picker.name = "ChapterPicker"
+	picker.visible = false
+	picker.lit = true
+	picker.draw_kleng = true
+	picker.pad = 16
+	picker.fill = Color(0.086, 0.114, 0.227, 0.92)
+	picker.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	picker.offset_left = -760.0
+	picker.offset_top = -430.0
+	picker.offset_right = -450.0
+	picker.offset_bottom = -40.0
+	add_child(picker)
+	picker.mouse_filter = Control.MOUSE_FILTER_STOP
+	_chapter_picker = picker
+
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 8)
+	picker.add_child(column)
+
+	var title := Label.new()
+	title.text = "TEST A CHAPTER"
+	title.add_theme_font_size_override("font_size", 13)
+	title.add_theme_color_override("font_color", Color(0.86, 0.72, 0.42, 0.9))
+	column.add_child(title)
+
+	var note := Label.new()
+	note.text = "Replays that house from the start, even if you already finished the game."
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.add_theme_font_size_override("font_size", 13)
+	note.add_theme_color_override("font_color", Color(0.78, 0.72, 0.62, 0.88))
+	column.add_child(note)
+
+	var normal := load_game_button.get_theme_stylebox("normal")
+	var hover := load_game_button.get_theme_stylebox("hover")
+	var font := load_game_button.get_theme_font("font")
+	for house in Houses.LIST:
+		var house_id := int(house["id"])
+		var button := Button.new()
+		button.text = "%d   %s" % [house_id, str(house["short"])]
+		button.custom_minimum_size = Vector2(0, 42)
+		button.add_theme_font_size_override("font_size", 14)
+		if font != null:
+			button.add_theme_font_override("font", font)
+		if normal != null:
+			button.add_theme_stylebox_override("normal", normal)
+		if hover != null:
+			button.add_theme_stylebox_override("hover", hover)
+			button.add_theme_stylebox_override("pressed", hover)
+		button.pressed.connect(_jump_to_chapter.bind(house_id))
+		column.add_child(button)
+
+
+func _toggle_chapter_picker() -> void:
+	if _chapter_picker == null:
+		return
+	_chapter_picker.visible = not _chapter_picker.visible
+
+
+func _jump_to_chapter(house_id: int) -> void:
+	if SceneFader.is_busy():
+		return
+	GameState.prepare_chapter_jump(house_id)
+	SceneFader.fade_to_scene(AccountManager.HUB_SCENE)
 
 
 func _on_codex_pressed() -> void:

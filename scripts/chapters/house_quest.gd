@@ -108,8 +108,11 @@ func is_busy() -> bool:
 func start_quest() -> void:
 	if _quest_started or _quest_finished:
 		return
-	if GameState.is_house_completed(house_id):
+	var replay := GameState.wants_replay(house_id)
+	if GameState.is_house_completed(house_id) and not replay:
 		return
+	if replay:
+		GameState.clear_replay()
 	_quest_started = true
 	_quest_running = true
 	_run_and_clear()

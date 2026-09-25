@@ -190,10 +190,11 @@ func _process(delta: float) -> void:
 	if speed > 24.0:
 		_move_hold += delta
 		_move_distance += speed * delta
-		if _move_hold >= MOVE_HOLD_SECONDS or _move_distance >= MOVE_MIN_DISTANCE:
-			_finish_step("That's it")
 	else:
 		_move_hold = 0.0
+	# Distance alone must not skip the lesson. Every direction has to be pressed.
+	if _keys_seen.size() >= 4 and (_move_hold >= MOVE_HOLD_SECONDS or _move_distance >= MOVE_MIN_DISTANCE):
+		_finish_step("That's it")
 
 
 func _light_move_keys() -> void:

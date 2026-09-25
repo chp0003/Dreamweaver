@@ -12,8 +12,9 @@ const EXIT_UV := Vector2(0.50, 0.90)
 const MORTAR_UV := Vector2(0.50, 0.32)
 const MORTAR_REACH_UV := Vector2(0.50, 0.42)
 const FLOWERS_UV := Vector2(0.78, 0.72)
-const QUEEN_UV := Vector2(0.66, 0.86)
-const QUEEN_REACH_UV := Vector2(0.66, 0.88)
+## Left porch, beside the path. Clear of the steps and the right flower bed.
+const QUEEN_UV := Vector2(0.28, 0.78)
+const QUEEN_REACH_UV := Vector2(0.34, 0.82)
 ## Floor mark in the path between the two porch posts.
 const BARRIER_UV := Vector2(0.50, 0.72)
 

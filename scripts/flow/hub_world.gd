@@ -694,7 +694,7 @@ func _enter_house(house_id: int, _from_retry: bool) -> void:
 	if exit != null:
 		exit.set_enabled(GameState.is_house_completed(house_id))
 	set_player_input(true)
-	if not GameState.is_house_completed(house_id):
+	if GameState.wants_replay(house_id) or not GameState.is_house_completed(house_id):
 		quest.start_quest()
 	else:
 		quest.apply_restored_color()

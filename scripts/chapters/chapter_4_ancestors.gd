@@ -130,10 +130,17 @@ func _build_hall() -> void:
 		"show_label": false,
 		"cast_shadow": true,
 	})
-	_ghost.modulate = Color(0.92, 0.96, 1.05, 0.0)
+	_ghost.modulate = Color(1.0, 0.96, 0.9, 0.0)
+	# The hall plate is unshaded, so this lamp was only hitting her sprite
+	# and bleaching the black dress white.
+	var sprite := _ghost.get_sprite()
+	if sprite != null:
+		var flat := CanvasItemMaterial.new()
+		flat.light_mode = CanvasItemMaterial.LIGHT_MODE_UNSHADED
+		sprite.material = flat
 	_ghost_aura = AncestralAura.new()
-	_ghost_aura.aura_color = Color(0.86, 0.92, 1.0, 0.9)
-	_ghost_aura.mote_count = 26
+	_ghost_aura.aura_color = Color(0.72, 0.58, 0.34, 0.55)
+	_ghost_aura.mote_count = 14
 	_ghost.add_child(_ghost_aura)
 	_ghost_trigger = place_interactable("Listen to the Master Weaver", _plate.ghost_reach_world(), {
 		"enabled": false,
@@ -257,9 +264,9 @@ func _appear_ghost() -> void:
 	if _ghost == null:
 		return
 	var appear := create_tween()
-	appear.tween_property(_ghost, "modulate:a", 0.92, 1.9).set_ease(Tween.EASE_OUT)
+	appear.tween_property(_ghost, "modulate:a", 1.0, 1.9).set_ease(Tween.EASE_OUT)
 	if _ghost_aura != null:
-		_ghost_aura.set_energy(1.15, 1.8)
+		_ghost_aura.set_energy(0.35, 1.8)
 		_ghost_aura.burst()
 	Audio.set_ambience(0.35, 11.0)
 	await wait(2.0)
