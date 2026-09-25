@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cf30drv7aw0qf"
-valid=false
+uid="uid://buny6kjtl2plc"
+path="res://.godot/imported/lore_abaca.png-34f1bb990473ed7d16a2731ca1128733.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/lore/lore_abaca.png"
+dest_files=["res://.godot/imported/lore_abaca.png-34f1bb990473ed7d16a2731ca1128733.ctex"]
 
 [params]
 

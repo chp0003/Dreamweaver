@@ -1,5 +1,6 @@
 class_name ShadowMinion
 extends CharacterBody2D
+
 ## A minor shadow that hunts S'lang in the world (AQ Worlds style).
 ## Used by Chapter 2 and Chapter 5.
 
@@ -441,17 +442,7 @@ func _add_strip(frames: SpriteFrames, anim_name: String, path: String, fps: floa
 
 
 func _load_sheet_image(path: String) -> Image:
-	var image := Image.new()
-	if image.load(path) == OK:
-		if image.get_format() != Image.FORMAT_RGBA8:
-			image.convert(Image.FORMAT_RGBA8)
-		return image
-	var disk := ProjectSettings.globalize_path(path) if path.begins_with("res://") else path
-	if FileAccess.file_exists(disk) and image.load(disk) == OK:
-		if image.get_format() != Image.FORMAT_RGBA8:
-			image.convert(Image.FORMAT_RGBA8)
-		return image
-	return null
+	return Palette.read_image(path)
 
 
 func _key_magenta(image: Image) -> void:

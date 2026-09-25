@@ -1,5 +1,6 @@
 class_name PlaceholderProp
 extends Node2D
+
 ## A stand-in for every piece of art this build does not have yet.
 ##
 ## If `texture_path` points at a real file the prop draws that sprite. If it does
@@ -443,21 +444,7 @@ func _build_label() -> void:
 
 
 static func _read_cutout_image(path: String) -> Image:
-	var image := Image.new()
-	if _try_load_image(image, path):
-		return image
-	var disk := ProjectSettings.globalize_path(path) if path.begins_with("res://") else path
-	if FileAccess.file_exists(disk) and _try_load_image(image, disk):
-		return image
-	if ResourceLoader.exists(path):
-		var loaded := load(path)
-		if loaded is Texture2D:
-			var tex := (loaded as Texture2D).get_image()
-			if tex != null:
-				if tex.get_format() != Image.FORMAT_RGBA8:
-					tex.convert(Image.FORMAT_RGBA8)
-				return tex
-	return null
+	return Palette.read_image(path)
 
 
 static func _try_load_image(image: Image, path: String) -> bool:

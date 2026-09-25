@@ -1,5 +1,6 @@
 class_name HubPlate
 extends Node2D
+
 ## Painted 16:9 village plate. Sprite2D is the picture; StaticBody2D children
 ## are hand-placed solids in UV space (0..1 over the centred sprite).
 ##
@@ -203,20 +204,13 @@ func set_ridge_active(on: bool) -> void:
 
 
 func _load_disk_image(path: String) -> Image:
-	var disk := ProjectSettings.globalize_path(path)
-	if not FileAccess.file_exists(disk):
-		return null
-	var image := Image.new()
-	if image.load(disk) != OK:
-		return null
-	return image
+	return Palette.read_image(path)
 
 
 func _load_texture(path: String = TEXTURE_PATH) -> Texture2D:
-	if ResourceLoader.exists(path):
-		var loaded := load(path)
-		if loaded is Texture2D:
-			return loaded as Texture2D
+	var packed := Palette.read_texture(path)
+	if packed != null:
+		return packed
 	if _source_image != null:
 		return ImageTexture.create_from_image(_source_image)
 	var image := _load_disk_image(path)

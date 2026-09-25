@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bcktbe5g748l"
-valid=false
+uid="uid://6ixkd4snfycq"
+path="res://.godot/imported/the_chief.png-54f3f07967d893706b34129a44a15b55.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/characters/the_chief.png"
+dest_files=["res://.godot/imported/the_chief.png-54f3f07967d893706b34129a44a15b55.ctex"]
 
 [params]
 

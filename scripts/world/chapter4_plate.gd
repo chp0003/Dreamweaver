@@ -1,5 +1,6 @@
 class_name Chapter4Plate
 extends Node2D
+
 ## Painted interior for the Hall of the Master Weaver.
 ## Same UV rule as Chapter1Plate / Chapter3Plate: sprite centred, solids in local space.
 
@@ -230,20 +231,13 @@ func _push_lights() -> void:
 
 
 func _load_disk_image() -> Image:
-	var disk := ProjectSettings.globalize_path(TEXTURE_PATH)
-	if not FileAccess.file_exists(disk):
-		return null
-	var image := Image.new()
-	if image.load(disk) != OK:
-		return null
-	return image
+	return Palette.read_image(TEXTURE_PATH)
 
 
 func _load_texture(disk: Image) -> Texture2D:
-	if ResourceLoader.exists(TEXTURE_PATH):
-		var loaded := load(TEXTURE_PATH)
-		if loaded is Texture2D:
-			return loaded as Texture2D
+	var packed := Palette.read_texture(TEXTURE_PATH)
+	if packed != null:
+		return packed
 	if disk != null:
 		return ImageTexture.create_from_image(disk)
 	push_warning("Chapter4Plate: missing %s" % TEXTURE_PATH)

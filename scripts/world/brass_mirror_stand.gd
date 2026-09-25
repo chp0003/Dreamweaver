@@ -1,5 +1,6 @@
 class_name BrassMirrorStand
 extends Node2D
+
 ## The oval brass plate, standing. The wooden vanity, yoke, and side knobs
 ## are cropped off. The plate stays upright so it reads as a mirror.
 
@@ -87,16 +88,7 @@ func _load_texture() -> Texture2D:
 
 
 func _load_image() -> Image:
-	var disk := ProjectSettings.globalize_path(TEX_PATH)
-	if FileAccess.file_exists(disk):
-		var image := Image.new()
-		if image.load(disk) == OK:
-			return image
-	if ResourceLoader.exists(TEX_PATH):
-		var loaded := load(TEX_PATH)
-		if loaded is Texture2D:
-			return (loaded as Texture2D).get_image()
-	return null
+	return Palette.read_image(TEX_PATH)
 
 
 ## Keeps the standing oval plate. Drops the wooden foot, the yoke, and the

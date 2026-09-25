@@ -1,4 +1,5 @@
 extends MiniGameBase
+
 ## Chapter 4 - Warp Alignment. Slide neighboring cloth sections
 ## until the complete woven pattern is restored.
 ##
@@ -222,16 +223,7 @@ func _fit_layout_to_cloth() -> void:
 
 
 func _load_texture(path: String) -> Texture2D:
-	if ResourceLoader.exists(path):
-		var loaded := load(path)
-		if loaded is Texture2D:
-			return loaded as Texture2D
-	var disk := ProjectSettings.globalize_path(path)
-	if FileAccess.file_exists(disk):
-		var image := Image.new()
-		if image.load(disk) == OK:
-			return ImageTexture.create_from_image(image)
-	return null
+	return Palette.read_texture(path)
 
 
 func _cloth_source_rect() -> Rect2:

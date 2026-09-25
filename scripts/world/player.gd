@@ -1,5 +1,6 @@
 class_name Slang
 extends CharacterBody2D
+
 ## S'lang, the Dreamweaver.
 ##
 ## Movement uses CharacterBody2D + move_and_slide() against world solids on
@@ -871,13 +872,9 @@ func _get_shockwave_frames(sheet: Texture2D) -> SpriteFrames:
 
 
 func _load_shockwave_texture() -> Texture2D:
-	var disk := ProjectSettings.globalize_path(SHOCKWAVE_PATH)
-	if FileAccess.file_exists(disk):
-		var image := Image.new()
-		if image.load(disk) == OK:
-			if image.get_format() != Image.FORMAT_RGBA8:
-				image.convert(Image.FORMAT_RGBA8)
-			return ImageTexture.create_from_image(image)
+	var packed := Palette.read_texture(SHOCKWAVE_PATH)
+	if packed != null:
+		return packed
 	if ResourceLoader.exists(SHOCKWAVE_PATH):
 		var loaded := load(SHOCKWAVE_PATH)
 		if loaded is Texture2D:

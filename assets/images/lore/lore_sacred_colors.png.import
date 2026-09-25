@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://vgc423165f64"
-valid=false
+uid="uid://b7jxxdg66bgt"
+path="res://.godot/imported/lore_sacred_colors.png-c13f3ef78f8a5d06e6d3b98805619f4d.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/lore/lore_sacred_colors.png"
+dest_files=["res://.godot/imported/lore_sacred_colors.png-c13f3ef78f8a5d06e6d3b98805619f4d.ctex"]
 
 [params]
 

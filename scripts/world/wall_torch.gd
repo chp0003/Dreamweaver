@@ -1,5 +1,6 @@
 class_name WallTorch
 extends Node2D
+
 ## Wall brass for the House of the Golden Sun. Same load path as BrassMirrorStand.
 
 const TEX_PATH := "res://assets/images/props/wall_torch.png"
@@ -104,13 +105,4 @@ func _radial_glow() -> GradientTexture2D:
 
 
 func _load_texture() -> Texture2D:
-	var disk := ProjectSettings.globalize_path(TEX_PATH)
-	if FileAccess.file_exists(disk):
-		var image := Image.new()
-		if image.load(disk) == OK:
-			return ImageTexture.create_from_image(image)
-	if ResourceLoader.exists(TEX_PATH):
-		var loaded := load(TEX_PATH)
-		if loaded is Texture2D:
-			return loaded as Texture2D
-	return null
+	return Palette.read_texture(TEX_PATH)

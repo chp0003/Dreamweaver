@@ -1,4 +1,5 @@
 extends MiniGameBase
+
 ## Chapter 1 vat — simple matching. Click a strand, then its twin.
 ## Completing every pair reveals a finished T'nalak cloth.
 
@@ -44,21 +45,15 @@ func _build_content(parent: Control) -> void:
 
 
 func _load_cloth_texture() -> Texture2D:
-	var disk := ProjectSettings.globalize_path(CLOTH_PATH)
-	if FileAccess.file_exists(disk):
-		var image := Image.new()
-		if image.load(disk) == OK:
-			if image.get_width() > 640:
-				var h := int(round(640.0 * float(image.get_height()) / float(image.get_width())))
-				image.resize(640, maxi(h, 1), Image.INTERPOLATE_LANCZOS)
-			if image.get_format() != Image.FORMAT_RGBA8:
-				image.convert(Image.FORMAT_RGBA8)
-			return ImageTexture.create_from_image(image)
-	if ResourceLoader.exists(CLOTH_PATH):
-		var loaded := load(CLOTH_PATH)
-		if loaded is Texture2D:
-			return loaded as Texture2D
-	return null
+	var image := Palette.read_image(CLOTH_PATH)
+	if image == null:
+		return Palette.read_texture(CLOTH_PATH)
+	if image.get_width() > 640:
+		var h := int(round(640.0 * float(image.get_height()) / float(image.get_width())))
+		image.resize(640, maxi(h, 1), Image.INTERPOLATE_LANCZOS)
+	if image.get_format() != Image.FORMAT_RGBA8:
+		image.convert(Image.FORMAT_RGBA8)
+	return ImageTexture.create_from_image(image)
 
 
 func _reset_round() -> void:

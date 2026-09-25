@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bdjlevsbaquhr"
-valid=false
+uid="uid://cq3vla6bes6x6"
+path="res://.godot/imported/lore_taboo.png-23747b0fb0aa23547dbe4fa448d6ac47.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/lore/lore_taboo.png"
+dest_files=["res://.godot/imported/lore_taboo.png-23747b0fb0aa23547dbe4fa448d6ac47.ctex"]
 
 [params]
 

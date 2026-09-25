@@ -1,5 +1,6 @@
 class_name Chapter1Plate
 extends Node2D
+
 ## Painted 16:9 interior for the House of the Black Foundation.
 ## Same UV rule as TutorialPlate / HubPlate: sprite centred, solids in local space.
 
@@ -160,20 +161,13 @@ func attach_solids(host: Node2D) -> void:
 
 
 func _load_disk_image() -> Image:
-	var disk := ProjectSettings.globalize_path(TEXTURE_PATH)
-	if not FileAccess.file_exists(disk):
-		return null
-	var image := Image.new()
-	if image.load(disk) != OK:
-		return null
-	return image
+	return Palette.read_image(TEXTURE_PATH)
 
 
 func _load_texture(disk: Image) -> Texture2D:
-	if ResourceLoader.exists(TEXTURE_PATH):
-		var loaded := load(TEXTURE_PATH)
-		if loaded is Texture2D:
-			return loaded as Texture2D
+	var packed := Palette.read_texture(TEXTURE_PATH)
+	if packed != null:
+		return packed
 	if disk != null:
 		return ImageTexture.create_from_image(disk)
 	push_warning("Chapter1Plate: missing %s" % TEXTURE_PATH)

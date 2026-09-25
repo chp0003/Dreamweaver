@@ -1,5 +1,6 @@
 class_name Chapter5Plate
 extends Node2D
+
 ## Painted interior for the Final Stand at the Sacred Loom.
 ## Same UV rule as Chapter1Plate / Chapter4Plate: sprite centred, solids in local space.
 
@@ -208,28 +209,16 @@ func _push_lights() -> void:
 
 
 func _load_disk_image() -> Image:
-	var disk := ProjectSettings.globalize_path(TEXTURE_PATH)
-	if not FileAccess.file_exists(disk):
-		return null
-	var image := Image.new()
-	if image.load(disk) != OK:
-		push_warning("Chapter5Plate: Image.load failed for %s" % disk)
-		return null
-	if image.get_format() != Image.FORMAT_RGBA8:
-		image.convert(Image.FORMAT_RGBA8)
-	return image
+	return Palette.read_image(TEXTURE_PATH)
 
 
 func _load_texture(disk: Image) -> Texture2D:
-	# Prefer the PNG on disk. Replacing the hall invalidates Godot's .ctex
-	# remap (valid=false), and load() then returns an empty texture — which
-	# leaves only the dream-sky behind S'lang.
+	# Editor keeps the PNG on disk. The exported app reads the packed copy.
+	var packed := Palette.read_texture(TEXTURE_PATH)
+	if packed != null:
+		return packed
 	if disk != null:
 		return ImageTexture.create_from_image(disk)
-	if ResourceLoader.exists(TEXTURE_PATH):
-		var loaded := load(TEXTURE_PATH)
-		if loaded is Texture2D and (loaded as Texture2D).get_width() > 8:
-			return loaded as Texture2D
 	push_warning("Chapter5Plate: missing %s" % TEXTURE_PATH)
 	return null
 

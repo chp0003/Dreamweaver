@@ -1,5 +1,6 @@
 class_name ShadowWeaverBoss
 extends CharacterBody2D
+
 ## Action duel: Elden Ring tells, God of War punish windows, DOTA skill kit.
 ## Dodge red, hit the recover. No parry QTE, no letter minigame.
 
@@ -1427,21 +1428,7 @@ func _blit_scaled_cell(cell: Image, scale_factor: float) -> Texture2D:
 
 
 func _load_image(path: String) -> Image:
-	if ResourceLoader.exists(path):
-		var loaded := load(path)
-		if loaded is Texture2D:
-			var tex := (loaded as Texture2D).get_image()
-			if tex != null:
-				if tex.get_format() != Image.FORMAT_RGBA8:
-					tex.convert(Image.FORMAT_RGBA8)
-				return tex
-	var image := Image.new()
-	var disk := ProjectSettings.globalize_path(path) if path.begins_with("res://") else path
-	if FileAccess.file_exists(disk) and image.load(disk) == OK:
-		if image.get_format() != Image.FORMAT_RGBA8:
-			image.convert(Image.FORMAT_RGBA8)
-		return image
-	return null
+	return Palette.read_image(path)
 
 
 func _key_plate(image: Image) -> void:

@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dqyiws2vr72f4"
-valid=false
+uid="uid://cj0vlnhcjfx7f"
+path="res://.godot/imported/lore_lang_dulay.png-ef34289104c2d68c7c2310ff7510b895.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/lore/lore_lang_dulay.png"
+dest_files=["res://.godot/imported/lore_lang_dulay.png-ef34289104c2d68c7c2310ff7510b895.ctex"]
 
 [params]
 

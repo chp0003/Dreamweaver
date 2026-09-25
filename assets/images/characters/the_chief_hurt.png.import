@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://rvwmkho5lpwd"
-valid=false
+uid="uid://dyrlphot3e5rq"
+path="res://.godot/imported/the_chief_hurt.png-ca3cff65ad065398da7ec208c137a940.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/characters/the_chief_hurt.png"
+dest_files=["res://.godot/imported/the_chief_hurt.png-ca3cff65ad065398da7ec208c137a940.ctex"]
 
 [params]
 

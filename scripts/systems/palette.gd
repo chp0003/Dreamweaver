@@ -171,3 +171,64 @@ static func bleach(color: Color, amount: float = 1.0) -> Color:
 	# The same faintly warm tint the shader uses, so gray never goes blue.
 	var gray := Color(luma * 1.02, luma * 0.99, luma * 0.94, color.a)
 	return color.lerp(gray, clampf(amount, 0.0, 1.0))
+
+
+## Pictures the editor reads off the project folder.
+## An exported app keeps those files inside the pack, so the folder path is empty.
+static func read_texture(path: String) -> Texture2D:
+	if path.is_empty():
+		return null
+	if OS.has_feature("editor"):
+		var image := read_image(path)
+		if image != null and image.get_width() > 8:
+			return ImageTexture.create_from_image(image)
+	if ResourceLoader.exists(path):
+		var loaded: Variant = load(path)
+		if loaded is Texture2D and (loaded as Texture2D).get_width() > 8:
+			return loaded as Texture2D
+	if not OS.has_feature("editor"):
+		var packed := read_image(path)
+		if packed != null and packed.get_width() > 8:
+			return ImageTexture.create_from_image(packed)
+	return null
+
+
+static func read_image(path: String) -> Image:
+	if path.is_empty():
+		return null
+	var direct := _read_picture_file(path)
+	if direct != null:
+		return direct
+	if path.begins_with("res://"):
+		var disk := _read_picture_file(ProjectSettings.globalize_path(path))
+		if disk != null:
+			return disk
+	if ResourceLoader.exists(path):
+		var loaded: Variant = load(path)
+		if loaded is Texture2D:
+			var tex := (loaded as Texture2D).get_image()
+			if tex != null and tex.get_width() > 0:
+				if tex.get_format() != Image.FORMAT_RGBA8:
+					tex.convert(Image.FORMAT_RGBA8)
+				return tex
+	return null
+
+
+static func _read_picture_file(path: String) -> Image:
+	if path.is_empty() or not FileAccess.file_exists(path):
+		return null
+	var image := Image.new()
+	if image.load(path) == OK:
+		if image.get_format() != Image.FORMAT_RGBA8:
+			image.convert(Image.FORMAT_RGBA8)
+		return image
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return null
+	var buf := file.get_buffer(file.get_length())
+	file.close()
+	if image.load_png_from_buffer(buf) == OK or image.load_jpg_from_buffer(buf) == OK:
+		if image.get_format() != Image.FORMAT_RGBA8:
+			image.convert(Image.FORMAT_RGBA8)
+		return image
+	return null

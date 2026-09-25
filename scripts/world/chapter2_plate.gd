@@ -1,5 +1,6 @@
 class_name Chapter2Plate
 extends Node2D
+
 ## Painted 16:9 interior for the House of Red Courage.
 ## Same UV rule as Chapter1Plate: sprite centred, solids in local space.
 
@@ -170,20 +171,13 @@ func add_fallback_solids() -> void:
 
 
 func _load_disk_image() -> Image:
-	var disk := ProjectSettings.globalize_path(TEXTURE_PATH)
-	if not FileAccess.file_exists(disk):
-		return null
-	var image := Image.new()
-	if image.load(disk) != OK:
-		return null
-	return image
+	return Palette.read_image(TEXTURE_PATH)
 
 
 func _load_texture(disk: Image) -> Texture2D:
-	if ResourceLoader.exists(TEXTURE_PATH):
-		var loaded := load(TEXTURE_PATH)
-		if loaded is Texture2D:
-			return loaded as Texture2D
+	var packed := Palette.read_texture(TEXTURE_PATH)
+	if packed != null:
+		return packed
 	if disk != null:
 		return ImageTexture.create_from_image(disk)
 	push_warning("Chapter2Plate: missing %s" % TEXTURE_PATH)

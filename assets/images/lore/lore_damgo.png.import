@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ce6ktomrx6rlt"
-valid=false
+uid="uid://61xxwwmbynsd"
+path="res://.godot/imported/lore_damgo.png-19a87ec9886dc3cfa91c3781e6318ac4.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/lore/lore_damgo.png"
+dest_files=["res://.godot/imported/lore_damgo.png-19a87ec9886dc3cfa91c3781e6318ac4.ctex"]
 
 [params]
 

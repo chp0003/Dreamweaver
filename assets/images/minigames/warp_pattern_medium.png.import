@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://e117vgj7wfpl"
-valid=false
+uid="uid://d0paao4odapd2"
+path="res://.godot/imported/warp_pattern_medium.png-bad56f72f1175be1da81f498c806a624.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/minigames/warp_pattern_medium.png"
+dest_files=["res://.godot/imported/warp_pattern_medium.png-bad56f72f1175be1da81f498c806a624.ctex"]
 
 [params]
 

@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bydk111vyw2pt"
-valid=false
+uid="uid://bitrehteptq02"
+path="res://.godot/imported/shadow_minion_skill_cast.png-fb75c6eff36625b9eea0bc46c2fd1aa2.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/images/enemies/shadow_minion_skill_cast.png"
+dest_files=["res://.godot/imported/shadow_minion_skill_cast.png-fb75c6eff36625b9eea0bc46c2fd1aa2.ctex"]
 
 [params]
 
