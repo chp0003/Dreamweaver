@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://bwdwhud0001"]
+[gd_scene load_steps=11 format=3 uid="uid://bwdwhud0001"]
 
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1_hud"]
 [ext_resource type="Theme" uid="uid://bwdreamtheme" path="res://assets/themes/dreamweaver.tres" id="2_theme"]
@@ -27,6 +27,16 @@ corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 shadow_color = Color(0.886, 0.376, 0.29, 0.45)
 shadow_size = 7
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_beam_fill"]
+bg_color = Color(1, 0.9, 0.55, 0.95)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(1, 0.86, 0.4, 0.45)
+shadow_size = 6
 anti_aliasing = true
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_chime_fill"]
@@ -174,6 +184,16 @@ custom_minimum_size = Vector2(0, 6)
 layout_mode = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
 theme_override_styles/fill = SubResource("StyleBoxFlat_chime_fill")
+value = 100.0
+show_percentage = false
+
+[node name="BeamBar" type="ProgressBar" parent="Root/VitalPlate/VitalCol"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 6)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_beam_fill")
 value = 100.0
 show_percentage = false
 

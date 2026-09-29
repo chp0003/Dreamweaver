@@ -30,7 +30,11 @@ const WAVE_GROUPS: Array = [
 
 const LOOM_BLEACH_DAMAGE := 0.18
 const APPROACH_RADIUS := 220.0
-const BOSS_MUSIC := "res://assets/audio/music/boss_shadow_weaver.ogg"
+const BOSS_MUSIC := "res://assets/audio/music/boss_shadow_weaver.wav"
+const STAGE_LINES := {
+	2: "ENOUGH! You will drown in the dark!",
+	3: "No! I will not fade! I will not be forgotten!",
+}
 
 var _plate: Chapter5Plate
 var _loom: Node2D
@@ -56,6 +60,7 @@ var _duel_over := false
 var _phase := 0
 var _block_taught := false
 var _weave_taught := false
+var _perfect_taught := false
 
 
 func uses_painted_plate() -> bool:
@@ -191,7 +196,7 @@ func _build_hall() -> void:
 	_ancestor.visible = false
 
 	_boss = ShadowWeaverBoss.new()
-	_boss.max_health = 680.0
+	_boss.max_health = 1500.0
 	if world != null:
 		world.add_child(_boss)
 	else:
@@ -355,6 +360,8 @@ func _phase_one_breach() -> bool:
 		if is_finished():
 			return false
 		_heal_after_wave()
+		if wave_index == WAVE_GROUPS.size() - 1:
+			_grant_light_beam()
 		if wave_index < WAVE_GROUPS.size() - 1:
 			counter("More shadows  ·  wave %d of %d" % [wave_index + 2, WAVE_GROUPS.size()])
 			await wait(0.85)
@@ -366,12 +373,12 @@ func _phase_one_breach() -> bool:
 	Audio.set_combat_drums(0.25, 110.0)
 	Audio.play_sfx(Audio.Sfx.CHIME)
 	if hud != null and hud.has_method("set_mode"):
-		hud.call("set_mode", "")
+		hud.call("set_mode", "1 ward    2 light beam", Color(0.98, 0.9, 0.55))
 	await say([
-		"The floor is clear. Walk to the big loom at the back of the hall.",
+		"The floor is clear. Press 2 to fire a beam of light. It hits hard, then rests for ten seconds. The ward is 1. Walk to the big loom at the back of the hall.",
 	])
 	objective("Walk to the big loom at the back.")
-	_coach("Walk to the loom", "Go to the gold mark in front of the loom.", [])
+	_coach("Walk to the loom", "Go to the gold mark. 1 raises your ward. 2 fires the light beam.", ["1", "2"])
 	await until(func() -> bool: return _player_near_loom() or is_finished())
 	_clear_coach()
 	return not is_finished()
@@ -384,14 +391,20 @@ func _phase_two_duel() -> bool:
 	_point_loom(false)
 	await _materialize_boss()
 
+	Audio.set_combat_drums(0.0)
+	Audio.set_ambience(0.2, 0.0)
 	await say([
-		{"speaker": "The Shadow Weaver", "text": "I am only what is left when nobody remembers."},
-		{"speaker": "S'lang", "text": "Then I will remember."},
+		{"speaker": "The Shadow Weaver", "text": "So. The little weaver comes to the loom, at last.", "voice": "weaver_intro_1"},
+		{"speaker": "S'lang", "text": "Give the colour back."},
+		{"speaker": "The Shadow Weaver", "text": "I am what is left when nobody remembers. I have swallowed a thousand forgotten names.", "voice": "weaver_intro_2"},
+		{"speaker": "The Shadow Weaver", "text": "Your village. Your ancestors. Your colour. All of it... is mine.", "voice": "weaver_intro_3"},
+		{"speaker": "S'lang", "text": "Then I will remember them. Every one."},
+		{"speaker": "The Shadow Weaver", "text": "Then come, child. And be forgotten.", "voice": "weaver_intro_4"},
 	])
 	GameState.unlock_lore("shadow_weaver")
 
-	_play_boss_music()
-	Audio.set_combat_drums(0.7, 128.0)
+	if not _play_boss_music():
+		Audio.set_combat_drums(0.7, 128.0)
 	if hud != null:
 		if hud.has_method("show_boss_health"):
 			hud.call("show_boss_health", true)
@@ -406,12 +419,14 @@ func _phase_two_duel() -> bool:
 		_boss.recovered.connect(_on_boss_recovered)
 		_boss.health_changed.connect(_on_boss_health_changed)
 		_boss.defeated.connect(_on_boss_defeated)
+		_boss.stage_changed.connect(_on_boss_stage_changed)
+		_boss.perfect_dodged.connect(_on_boss_perfect_dodged)
 
 	_enter_fight_stance()
 	_coach(
-		"Dodge, then hit",
-		"Red on the floor is a skill. Shift to roll out. Space when it recovers. Q if you are crowded.",
-		["SHIFT", "SPACE"]
+		"Dodge, then punish",
+		"His guard shrugs off hits while he stalks. Roll through a strike (SHIFT) or raise your ward just as it lands (1). Press 2 to fire the light beam, then hit him while he recovers.",
+		["SHIFT", "1", "2", "SPACE"]
 	)
 	_boss.begin_duel()
 
@@ -504,6 +519,16 @@ func _on_minion_died(_minion: ShadowMinion) -> void:
 	_shadows_alive = maxi(0, _shadows_alive - 1)
 	_shadows_total = maxi(0, _shadows_total - 1)
 	_refresh_shadow_counter()
+
+
+func _grant_light_beam() -> void:
+	if player == null or not is_instance_valid(player) or not player.has_method("unlock_light_beam"):
+		return
+	if player.has_light_beam:
+		return
+	player.unlock_light_beam()
+	Audio.play_sfx(Audio.Sfx.SUCCESS)
+	banner("Light beam", 2.2)
 
 
 func _heal_after_wave() -> void:
@@ -641,17 +666,18 @@ func _player_near_loom() -> bool:
 func _materialize_boss() -> void:
 	_boss.visible = true
 	_boss.z_index = 8
-	Audio.play_wind_whistle()
-	Audio.play_sfx(Audio.Sfx.THUD)
+	_boss.play_entrance_roar()
 	shake_camera(12.0)
 	var appear := create_tween()
 	appear.tween_property(_boss, "modulate:a", 1.0, 1.15)
 	await wait(1.25)
 
 
-func _play_boss_music() -> void:
-	if ResourceLoader.exists(BOSS_MUSIC) or FileAccess.file_exists(BOSS_MUSIC):
-		Audio.play_music(BOSS_MUSIC, -8.0)
+func _play_boss_music() -> bool:
+	if not ResourceLoader.exists(BOSS_MUSIC) and not FileAccess.file_exists(BOSS_MUSIC):
+		return false
+	Audio.play_music(BOSS_MUSIC, -7.0)
+	return Audio.is_music_playing()
 
 
 func _enter_fight_stance() -> void:
@@ -661,7 +687,7 @@ func _enter_fight_stance() -> void:
 	_point_loom(false)
 	objective("Dodge the skills. Kill the Weaver.")
 	if hud != null and hud.has_method("set_mode"):
-		hud.call("set_mode", "SHIFT dodge   SPACE strike   Q shock", Color(0.94, 0.72, 0.48))
+		hud.call("set_mode", "SHIFT dodge   1 ward   2 beam   SPACE strike   Q shock", Color(0.94, 0.72, 0.48))
 	counter("Roll the red. Hit the recover.")
 	if _plate != null:
 		_plate.set_loom_energy(0.55)
@@ -713,8 +739,7 @@ func _on_player_attack_hit(_hit: Node2D) -> void:
 		_clear_coach()
 		Audio.play_brass_shock()
 	elif _phase == 2:
-		shake_camera(5.5)
-		Audio.play_sfx(Audio.Sfx.HIT)
+		shake_camera(5.5 if _boss != null and _boss.is_exposed() else 2.5)
 
 
 func _on_telegraph_started(_window: float) -> void:
@@ -757,6 +782,27 @@ func _on_telegraph_resolved(parried: bool) -> void:
 func _on_boss_staggered(_duration: float) -> void:
 	_enter_punish_window()
 	shake_camera(8.0)
+
+
+func _on_boss_stage_changed(stage: int, _line: String) -> void:
+	if _duel_over:
+		return
+	shake_camera(16.0)
+	banner(STAGE_LINES.get(stage, "The Weaver rages."), 2.4)
+	counter("PHASE %d  —  he is faster now" % stage)
+	if _plate != null:
+		_plate.set_loom_energy(0.35 if stage >= 3 else 0.45)
+
+
+func _on_boss_perfect_dodged() -> void:
+	if _duel_over:
+		return
+	shake_camera(5.0)
+	var guarded := player != null and player.is_warding()
+	counter(("PERFECT GUARD" if guarded else "PERFECT DODGE") + "  —  punish him now")
+	if not _perfect_taught:
+		_perfect_taught = true
+		_coach("Perfect timing", "Rolling or warding at the last instant opens him up. Every hit lands hard for a moment.", ["SPACE"])
 
 
 func _on_boss_recovered() -> void:

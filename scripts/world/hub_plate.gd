@@ -92,6 +92,9 @@ func _ready() -> void:
 	_sprite.scale = Vector2(plate_scale, plate_scale)
 	_apply_curse_material()
 	add_child(_sprite)
+	var ambience := HubAmbience.new()
+	ambience.name = "Ambience"
+	add_child(ambience)
 	if auto_generate_collision:
 		_add_edge_walls()
 		_add_solids()

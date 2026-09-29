@@ -144,13 +144,24 @@ static func pool_rise(host: Node2D) -> void:
 	tween.chain().tween_callback(ring.queue_free)
 
 
+## Overlapping punches must return to the true rest scale, not to the squashed
+## scale of the punch still in flight, or the body drifts out of shape.
 static func punch(node: Node2D, amount := 0.12) -> void:
 	if node == null or not node.is_inside_tree():
 		return
 	var home := node.scale
+	var running: Variant = node.get_meta(&"punch_tween", null)
+	if running is Tween and (running as Tween).is_valid():
+		(running as Tween).kill()
+		home = node.get_meta(&"punch_home", home)
+	node.set_meta(&"punch_home", home)
 	var tween := node.create_tween()
+	node.set_meta(&"punch_tween", tween)
 	tween.tween_property(node, "scale", home * Vector2(1.0 + amount, 1.0 - amount), 0.05)
 	tween.tween_property(node, "scale", home, 0.12).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tween.tween_callback(func() -> void:
+		if is_instance_valid(node):
+			node.remove_meta(&"punch_tween"))
 
 
 static func _soft_dot() -> Texture2D:

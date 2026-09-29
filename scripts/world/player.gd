@@ -14,6 +14,8 @@ extends CharacterBody2D
 ## Combat (once the Lewet Staff is equipped):
 ##   Space             - melee staff sweep
 ##   Shift / RMB       - dodge roll with i-frames
+##   1                 - woven ward that blocks every blow for a moment
+##   2                 - light beam, unlocked after Chapter 5 waves 1–3
 ##   Q                 - sonic shockwave around her feet
 ##   Left-click enemy  - lock, run in, then melee when she is close enough
 
@@ -23,6 +25,7 @@ signal attacked(swing_position: Vector2, facing: Vector2)
 signal chimed(origin: Vector2, radius: float)
 signal staff_acquired
 signal attack_hit(hit: Node2D)
+signal warded(perfect: bool)
 
 @export var speed: float = 190.0
 @export var acceleration: float = 1500.0
@@ -30,14 +33,14 @@ signal attack_hit(hit: Node2D)
 
 const ATTACK_COOLDOWN := 0.58
 const ATTACK_ANIM := 0.52
-const ATTACK_DAMAGE := 34.0
+const ATTACK_DAMAGE := 44.0
 const MELEE_REACH := 128.0
 const MELEE_ARC := 1.45
 const CLICK_PICK_RADIUS := 96.0
 
 const CHIME_COOLDOWN := 2.6
 const CHIME_RADIUS := 190.0
-const CHIME_DAMAGE := 18.0
+const CHIME_DAMAGE := 24.0
 const LIFE_THREAD_VINE_DAMAGE := 92.0
 const SHOCKWAVE_PATH := "res://assets/images/vfx/slang_shockwave.png"
 const SHOCKWAVE_FRAMES := 8
@@ -48,9 +51,22 @@ const DODGE_COOLDOWN := 0.68
 const DODGE_TIME := 0.24
 const DODGE_SPEED := 540.0
 const DODGE_IFRAMES := 0.38
+const WARD_TIME := 0.6
+const WARD_PERFECT := 0.22
+const WARD_COOLDOWN := 2.6
+const WARD_SLOW := 0.45
+const WARD_COLOR := Color(1.0, 0.82, 0.38)
+const BEAM_COOLDOWN := 10.0
+const BEAM_DAMAGE := 230.0
+const BEAM_LENGTH := 560.0
+const BEAM_HALF_WIDTH := 38.0
+const BEAM_CHARGE := 0.48
+const BEAM_GOLD := Color(1.55, 1.22, 0.55, 0.96)
+const BEAM_BURST := "res://assets/images/vfx/weave_bolt_burst.png"
 
 @export var max_health := 100.0
 @export var has_staff := false
+@export var has_light_beam := false
 @export var has_life_thread := false
 @export var staff_light_enabled := false
 @export var staff_light_radius := 210.0
@@ -79,6 +95,12 @@ var _attack_anim_left := 0.0
 var _dodge_timer := 0.0
 var _dodge_left := 0.0
 var _dodge_dir := Vector2.ZERO
+var _ward_left := 0.0
+var _ward_timer := 0.0
+var _ward_fx: Node2D
+var _beam_timer := 0.0
+var _beam_root := 0.0
+var _beam_charge: Node2D
 ## Locked target. Clicking one out of range makes her chase until she can swing.
 var _locked_target: Node2D
 var _chasing := false
@@ -98,6 +120,8 @@ var _idle_time := 0.0
 func _ready() -> void:
 	add_to_group("player")
 	health = max_health
+	if GameState.has_item("light_beam"):
+		has_light_beam = true
 	collision_layer = PhysicsLayers.LAYER_PLAYER
 	collision_mask = PhysicsLayers.MASK_PLAYER_MOVES
 	z_index = 0
@@ -117,6 +141,13 @@ func _physics_process(delta: float) -> void:
 	_attack_anim_left = maxf(0.0, _attack_anim_left - delta)
 	_dodge_timer = maxf(0.0, _dodge_timer - delta)
 	_dodge_left = maxf(0.0, _dodge_left - delta)
+	_ward_timer = maxf(0.0, _ward_timer - delta)
+	_beam_timer = maxf(0.0, _beam_timer - delta)
+	_beam_root = maxf(0.0, _beam_root - delta)
+	if _ward_left > 0.0:
+		_ward_left = maxf(0.0, _ward_left - delta)
+		if _ward_left <= 0.0:
+			_drop_ward_fx()
 	if _attack_anim_left <= 0.0:
 		_attacking = false
 		if _animated != null:
@@ -142,10 +173,13 @@ func _physics_process(delta: float) -> void:
 		velocity = _dodge_dir * DODGE_SPEED
 	else:
 		var direction := Iso.screen_direction(input_vector)
+		var move_speed := speed * (WARD_SLOW if _ward_left > 0.0 else 1.0)
+		if _beam_root > 0.0:
+			move_speed *= 0.2
 		if direction != Vector2.ZERO:
 			if _locked_target == null:
 				facing = direction
-			velocity = velocity.move_toward(direction * speed, acceleration * delta)
+			velocity = velocity.move_toward(direction * move_speed, acceleration * delta)
 		elif chase_dir != Vector2.ZERO:
 			velocity = velocity.move_toward(chase_dir * speed, acceleration * delta)
 		else:
@@ -172,6 +206,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("dodge"):
 		get_viewport().set_input_as_handled()
 		try_dodge()
+	elif event.is_action_pressed("ward"):
+		get_viewport().set_input_as_handled()
+		try_ward()
+	elif InputMap.has_action("beam") and event.is_action_pressed("beam"):
+		get_viewport().set_input_as_handled()
+		try_beam()
 	elif event.is_action_pressed("attack"):
 		get_viewport().set_input_as_handled()
 		try_attack()
@@ -299,7 +339,7 @@ func _apply_light() -> void:
 # --------------------------------------------------------------------------
 
 func try_attack() -> bool:
-	if _dodge_left > 0.0:
+	if _dodge_left > 0.0 or _beam_root > 0.0:
 		return false
 	var boss := get_tree().get_first_node_in_group("boss") as Node2D
 	if _is_valid_hit(boss) and _in_melee_range(boss):
@@ -310,7 +350,7 @@ func try_attack() -> bool:
 
 
 func try_dodge() -> bool:
-	if not input_enabled or _dead or _dodge_timer > 0.0:
+	if not input_enabled or _dead or _dodge_timer > 0.0 or _beam_root > 0.0:
 		return false
 	var up_down_neg := "move_up" if InputMap.has_action("move_up") else "move_forward"
 	var up_down_pos := "move_down" if InputMap.has_action("move_down") else "move_back"
@@ -331,8 +371,319 @@ func try_dodge() -> bool:
 	return true
 
 
+## Raises a woven ward. Every blow is blocked while it holds; one caught in the
+## first instant is a perfect guard, which enemies can treat like a perfect dodge.
+func try_ward() -> bool:
+	if not input_enabled or _dead or not has_staff or _ward_timer > 0.0 or _dodge_left > 0.0 or _beam_root > 0.0:
+		return false
+	_ward_left = WARD_TIME
+	_ward_timer = WARD_COOLDOWN
+	_attacking = false
+	velocity *= 0.35
+	Audio.play_fx("slang_ward_raise", -2.0, 0.04)
+	_raise_ward_fx()
+	return true
+
+
+func is_warding() -> bool:
+	return _ward_left > 0.0
+
+
+func ward_cooldown_ratio() -> float:
+	return clampf(_ward_timer / WARD_COOLDOWN, 0.0, 1.0)
+
+
+## The staff gathers, then throws a beam down her facing. Unlocked after the
+## first three waves of the Sacred Loom.
+func unlock_light_beam() -> void:
+	has_light_beam = true
+	GameState.add_item("light_beam")
+
+
+func try_beam() -> bool:
+	if not input_enabled or _dead or not has_staff or not has_light_beam:
+		return false
+	if _beam_timer > 0.0 or _dodge_left > 0.0 or _beam_root > 0.0:
+		return false
+	if _is_valid_hit(_locked_target):
+		_face_vector(_locked_target.global_position - global_position)
+	else:
+		_aim_from_mouse()
+	_beam_timer = BEAM_COOLDOWN
+	_beam_root = BEAM_CHARGE
+	_attacking = true
+	_attack_anim_left = BEAM_CHARGE + 0.45
+	velocity *= 0.15
+	_play_cast_pose()
+	_charge_beam_fx()
+	Audio.play_sfx(Audio.Sfx.BELL)
+	var aim := facing
+	var release := create_tween()
+	release.tween_interval(BEAM_CHARGE)
+	release.tween_callback(_release_beam.bind(aim))
+	return true
+
+
+func beam_ready() -> bool:
+	return has_light_beam and has_staff and _beam_timer <= 0.0 and not _dead
+
+
+func beam_cooldown_ratio() -> float:
+	if not has_light_beam:
+		return 0.0
+	return 1.0 - (_beam_timer / BEAM_COOLDOWN)
+
+
+func _charge_beam_fx() -> void:
+	_clear_beam_charge()
+	var holder := Node2D.new()
+	holder.name = "BeamCharge"
+	holder.position = Vector2(0.0, -50.0)
+	holder.z_index = 22
+	holder.scale = Vector2(0.28, 0.28)
+	add_child(holder)
+	_beam_charge = holder
+	var gather := ShadowFx.attach(holder, ShadowFx.CHARGE, Vector2.ZERO, 16.0, true, Vector2(0.85, 0.85), 1)
+	if gather != null:
+		gather.modulate = BEAM_GOLD
+	var core := Sprite2D.new()
+	core.texture = Palette.read_texture(BEAM_BURST)
+	core.centered = true
+	core.scale = Vector2(0.22, 0.22)
+	core.modulate = Color(1.15, 1.02, 0.72, 0.85)
+	core.material = ShadowFx.additive()
+	core.z_index = 2
+	holder.add_child(core)
+	var grow := holder.create_tween()
+	grow.tween_property(holder, "scale", Vector2(1.15, 1.15), BEAM_CHARGE)\
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+func _clear_beam_charge() -> void:
+	if _beam_charge != null and is_instance_valid(_beam_charge):
+		_beam_charge.queue_free()
+	_beam_charge = null
+
+
+func _release_beam(aim: Vector2) -> void:
+	if _dead or not is_inside_tree():
+		return
+	_clear_beam_charge()
+	if aim.length() < 0.01:
+		aim = facing if facing != Vector2.ZERO else Vector2(0, 1)
+	aim = aim.normalized()
+	facing = aim
+	_play_cast_pose()
+	_spawn_beam_visual(aim)
+	_play_shockwave()
+	Audio.play_sfx(Audio.Sfx.CHIME)
+	Audio.play_sfx(Audio.Sfx.HIT)
+	Fx.punch(self, 0.14)
+	var origin := global_position + Vector2(0.0, -46.0)
+	for target in _targets_in_beam(aim):
+		var along := ((target.global_position + Vector2(0.0, -36.0)) - origin).dot(aim)
+		var delay := clampf(along / BEAM_LENGTH, 0.0, 1.0) * 0.2
+		var strike := create_tween()
+		strike.tween_interval(delay)
+		strike.tween_callback(_beam_strike.bind(target))
+
+
+func _beam_strike(target: Node2D) -> void:
+	if not is_instance_valid(target) or not target.has_method("take_damage"):
+		return
+	var result: Variant = target.take_damage(BEAM_DAMAGE, self)
+	if result is bool and not result:
+		return
+	Fx.hit_flash(target, Color(1.0, 0.95, 0.7))
+	var host: Node = target.get_parent()
+	if host != null and host.is_inside_tree():
+		var impact := ShadowFx.burst(host, ShadowFx.BOLT_IMPACT,
+				target.global_position + Vector2(0.0, -40.0), 18.0, Vector2(1.35, 1.35), 0.0, 24)
+		if impact != null:
+			impact.modulate = BEAM_GOLD
+		var spark := ShadowFx.burst(host, ShadowFx.HIT_SPARK,
+				target.global_position + Vector2(0.0, -48.0), 22.0, Vector2(0.65, 0.65), 0.0, 25)
+		if spark != null:
+			spark.modulate = BEAM_GOLD
+		Fx.damage_number(host, target.global_position, int(BEAM_DAMAGE), Color(1.0, 0.92, 0.55))
+	attack_hit.emit(target)
+
+
+func _targets_in_beam(aim: Vector2) -> Array[Node2D]:
+	var found: Array[Node2D] = []
+	var origin := global_position + Vector2(0.0, -40.0)
+	for node in get_tree().get_nodes_in_group("hittable"):
+		if not _is_valid_hit(node):
+			continue
+		var target := node as Node2D
+		var to := target.global_position + Vector2(0.0, -36.0) - origin
+		var along := to.dot(aim)
+		if along < 12.0 or along > BEAM_LENGTH:
+			continue
+		var side := (to - aim * along).length()
+		var width := BEAM_HALF_WIDTH
+		if target.has_method("hit_radius"):
+			width += minf(float(target.call("hit_radius")) * 0.22, 42.0)
+		if side <= width:
+			found.append(target)
+	return found
+
+
+func _spawn_beam_visual(aim: Vector2) -> void:
+	var host: Node = get_parent()
+	if host == null:
+		host = self
+	var beam := Node2D.new()
+	beam.name = "LightBeam"
+	beam.z_index = 18
+	host.add_child(beam)
+	beam.global_position = global_position + Vector2(0.0, -48.0)
+	beam.rotation = aim.angle()
+
+	var core := Sprite2D.new()
+	core.texture = Palette.read_texture(BEAM_BURST)
+	core.centered = true
+	core.position = Vector2(BEAM_LENGTH * 0.48, 0.0)
+	core.scale = Vector2(BEAM_LENGTH / 210.0, 0.42)
+	core.modulate = Color(1.2, 1.05, 0.7, 0.0)
+	core.material = ShadowFx.additive()
+	core.z_index = 1
+	beam.add_child(core)
+	var core_in := core.create_tween()
+	core_in.tween_property(core, "modulate:a", 0.9, 0.08)
+
+	var disk := ShadowFx.attach(beam, "res://assets/images/vfx/weaver_nova_ring.png",
+			Vector2(36.0, 0.0), 18.0, false, Vector2(0.9, 0.9), 2)
+	if disk != null:
+		disk.modulate = BEAM_GOLD
+	var slam := ShadowFx.attach(beam, "res://assets/images/vfx/weaver_slam_ring.png",
+			Vector2(24.0, 0.0), 16.0, false, Vector2(1.15, 0.62), 0)
+	if slam != null:
+		slam.modulate = BEAM_GOLD
+	# The flame sheet grows upward. Turn it so the column runs down the beam.
+	var muzzle := ShadowFx.attach(beam, ShadowFx.DASH_BURST,
+			Vector2(64.0, 0.0), 18.0, false, Vector2(0.85, 1.45), 3)
+	if muzzle != null:
+		muzzle.rotation = -PI * 0.5
+		muzzle.modulate = BEAM_GOLD
+
+	var span := BEAM_LENGTH - 150.0
+	for i in range(8):
+		var along := 86.0 + span * float(i) / 7.0
+		var bolt := ShadowFx.attach(beam, ShadowFx.SHADOW_BOLT, Vector2(along, 0.0),
+				14.0, true, Vector2(0.92, 0.78), 4)
+		if bolt == null:
+			continue
+		bolt.modulate = Color(BEAM_GOLD.r, BEAM_GOLD.g, BEAM_GOLD.b, 0.0)
+		bolt.frame = i % 8
+		var fade := bolt.create_tween()
+		fade.tween_interval(0.025 * float(i))
+		fade.tween_property(bolt, "modulate:a", 0.95, 0.06)
+		var spark_at := along
+		var spark_tw := beam.create_tween()
+		spark_tw.tween_interval(0.03 * float(i))
+		spark_tw.tween_callback(_beam_spark.bind(beam, spark_at))
+
+	var tip_tw := beam.create_tween()
+	tip_tw.tween_interval(0.14)
+	tip_tw.tween_callback(_beam_tip.bind(beam))
+
+	var life := beam.create_tween()
+	life.tween_interval(0.62)
+	life.tween_property(beam, "modulate:a", 0.0, 0.22)
+	life.tween_callback(beam.queue_free)
+
+
+func _beam_tip(beam: Node2D) -> void:
+	if not is_instance_valid(beam):
+		return
+	var tip := ShadowFx.attach(beam, ShadowFx.BOLT_IMPACT, Vector2(BEAM_LENGTH - 16.0, 0.0),
+			16.0, false, Vector2(1.45, 1.45), 5)
+	if tip != null:
+		tip.modulate = BEAM_GOLD
+
+
+func _beam_spark(beam: Node2D, along: float) -> void:
+	if not is_instance_valid(beam):
+		return
+	var spark := ShadowFx.attach(beam, ShadowFx.HIT_SPARK, Vector2(along, randf_range(-10.0, 10.0)),
+			22.0, false, Vector2(0.55, 0.55), 6)
+	if spark != null:
+		spark.modulate = BEAM_GOLD
+
+
+## True inside a roll's i-frames or the opening beat of a ward.
+func is_perfect_evade() -> bool:
+	return is_dodge_invulnerable() or (not _dead and _ward_left > WARD_TIME - WARD_PERFECT)
+
+
+func _block_with_ward() -> void:
+	var perfect := _ward_left > WARD_TIME - WARD_PERFECT
+	Audio.play_fx("slang_ward_block", 0.0 if perfect else -3.0, 0.05)
+	Fx.punch(self, 0.06)
+	Fx.ring_pulse(self, WARD_COLOR, 110.0 if perfect else 70.0)
+	if _ward_fx != null and is_instance_valid(_ward_fx):
+		_ward_fx.modulate = Color(2.2, 1.9, 1.3, 1.0)
+		var flare := _ward_fx.create_tween()
+		flare.tween_property(_ward_fx, "modulate", Color.WHITE, 0.2)
+	warded.emit(perfect)
+
+
+func _raise_ward_fx() -> void:
+	_drop_ward_fx()
+	var ward := Node2D.new()
+	ward.name = "Ward"
+	ward.position = Vector2(0.0, -40.0)
+	ward.z_index = 6
+	var dome := Polygon2D.new()
+	var rim := Line2D.new()
+	var weave := Line2D.new()
+	var dome_points := PackedVector2Array()
+	for i in range(40):
+		var a := TAU * float(i) / 40.0
+		dome_points.append(Vector2(cos(a) * 52.0, sin(a) * 62.0))
+	dome.polygon = dome_points
+	dome.color = Palette.alpha(WARD_COLOR, 0.16)
+	rim.points = dome_points
+	rim.closed = true
+	rim.width = 3.0
+	rim.default_color = Palette.alpha(WARD_COLOR, 0.9)
+	# A second, rotated ellipse reads as threads crossing over the dome.
+	for i in range(40):
+		var a := TAU * float(i) / 40.0
+		weave.add_point(Vector2(cos(a) * 58.0, sin(a) * 26.0).rotated(0.5))
+	weave.closed = true
+	weave.width = 2.0
+	weave.default_color = Palette.alpha(WARD_COLOR, 0.6)
+	var additive := CanvasItemMaterial.new()
+	additive.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	for part: CanvasItem in [dome, rim, weave]:
+		part.material = additive
+		ward.add_child(part)
+	add_child(ward)
+	_ward_fx = ward
+	ward.scale = Vector2(0.4, 0.4)
+	var grow := ward.create_tween()
+	grow.set_parallel(true)
+	grow.tween_property(ward, "scale", Vector2.ONE, 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	grow.tween_property(weave, "rotation", TAU * 0.5, WARD_TIME)
+
+
+func _drop_ward_fx() -> void:
+	if _ward_fx == null or not is_instance_valid(_ward_fx):
+		_ward_fx = null
+		return
+	var ward := _ward_fx
+	_ward_fx = null
+	var fade := ward.create_tween()
+	fade.set_parallel(true)
+	fade.tween_property(ward, "modulate:a", 0.0, 0.14)
+	fade.tween_property(ward, "scale", Vector2(1.25, 1.25), 0.14)
+	fade.chain().tween_callback(ward.queue_free)
+
+
 func apply_knockback(from_world: Vector2, force := 280.0) -> void:
-	if _dead or _dodge_left > 0.0:
+	if _dead or _dodge_left > 0.0 or _ward_left > 0.0:
 		return
 	var away := global_position - from_world
 	if away.length() < 4.0:
@@ -489,7 +840,7 @@ func _pick_click_target(world_point: Vector2) -> Node2D:
 
 
 func try_chime() -> bool:
-	if not has_staff or _chime_timer > 0.0 or _dead:
+	if not has_staff or _chime_timer > 0.0 or _dead or _beam_root > 0.0:
 		return false
 	_chime_timer = CHIME_COOLDOWN
 	Audio.play_sfx(Audio.Sfx.CHIME)
@@ -572,8 +923,19 @@ func set_light_enabled(value: bool) -> void:
 # Damage
 # --------------------------------------------------------------------------
 
+## True only inside the roll's own i-frames, not the grace period after a hit,
+## so enemies can reward a dodge that was timed through an attack.
+func is_dodge_invulnerable() -> bool:
+	return not _dead and _dodge_timer > DODGE_COOLDOWN - DODGE_IFRAMES
+
+
 func take_damage(amount: float, _source: Node = null) -> void:
-	if _dead or _invulnerable > 0.0 or amount <= 0.0:
+	if _dead or amount <= 0.0:
+		return
+	if _ward_left > 0.0:
+		_block_with_ward()
+		return
+	if _invulnerable > 0.0:
 		return
 	health = maxf(0.0, health - amount)
 	_invulnerable = INVULNERABLE_TIME

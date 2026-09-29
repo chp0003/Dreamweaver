@@ -16,6 +16,23 @@ const MUSIC_FADE_OUT := 0.7
 const MUSIC_VOLUME_DB := -9.0
 const SFX_VOLUME_DB := -8.0
 
+## Rendered combat effects (tools/synth_shadow_sfx.py). Mastered to -1 dBFS,
+## so they sit lower than the synth voices to land at a similar loudness.
+const FX_DIR := "res://assets/audio/sfx/"
+const FX_VOLUME_DB := -6.0
+const FX_VOICES := 14
+## Two skills landing on the same frame should not double the same sample.
+const FX_REPEAT_GAP := 0.045
+const VOICE_DIR := "res://assets/audio/voice/"
+const VOICE_BOOST_DB := 5.0
+const VOICE_MUSIC_DUCK_DB := -10.0
+## River / waterfall bed and songbird calls (tools/synth_hub_nature.py).
+const NATURE_BED_PATH := "res://assets/audio/ambience/hub_river_loop.wav"
+const BIRD_PATH := "res://assets/audio/ambience/bird_%d.wav"
+const BIRD_COUNT := 10
+const NATURE_BED_DB := -7.0
+const NATURE_FADE := 1.6
+
 enum Sfx { CHIME, HIT, PICKUP, BELL, SUCCESS, FAIL, PARRY, THUD }
 
 var _player: AudioStreamPlayer
@@ -54,6 +71,21 @@ var _drum_beat := 0
 ## Decaying sine voices: { freq, phase, amp, decay }
 var _voices: Array[Dictionary] = []
 
+var _fx_players: Array[AudioStreamPlayer] = []
+var _fx_next := 0
+## name -> AudioStream, or null once a load has failed.
+var _fx_cache: Dictionary = {}
+var _fx_last_played: Dictionary = {}
+var _voice_player: AudioStreamPlayer
+var _voice_fade: Tween
+var _music_duck_db := 0.0
+
+var _nature_player: AudioStreamPlayer
+var _nature_tween: Tween
+var _nature_on := false
+var _bird_players: Array[AudioStreamPlayer] = []
+var _bird_timer := 0.0
+
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -89,6 +121,30 @@ func _ready() -> void:
 	_music_player.volume_db = -80.0
 	add_child(_music_player)
 
+	for i in range(FX_VOICES):
+		var fx_player := AudioStreamPlayer.new()
+		fx_player.name = "Fx%d" % i
+		fx_player.bus = "Master"
+		add_child(fx_player)
+		_fx_players.append(fx_player)
+
+	_voice_player = AudioStreamPlayer.new()
+	_voice_player.name = "Voice"
+	_voice_player.bus = "Master"
+	add_child(_voice_player)
+
+	_nature_player = AudioStreamPlayer.new()
+	_nature_player.name = "NatureBed"
+	_nature_player.bus = "Master"
+	_nature_player.volume_db = -80.0
+	add_child(_nature_player)
+	for i in range(3):
+		var bird := AudioStreamPlayer.new()
+		bird.name = "Bird%d" % i
+		bird.bus = "Master"
+		add_child(bird)
+		_bird_players.append(bird)
+
 
 ## The playback is a reference handed out by the audio server, so drop it before
 ## the server shuts down.
@@ -99,14 +155,24 @@ func _exit_tree() -> void:
 		_player.stop()
 	if _music_player != null:
 		_music_player.stop()
+	for fx_player in _fx_players:
+		fx_player.stop()
+	if _voice_player != null:
+		_voice_player.stop()
+	if _nature_player != null:
+		_nature_player.stop()
+	for bird in _bird_players:
+		bird.stop()
 
 
 func _process(delta: float) -> void:
 	if not _enabled or _playback == null:
 		return
+	_update_birds(delta)
 	_update_gust(delta)
 	_update_bell(delta)
 	_update_drums(delta)
+	_update_voice_duck(delta)
 	_fill_buffer()
 
 
@@ -125,6 +191,38 @@ func set_ambience(level: float, bell_interval: float = 0.0) -> void:
 
 func stop_ambience() -> void:
 	set_ambience(0.0, 0.0)
+
+
+## Rushing river, falls, and scattered birdsong for the village. Fades in and out.
+func set_nature_ambience(on: bool) -> void:
+	if not _enabled or _nature_player == null or on == _nature_on:
+		return
+	_nature_on = on
+	if _nature_tween != null and _nature_tween.is_valid():
+		_nature_tween.kill()
+	if on:
+		if _nature_player.stream == null:
+			var bed := _load_music_stream(NATURE_BED_PATH)
+			if bed == null:
+				_nature_on = false
+				return
+			_nature_player.stream = bed
+		if not _nature_player.playing:
+			_nature_player.volume_db = -80.0
+			_nature_player.play()
+		_bird_timer = randf_range(0.6, 2.0)
+		_nature_tween = create_tween()
+		_nature_tween.tween_property(_nature_player, "volume_db", _effective_nature_db(), NATURE_FADE) \
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
+		return
+	var player := _nature_player
+	_nature_tween = create_tween()
+	_nature_tween.tween_property(player, "volume_db", -80.0, NATURE_FADE * 0.6) \
+		.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_SINE)
+	_nature_tween.tween_callback(func() -> void:
+		if is_instance_valid(player) and not _nature_on:
+			player.stop()
+	)
 
 
 ## Loop the Dreamweaver login track across Login, Register, and the Gateway.
@@ -257,6 +355,103 @@ func play_sfx(kind: Sfx) -> void:
 			_add_voice(185.0, 0.20, 6.0)
 
 
+## Plays a rendered effect from `assets/audio/sfx/<fx_name>.wav`. `volume_db`
+## is relative to the SFX mix; the small random pitch keeps repeated hits from
+## sounding stamped out.
+func play_fx(fx_name: String, volume_db := 0.0, pitch_jitter := 0.06) -> void:
+	if not _enabled or _fx_players.is_empty():
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - float(_fx_last_played.get(fx_name, -10.0)) < FX_REPEAT_GAP:
+		return
+	var stream := _fx_stream(fx_name)
+	if stream == null:
+		return
+	_fx_last_played[fx_name] = now
+	var fx_player := _free_fx_player()
+	fx_player.stream = stream
+	fx_player.volume_db = _effective_fx_db() + volume_db
+	fx_player.pitch_scale = 1.0 + randf_range(-pitch_jitter, pitch_jitter)
+	fx_player.play()
+
+
+## Spoken line from `assets/audio/voice/<line_name>.wav`. Only one line plays
+## at a time; a new line cuts the previous one off.
+func play_voice(line_name: String, volume_db := 0.0) -> float:
+	if not _enabled or _voice_player == null:
+		return 0.0
+	var stream := _wav_stream(VOICE_DIR + line_name + ".wav")
+	if stream == null:
+		return 0.0
+	_kill_voice_fade()
+	_voice_player.stream = stream
+	_voice_player.volume_db = _effective_fx_db() + VOICE_BOOST_DB + volume_db
+	_voice_player.play()
+	return stream.get_length()
+
+
+func stop_voice() -> void:
+	if _voice_player == null or not _voice_player.playing:
+		return
+	_kill_voice_fade()
+	_voice_fade = create_tween()
+	_voice_fade.tween_property(_voice_player, "volume_db", _voice_player.volume_db - 24.0, 0.18)
+	_voice_fade.tween_callback(_voice_player.stop)
+
+
+## Music dips under a spoken line so the words stay readable over the drums.
+func _update_voice_duck(delta: float) -> void:
+	var target := VOICE_MUSIC_DUCK_DB if is_voice_playing() else 0.0
+	if is_equal_approx(_music_duck_db, target):
+		return
+	_music_duck_db = move_toward(_music_duck_db, target, delta * 36.0)
+	if _music_tween != null and is_instance_valid(_music_tween) and _music_tween.is_running():
+		return
+	if _music_player != null and _music_player.playing and not _music_path.is_empty():
+		_music_player.volume_db = _effective_music_db()
+
+
+func _kill_voice_fade() -> void:
+	if _voice_fade != null and _voice_fade.is_valid():
+		_voice_fade.kill()
+	_voice_fade = null
+
+
+func is_voice_playing() -> bool:
+	return _voice_player != null and _voice_player.playing
+
+
+func _fx_stream(fx_name: String) -> AudioStream:
+	return _wav_stream(FX_DIR + fx_name + ".wav")
+
+
+func _wav_stream(path: String) -> AudioStream:
+	if _fx_cache.has(path):
+		return _fx_cache[path]
+	var stream: AudioStream = null
+	if ResourceLoader.exists(path):
+		stream = load(path) as AudioStream
+	# Fresh clones may not have imported the WAVs yet.
+	if stream == null and FileAccess.file_exists(path):
+		stream = AudioStreamWAV.load_from_file(path)
+	if stream == null:
+		push_warning("Audio: missing effect %s" % path)
+	_fx_cache[path] = stream
+	return stream
+
+
+## Oldest voice is stolen when every player is busy.
+func _free_fx_player() -> AudioStreamPlayer:
+	for i in range(_fx_players.size()):
+		var index := (_fx_next + i) % _fx_players.size()
+		if not _fx_players[index].playing:
+			_fx_next = (index + 1) % _fx_players.size()
+			return _fx_players[index]
+	var stolen := _fx_players[_fx_next]
+	_fx_next = (_fx_next + 1) % _fx_players.size()
+	return stolen
+
+
 # --------------------------------------------------------------------------
 # Music loading
 # --------------------------------------------------------------------------
@@ -269,10 +464,15 @@ func _load_music_stream(path: String) -> AudioStream:
 			return loaded as AudioStream
 
 	# Editor import may not have run yet (fresh clone / headless). Fall back to
-	# reading the MP3 bytes so the menu still sings.
-	if not path.ends_with(".mp3"):
-		return null
+	# reading the raw file so the music still plays.
 	if not FileAccess.file_exists(path):
+		return null
+	if path.ends_with(".wav"):
+		var wav := AudioStreamWAV.load_from_file(path)
+		if wav != null:
+			_configure_loop(wav)
+		return wav
+	if not path.ends_with(".mp3"):
 		return null
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
@@ -289,7 +489,10 @@ func _configure_loop(stream: AudioStream) -> void:
 	elif stream is AudioStreamOggVorbis:
 		(stream as AudioStreamOggVorbis).loop = true
 	elif stream is AudioStreamWAV:
-		(stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
+		var wav := stream as AudioStreamWAV
+		wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		wav.loop_begin = 0
+		wav.loop_end = int(wav.get_length() * wav.mix_rate)
 
 
 func _kill_music_tween() -> void:
@@ -301,7 +504,7 @@ func _kill_music_tween() -> void:
 func _effective_music_db() -> float:
 	if _muted or _master_linear <= 0.001 or _music_linear <= 0.001:
 		return -80.0
-	return _music_target_db + linear_to_db(_master_linear * _music_linear)
+	return _music_target_db + _music_duck_db + linear_to_db(_master_linear * _music_linear)
 
 
 func _effective_sfx_db() -> float:
@@ -310,9 +513,49 @@ func _effective_sfx_db() -> float:
 	return SFX_VOLUME_DB + linear_to_db(_master_linear * _sfx_linear)
 
 
+func _effective_fx_db() -> float:
+	if _muted or _master_linear <= 0.001 or _sfx_linear <= 0.001:
+		return -80.0
+	return FX_VOLUME_DB + linear_to_db(_master_linear * _sfx_linear)
+
+
+func _effective_nature_db() -> float:
+	if _muted or _master_linear <= 0.001 or _music_linear <= 0.001:
+		return -80.0
+	return NATURE_BED_DB + linear_to_db(_master_linear * _music_linear)
+
+
+## Calls overlap a little and come from different birds, so the canopy never
+## sounds like one looped recording.
+func _update_birds(delta: float) -> void:
+	if not _nature_on or _bird_players.is_empty():
+		return
+	_bird_timer -= delta
+	if _bird_timer > 0.0:
+		return
+	_bird_timer = randf_range(1.2, 4.8)
+	var stream := _wav_stream(BIRD_PATH % randi_range(1, BIRD_COUNT))
+	if stream == null:
+		return
+	var bird: AudioStreamPlayer = null
+	for candidate in _bird_players:
+		if not candidate.playing:
+			bird = candidate
+			break
+	if bird == null:
+		return
+	bird.stream = stream
+	bird.pitch_scale = randf_range(0.9, 1.12)
+	bird.volume_db = _effective_nature_db() + randf_range(-14.0, -4.0)
+	bird.play()
+
+
 func _apply_live_volumes() -> void:
 	if _player != null:
 		_player.volume_db = _effective_sfx_db()
+	if _nature_on and _nature_player != null and _nature_player.playing:
+		if _nature_tween == null or not _nature_tween.is_running():
+			_nature_player.volume_db = _effective_nature_db()
 	if _music_player == null:
 		return
 	# Don't fight an in-progress fade-in/out.

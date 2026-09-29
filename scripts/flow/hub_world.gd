@@ -71,7 +71,7 @@ func _build_world() -> void:
 	_ridge_floor = floor_node
 	if _ridge_floor != null:
 		_ridge_floor.visible = false
-	Audio.set_ambience(0.55, 16.0)
+	Audio.set_ambience(0.22, 16.0)
 
 	_mount_plate()
 	_hide_map_reference()
@@ -819,7 +819,12 @@ func _disable_non_hub_world_solids() -> void:
 		_set_static_collision(child, false)
 
 
+func _exit_tree() -> void:
+	Audio.set_nature_ambience(false)
+
+
 func _show_house(house_id: int) -> void:
+	Audio.set_nature_ambience(false)
 	if _terrain != null:
 		_terrain.visible = false
 	_set_ridge_art_visible(false)
@@ -858,6 +863,7 @@ func _show_house(house_id: int) -> void:
 
 
 func _show_ridge() -> void:
+	Audio.set_nature_ambience(true)
 	if _terrain != null:
 		_terrain.visible = false
 	_set_ridge_art_visible(true)

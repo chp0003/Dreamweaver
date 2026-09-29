@@ -47,7 +47,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _try_hit() -> void:
-	if source == null or not source.is_inside_tree():
+	if not is_instance_valid(source) or not source.is_inside_tree():
 		return
 	var tree := get_tree()
 	if tree == null:
@@ -72,10 +72,11 @@ func _impact(hit: Node2D) -> void:
 	_spent = true
 	var landed := true
 	if hit.has_method("take_damage"):
-		var result: Variant = hit.take_damage(damage, source)
+		var attacker: Node = source if is_instance_valid(source) else null
+		var result: Variant = hit.take_damage(damage, attacker)
 		if result is bool:
 			landed = result
-	if landed and source != null and source.has_signal("attack_hit"):
+	if landed and is_instance_valid(source) and source.has_signal("attack_hit"):
 		source.attack_hit.emit(hit)
 	if not landed:
 		queue_free()

@@ -10,6 +10,7 @@ extends CanvasLayer
 @onready var hearts: HudHearts = %Hearts
 @onready var health_bar: ProgressBar = %HealthBar
 @onready var chime_bar: ProgressBar = %ChimeBar
+@onready var beam_bar: ProgressBar = %BeamBar
 @onready var essence_row: HBoxContainer = %EssenceRow
 @onready var items_label: Label = %ItemsLabel
 @onready var weave_bar: ProgressBar = %WeaveBar
@@ -53,6 +54,8 @@ func _ready() -> void:
 	mode_label.visible = false
 	integrity_box.visible = false
 	chime_bar.visible = false
+	if beam_bar != null:
+		beam_bar.visible = false
 	if boss_bar != null:
 		boss_bar.add_theme_stylebox_override("fill", UiStyle.bar_fill(Color(0.55, 0.12, 0.62), 8))
 	if boss_plate != null:
@@ -91,6 +94,10 @@ func _dress_plates() -> void:
 func _process(_delta: float) -> void:
 	if _player != null and is_instance_valid(_player) and chime_bar.visible:
 		chime_bar.value = _player.chime_cooldown_ratio() * 100.0
+	if _player != null and is_instance_valid(_player) and beam_bar != null:
+		beam_bar.visible = _player.has_light_beam
+		if beam_bar.visible:
+			beam_bar.value = _player.beam_cooldown_ratio() * 100.0
 	_sync_dialogue_chrome()
 
 
@@ -144,6 +151,8 @@ func bind_player(player: Slang) -> void:
 	player.health_changed.connect(_on_health_changed)
 	_on_health_changed(player.health, player.max_health)
 	chime_bar.visible = player.has_staff
+	if beam_bar != null:
+		beam_bar.visible = player.has_light_beam
 
 
 func set_chapter(title: String) -> void:

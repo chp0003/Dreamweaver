@@ -6,7 +6,9 @@ extends CanvasLayer
 ##     await dialogue.play([
 ##         {"speaker": "Spirit of the Fiber", "text": "I have forgotten..."},
 ##         "A line with no speaker is narration.",
+##         {"speaker": "The Shadow Weaver", "text": "...", "voice": "weaver_intro_1"},
 ##     ])
+## A "voice" names a clip in assets/audio/voice/ that plays with the line.
 ##     var pick := await dialogue.ask("Which thread?", ["Black", "Red"])
 ##
 ## Lines type on with visible_characters (not visible_ratio) so autowrap never
@@ -32,6 +34,7 @@ var _choosing := false
 var _line_length := 0
 var _presented := false
 var _hint_tween: Tween
+var _bust_cache: Dictionary = {}
 
 
 func _ready() -> void:
@@ -45,6 +48,7 @@ func _ready() -> void:
 		var well := portrait.get_parent() as PanelContainer
 		if well != null:
 			well.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+			well.clip_contents = true
 			well.visible = false
 
 
@@ -69,12 +73,18 @@ func play(lines: Array) -> void:
 	for line in lines:
 		var speaker := ""
 		var body := ""
+		var voice := ""
 		if typeof(line) == TYPE_DICTIONARY:
 			speaker = str((line as Dictionary).get("speaker", ""))
 			body = str((line as Dictionary).get("text", ""))
+			voice = str((line as Dictionary).get("voice", ""))
 		else:
 			body = str(line)
+		if not voice.is_empty():
+			Audio.play_voice(voice)
 		await _show_line(speaker, body)
+		if not voice.is_empty():
+			Audio.stop_voice()
 	visible = false
 	_presented = false
 	finished.emit()
@@ -252,26 +262,23 @@ func _set_portrait(speaker: String) -> void:
 	if portrait == null:
 		return
 	var path := _portrait_path(speaker)
-	var tex := PlaceholderProp.load_cutout_texture(path, speaker)
+	var tex := _bust_texture(path, speaker)
 	portrait.texture = tex
 	portrait.visible = tex != null
+	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	var well := portrait.get_parent() as CanvasItem
 	if well != null and well != panel:
 		well.visible = tex != null
 	if tex != null:
 		var key := speaker.to_lower()
-		if "fun kdungon" in key or "master" in key or "chief" in key or "harvest" in key:
-			portrait.modulate = Color.WHITE
-			portrait.custom_minimum_size = Vector2(108, 148)
-		elif "spirit" in key:
+		portrait.custom_minimum_size = Vector2(108, 148)
+		if "spirit" in key:
 			portrait.modulate = Color(0.92, 0.95, 1.05, 0.92)
-			portrait.custom_minimum_size = Vector2(92, 112)
 		elif "shadow" in key:
-			portrait.modulate = Color(0.55, 0.5, 0.62)
-			portrait.custom_minimum_size = Vector2(92, 112)
+			portrait.modulate = Color(0.96, 0.9, 1.0)
 		else:
 			portrait.modulate = Color.WHITE
-			portrait.custom_minimum_size = Vector2(92, 112)
 
 
 func _portrait_path(speaker: String) -> String:
@@ -290,9 +297,139 @@ func _portrait_path(speaker: String) -> String:
 		return "res://assets/images/characters/spirit_of_the_fiber.png"
 	if "master" in key:
 		return "res://assets/images/characters/fun_kdungon.png"
-	if "shadow" in key:
-		return "res://assets/images/enemies/shadow_minion.png"
+	if "shadow" in key or "weaver" in key:
+		return "res://assets/images/enemies/shadow_weaver_idle.png"
 	return "res://assets/images/characters/slang.png"
+
+
+const _WELL_ASPECT := 108.0 / 148.0
+const _BUST_FRACTION := 0.5
+
+
+func _bust_texture(path: String, speaker: String) -> Texture2D:
+	if path.is_empty():
+		return null
+	if _bust_cache.has(path):
+		return _bust_cache[path] as Texture2D
+	var image := Palette.read_image(path)
+	if image == null:
+		return null
+	if _uses_studio_plate(path, speaker):
+		PlaceholderProp.clean_cutout(image)
+	if "shadow_weaver" in path:
+		image = _first_strip_frame(image, 8)
+		_key_edge_plate(image)
+	var bust := _crop_id_bust(image)
+	var tex := ImageTexture.create_from_image(bust)
+	_bust_cache[path] = tex
+	return tex
+
+
+func _uses_studio_plate(path: String, speaker: String) -> bool:
+	var key := (path + " " + speaker).to_lower()
+	return "characters/" in key or "kdungon" in key or "chief" in key \
+		or "harvest" in key or "queen" in key
+
+
+func _first_strip_frame(image: Image, frames: int) -> Image:
+	if frames < 2:
+		return image
+	var cell_w := maxi(1, int(image.get_width() / float(frames)))
+	if cell_w >= image.get_width():
+		return image
+	return image.get_region(Rect2i(0, 0, cell_w, image.get_height()))
+
+
+func _key_edge_plate(image: Image) -> void:
+	var w := image.get_width()
+	var h := image.get_height()
+	if w < 2 or h < 2:
+		return
+	var seen := PackedByteArray()
+	seen.resize(w * h)
+	var pending: Array[Vector2i] = []
+	for x in range(w):
+		pending.append(Vector2i(x, 0))
+		pending.append(Vector2i(x, h - 1))
+	for y in range(h):
+		pending.append(Vector2i(0, y))
+		pending.append(Vector2i(w - 1, y))
+	while not pending.is_empty():
+		var point: Vector2i = pending.pop_back()
+		if point.x < 0 or point.y < 0 or point.x >= w or point.y >= h:
+			continue
+		var index := point.y * w + point.x
+		if seen[index] == 1:
+			continue
+		seen[index] = 1
+		if not _is_edge_plate(image.get_pixelv(point)):
+			continue
+		image.set_pixelv(point, Color.TRANSPARENT)
+		pending.append(point + Vector2i.RIGHT)
+		pending.append(point + Vector2i.LEFT)
+		pending.append(point + Vector2i.DOWN)
+		pending.append(point + Vector2i.UP)
+
+
+func _is_edge_plate(color: Color) -> bool:
+	if color.a < 0.08:
+		return true
+	var luma := color.r * 0.299 + color.g * 0.587 + color.b * 0.114
+	var chroma := maxf(color.r, maxf(color.g, color.b)) - minf(color.r, minf(color.g, color.b))
+	return luma < 0.07 and chroma < 0.06
+
+
+func _crop_id_bust(image: Image) -> Image:
+	var bounds := image.get_used_rect()
+	if bounds.size.x < 8 or bounds.size.y < 8:
+		return image
+	var bust_h := maxi(8, int(round(float(bounds.size.y) * _BUST_FRACTION)))
+	var bust_w := maxi(8, int(round(float(bust_h) * _WELL_ASPECT)))
+	bust_w = mini(bust_w, image.get_width())
+	bust_h = mini(bust_h, image.get_height())
+	var head_h := maxi(4, int(round(float(bounds.size.y) * 0.34)))
+	var head := Rect2i(bounds.position.x, bounds.position.y, bounds.size.x, mini(head_h, bounds.size.y))
+	var face_x := _head_center_x(image, head, float(bounds.position.x) + float(bounds.size.x) * 0.5)
+	var x := clampi(int(round(face_x - float(bust_w) * 0.5)), 0, image.get_width() - bust_w)
+	var y := clampi(bounds.position.y, 0, image.get_height() - bust_h)
+	return image.get_region(Rect2i(x, y, bust_w, bust_h))
+
+
+## Longest solid run in the head band. A staff is a thin column and loses.
+func _head_center_x(image: Image, head: Rect2i, fallback: float) -> float:
+	var data := image.get_data()
+	var stride := image.get_width()
+	var best_start := -1
+	var best_len := 0
+	var run_start := -1
+	var y_step := 2 if head.size.y > 80 else 1
+	for x in range(head.position.x, head.position.x + head.size.x):
+		var hit := false
+		var y := head.position.y
+		var y_end := head.position.y + head.size.y
+		while y < y_end:
+			var index := (y * stride + x) * 4 + 3
+			if index < data.size() and data[index] > 51:
+				hit = true
+				break
+			y += y_step
+		if hit:
+			if run_start < 0:
+				run_start = x
+		elif run_start >= 0:
+			var length := x - run_start
+			if length > best_len:
+				best_len = length
+				best_start = run_start
+			run_start = -1
+	if run_start >= 0:
+		var tail := head.position.x + head.size.x - run_start
+		if tail > best_len:
+			best_len = tail
+			best_start = run_start
+	if best_start < 0 or best_len < 4:
+		return fallback
+	return float(best_start) + float(best_len) * 0.5
 
 
 func _on_choice_pressed(index: int) -> void:
