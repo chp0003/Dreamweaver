@@ -326,7 +326,8 @@ func _phase_one_breach() -> bool:
 	objective("Kill the dark figures. Press [Space] to swing.")
 	if hud != null and hud.has_method("set_mode"):
 		hud.call("set_mode", "SPACE  swing     Q  shockwave", Color(0.92, 0.82, 0.5))
-	Audio.set_combat_drums(0.85, 148.0)
+	if not Audio.set_house(house_id):
+		Audio.set_combat_drums(0.85, 148.0)
 	Audio.set_ambience(0.55, 0.0)
 	if hud != null and hud.has_method("show_chime_meter"):
 		hud.call("show_chime_meter", true)
@@ -370,7 +371,8 @@ func _phase_one_breach() -> bool:
 	counter("")
 	_unlock_loom_approach()
 	_point_loom(true, "WALK")
-	Audio.set_combat_drums(0.25, 110.0)
+	if not Audio.is_house_theme_playing(house_id):
+		Audio.set_combat_drums(0.25, 110.0)
 	Audio.play_sfx(Audio.Sfx.CHIME)
 	if hud != null and hud.has_method("set_mode"):
 		hud.call("set_mode", "1 ward    2 light beam", Color(0.98, 0.9, 0.55))

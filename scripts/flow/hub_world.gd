@@ -64,6 +64,7 @@ var _scenery_house: PlaceholderProp
 var _active_house_id := 0
 var _plaza_cell := Vector2.ZERO
 var _leaving_house := false
+var _trail: BreadcrumbTrail
 
 
 func _build_world() -> void:
@@ -84,6 +85,10 @@ func _build_world() -> void:
 				else Iso.cell_to_world(player_spawn_cell)
 			player.global_position = spawn
 			_spawn_position = spawn
+	_trail = BreadcrumbTrail.new()
+	_trail.name = "HouseTrail"
+	_trail.size = 1.35
+	(world if world != null else self).add_child(_trail)
 	for house in Houses.LIST:
 		_build_door(house)
 		_mount_house(house)
@@ -487,7 +492,7 @@ func _build_door(house: Dictionary) -> void:
 		prop.set_tint(Color(1.02, 1.01, 0.99, 1.0))
 
 	var tag := "restored" if completed else ("open" if unlocked else "")
-	_attach_name_label(prop, Houses.short_name_for(house_id), tag, unlocked, accent, house_size)
+	var title := _attach_name_label(prop, Houses.short_name_for(house_id), tag, unlocked, accent, house_size)
 
 	# Doorstep: same X as the painted door, a few pixels toward the camera.
 	var porch := _porch_world(house)
@@ -501,7 +506,18 @@ func _build_door(house: Dictionary) -> void:
 	trigger.add_to_group("hub_door")
 	trigger.interacted.connect(_on_door_used.bind(house_id))
 
-	_doors[house_id] = {"prop": prop, "trigger": trigger}
+	var lock := _attach_lock_mark(prop, world_pos, porch)
+	lock.set_shown(not unlocked)
+	var next := _attach_next_mark(prop)
+	next.set_shown(false)
+
+	_doors[house_id] = {
+		"prop": prop,
+		"trigger": trigger,
+		"lock": lock,
+		"next": next,
+		"title": title,
+	}
 
 
 func _place_scenery_house() -> void:
@@ -516,8 +532,9 @@ func _hide_prop_art(prop: PlaceholderProp) -> void:
 
 
 func _hub_world_pos(house: Dictionary) -> Vector2:
-	if _plate != null and house.has("hub_uv"):
-		return _plate.uv_to_world(house["hub_uv"] as Vector2)
+	if _plate != null:
+		var uv: Vector2 = house.get("hub_door_uv", house.get("hub_uv", Vector2(0.5, 0.5))) as Vector2
+		return _plate.uv_to_world(uv)
 	return Iso.cell_to_world(house.get("hub_cell", _plaza_cell) as Vector2)
 
 
@@ -541,20 +558,15 @@ func _porch_pos(world_pos: Vector2) -> Vector2:
 
 
 func _attach_name_label(prop: PlaceholderProp, title_text: String, tag_text: String,
-		unlocked: bool, accent: Color, house_size: Vector2) -> void:
+		unlocked: bool, accent: Color, _house_size: Vector2) -> Label:
 	var plate := VBoxContainer.new()
 	plate.alignment = BoxContainer.ALIGNMENT_CENTER
 	plate.custom_minimum_size = Vector2(240.0, 0.0)
 	plate.size = Vector2(240.0, 56.0)
-	# Painted roofs sit ~7% of plate height above the door UV. Overlay sprite
-	# height parked titles on the wrong hut (or off the plate).
-	var lift := house_size.y * 0.28
-	if _plate != null:
-		lift = _plate.displayed_size().y * 0.07
-	plate.position = Vector2(-120.0, -lift)
+	# This prop sits on the painted door. The name stays there for every house.
+	plate.position = Vector2(-120.0, -16.0)
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.z_index = 30
-	plate.add_to_group("world_chrome")
 	plate.add_theme_constant_override("separation", 0)
 
 	var title := Label.new()
@@ -585,6 +597,25 @@ func _attach_name_label(prop: PlaceholderProp, title_text: String, tag_text: Str
 		plate.add_child(tag)
 
 	prop.add_child(plate)
+	return title
+
+
+## Padlock on the painted door, just above the name.
+func _attach_lock_mark(prop: PlaceholderProp, _house_pos: Vector2, _porch: Vector2) -> HouseLockMark:
+	var mark := HouseLockMark.new()
+	mark.name = "Lock"
+	mark.position = Vector2(0.0, -42.0)
+	prop.add_child(mark)
+	return mark
+
+
+## Arrow on the door S'lang should enter, pointing down at the name.
+func _attach_next_mark(prop: PlaceholderProp) -> HouseNextMark:
+	var mark := HouseNextMark.new()
+	mark.name = "Next"
+	mark.position = Vector2(0.0, -40.0)
+	prop.add_child(mark)
+	return mark
 
 
 ## Restored Houses keep their colour on the green.
@@ -674,6 +705,7 @@ func _enter_house(house_id: int, _from_retry: bool) -> void:
 		return
 	_active_house_id = house_id
 	GameState.set_current_chapter(house_id)
+	Audio.set_house(house_id)
 	if quest.uses_painted_plate():
 		_spawn_position = quest.player_spawn_world()
 	else:
@@ -716,6 +748,7 @@ func _leave_house(house_id: int) -> void:
 	await SceneFader.cover(0.28)
 	_active_house_id = 0
 	GameState.set_current_chapter(0)
+	Audio.clear_house()
 	_set_house_darkness(quest, false)
 	var gate: HouseExit = _house_exits.get(house_id) as HouseExit
 	if gate != null:
@@ -763,6 +796,57 @@ func _refresh_door_locks() -> void:
 		var prop := (data as Dictionary).get("prop") as PlaceholderProp
 		if prop != null and GameState.is_house_unlocked(house_id):
 			prop.set_tint(Color.WHITE)
+	_refresh_house_guides()
+
+
+## Lock badges on barred Houses and a gold arrow on the next porch.
+## Hidden inside a House; they return when she steps back onto the green.
+func _refresh_house_guides() -> void:
+	var next_id := _guide_house_id()
+	for house in Houses.LIST:
+		var house_id := int(house["id"])
+		var data: Dictionary = _doors.get(house_id, {})
+		var unlocked := GameState.is_house_unlocked(house_id)
+		var is_next := house_id == next_id
+		var lock := data.get("lock") as HouseLockMark
+		if lock != null:
+			lock.set_shown(not unlocked)
+		var next := data.get("next") as HouseNextMark
+		if next != null:
+			next.set_shown(is_next)
+		var title := data.get("title") as Label
+		if title != null:
+			var color := Palette.CREAM_WARP
+			if not unlocked:
+				color = Palette.alpha(Palette.DREAM_MIST, 0.85)
+			elif is_next:
+				color = Palette.GOLD_SUN
+			title.add_theme_color_override("font_color", color)
+	_refresh_house_trail(next_id)
+
+
+## Glowing breadcrumbs along the boardwalk to the porch of the next House.
+func _refresh_house_trail(next_id: int) -> void:
+	if _trail == null:
+		return
+	var data: Dictionary = _doors.get(next_id, {})
+	var porch := data.get("trigger") as Node2D
+	if porch == null:
+		_trail.clear()
+		return
+	_trail.follow(porch)
+	# Ridge solids switch on and off as she walks in and out of Houses.
+	_trail.invalidate()
+	_trail.call_deferred("invalidate")
+
+
+func _guide_house_id() -> int:
+	if GameState.game_completed or _active_house_id != 0 or GameState.current_chapter >= 1:
+		return 0
+	var house_id := _next_open_house()
+	if GameState.is_house_completed(house_id):
+		return 0
+	return house_id
 
 
 func _on_player_attacked(swing_position: Vector2, facing: Vector2) -> void:
@@ -821,6 +905,7 @@ func _disable_non_hub_world_solids() -> void:
 
 func _exit_tree() -> void:
 	Audio.set_nature_ambience(false)
+	Audio.clear_house()
 
 
 func _show_house(house_id: int) -> void:
@@ -922,6 +1007,7 @@ func _set_ridge_art_visible(on: bool) -> void:
 				if not on:
 					trigger.set_prompt_visible(false)
 				trigger.set_enabled(on)
+	_refresh_house_guides()
 
 
 func apply_camera_world_limits(which: Node2D = null) -> void:

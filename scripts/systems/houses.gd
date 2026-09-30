@@ -22,6 +22,7 @@ const LIST: Array[Dictionary] = [
 		"hub_cell": Vector2(1.0, 11.0),
 		"hub_uv": Vector2(0.32, 0.595),
 		"hub_porch_uv": Vector2(0.32, 0.638),
+		"hub_door_uv": Vector2(0.254, 0.651),
 		"hub_solid_centre_uv": Vector2(0.265, 0.625),
 		"hub_solid_size_uv": Vector2(0.105, 0.135),
 		"hub_roof_polygons_uv": [
@@ -56,6 +57,7 @@ const LIST: Array[Dictionary] = [
 		"hub_cell": Vector2(11.0, 1.0),
 		"hub_uv": Vector2(0.685, 0.595),
 		"hub_porch_uv": Vector2(0.685, 0.638),
+		"hub_door_uv": Vector2(0.734, 0.656),
 		"hub_solid_centre_uv": Vector2(0.735, 0.625),
 		"hub_solid_size_uv": Vector2(0.105, 0.135),
 		"hub_roof_polygons_uv": [
@@ -90,6 +92,7 @@ const LIST: Array[Dictionary] = [
 		"hub_cell": Vector2(0.0, 0.0),
 		"hub_uv": Vector2(0.685, 0.388),
 		"hub_porch_uv": Vector2(0.685, 0.432),
+		"hub_door_uv": Vector2(0.727, 0.377),
 		"hub_solid_centre_uv": Vector2(0.735, 0.355),
 		"hub_solid_size_uv": Vector2(0.102, 0.125),
 		"hub_roof_polygons_uv": [
@@ -124,6 +127,7 @@ const LIST: Array[Dictionary] = [
 		"hub_cell": Vector2(-10.0, -4.0),
 		"hub_uv": Vector2(0.305, 0.368),
 		"hub_porch_uv": Vector2(0.34, 0.445),
+		"hub_door_uv": Vector2(0.254, 0.377),
 		"hub_solid_centre_uv": Vector2(0.255, 0.335),
 		"hub_solid_size_uv": Vector2(0.102, 0.125),
 		"hub_roof_polygons_uv": [
@@ -158,6 +162,7 @@ const LIST: Array[Dictionary] = [
 		"hub_cell": Vector2(-9.0, -9.0),
 		"hub_uv": Vector2(0.50, 0.268),
 		"hub_porch_uv": Vector2(0.50, 0.312),
+		"hub_door_uv": Vector2(0.501, 0.252),
 		"hub_solid_centre_uv": Vector2(0.50, 0.195),
 		"hub_solid_size_uv": Vector2(0.118, 0.148),
 		"hub_roof_polygons_uv": [

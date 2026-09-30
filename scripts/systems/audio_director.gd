@@ -33,6 +33,53 @@ const BIRD_COUNT := 10
 const NATURE_BED_DB := -7.0
 const NATURE_FADE := 1.6
 
+## One loop per House (tools/SynthHouseMusic.cs). Drop a replacement file at the
+## same path to swap a track. `motion` is a stem of the same length that swells
+## while S'lang moves and fights. `cues` maps a player action to
+## [effect in FX_DIR, dB, minimum seconds between repeats].
+const HOUSE_THEMES := {
+	1: {
+		"music": "res://assets/audio/music/house1_mourning_pad.wav",
+		"db": -8.0,
+	},
+	2: {
+		"music": "res://assets/audio/music/house2_hulo_drums.wav",
+		"db": -10.0,
+		"cues": {
+			&"strike": ["house2_impact", 0.0, 0.05],
+			&"swing": ["house2_impact", -7.0, 0.05],
+		},
+	},
+	3: {
+		"music": "res://assets/audio/music/house3_sloli_flute.wav",
+		"db": -8.0,
+		"cues": {
+			&"skill": ["house3_brass_bell", -2.0, 0.8],
+			&"ward": ["house3_brass_bell", -4.0, 0.8],
+			&"interact": ["house3_brass_bell", -3.0, 0.8],
+		},
+	},
+	4: {
+		"music": "res://assets/audio/music/house4_ancestor_choir.wav",
+		"db": -8.0,
+	},
+	5: {
+		"music": "res://assets/audio/music/house5_siege_drums.wav",
+		"db": -9.0,
+		"motion": "res://assets/audio/music/house5_siege_motion.wav",
+		"cues": {
+			&"swing": ["house5_brass_shockwave", 0.0, 0.2],
+			&"skill": ["house5_brass_shockwave", 1.0, 0.2],
+		},
+	},
+}
+const HOUSE_CROSSFADE := 2.4
+const BRASS_SHOCK_FX := "house5_brass_shockwave"
+## The motion stem sits this far above the main loop at full swell.
+const MOTION_DB := 3.0
+## Walking speed (px/s) that counts as full movement for the motion stem.
+const MOTION_FULL_SPEED := 170.0
+
 enum Sfx { CHIME, HIT, PICKUP, BELL, SUCCESS, FAIL, PARRY, THUD }
 
 var _player: AudioStreamPlayer
@@ -44,6 +91,20 @@ var _music_player: AudioStreamPlayer
 var _music_path := ""
 var _music_tween: Tween
 var _music_target_db := MUSIC_VOLUME_DB
+## The outgoing track during a crossfade. Swaps roles with `_music_player`.
+var _music_spare: AudioStreamPlayer
+var _spare_tween: Tween
+
+## House 5's motion stem, started in lockstep with its main loop.
+var _motion_player: AudioStreamPlayer
+var _motion_tween: Tween
+var _motion_active := false
+var _motion_level := 0.0
+var _motion_boost := 0.0
+
+var _house_id := 0
+var _cue_last: Dictionary = {}
+var _swing_pending := false
 
 ## Linear 0..1 gains, applied on top of the authored dB targets.
 var _master_linear := 1.0
@@ -121,6 +182,18 @@ func _ready() -> void:
 	_music_player.volume_db = -80.0
 	add_child(_music_player)
 
+	_music_spare = AudioStreamPlayer.new()
+	_music_spare.name = "MusicSpare"
+	_music_spare.bus = "Master"
+	_music_spare.volume_db = -80.0
+	add_child(_music_spare)
+
+	_motion_player = AudioStreamPlayer.new()
+	_motion_player.name = "MusicMotion"
+	_motion_player.bus = "Master"
+	_motion_player.volume_db = -80.0
+	add_child(_motion_player)
+
 	for i in range(FX_VOICES):
 		var fx_player := AudioStreamPlayer.new()
 		fx_player.name = "Fx%d" % i
@@ -155,6 +228,10 @@ func _exit_tree() -> void:
 		_player.stop()
 	if _music_player != null:
 		_music_player.stop()
+	if _music_spare != null:
+		_music_spare.stop()
+	if _motion_player != null:
+		_motion_player.stop()
 	for fx_player in _fx_players:
 		fx_player.stop()
 	if _voice_player != null:
@@ -173,6 +250,8 @@ func _process(delta: float) -> void:
 	_update_bell(delta)
 	_update_drums(delta)
 	_update_voice_duck(delta)
+	_update_motion(delta)
+	_flush_swing()
 	_fill_buffer()
 
 
@@ -241,7 +320,9 @@ func apply_volumes(master: float, music: float, sfx: float, muted: bool) -> void
 	_apply_live_volumes()
 
 
-func play_music(path: String, volume_db: float = MUSIC_VOLUME_DB) -> void:
+## A different track already playing crossfades out over `fade` seconds while
+## the new one fades in.
+func play_music(path: String, volume_db: float = MUSIC_VOLUME_DB, fade: float = MUSIC_FADE_IN) -> void:
 	if not _enabled or path.is_empty() or _music_player == null:
 		return
 	if _music_path == path and _music_player.playing:
@@ -255,21 +336,42 @@ func play_music(path: String, volume_db: float = MUSIC_VOLUME_DB) -> void:
 		return
 
 	_kill_music_tween()
+	if _music_player.playing:
+		_fade_out_spare(fade)
 	_music_path = path
 	_music_target_db = volume_db
 	_music_player.stream = stream
 	_music_player.volume_db = -80.0
 	_music_player.play()
+	_start_motion_stem(path)
 	var target := _effective_music_db()
 	_music_tween = create_tween()
-	_music_tween.tween_property(_music_player, "volume_db", target, MUSIC_FADE_IN) \
+	_music_tween.tween_property(_music_player, "volume_db", target, fade) \
 		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
+
+
+## Hands the playing track to the spare player and fades it away.
+func _fade_out_spare(fade: float) -> void:
+	if _spare_tween != null and _spare_tween.is_valid():
+		_spare_tween.kill()
+	_music_spare.stop()
+	var outgoing := _music_player
+	_music_player = _music_spare
+	_music_spare = outgoing
+	_spare_tween = create_tween()
+	_spare_tween.tween_property(outgoing, "volume_db", -80.0, fade) \
+		.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_SINE)
+	_spare_tween.tween_callback(func() -> void:
+		if is_instance_valid(outgoing) and outgoing != _music_player:
+			outgoing.stop()
+	)
 
 
 func stop_music(immediate: bool = false) -> void:
 	if _music_player == null:
 		return
 	_music_path = ""
+	_stop_motion_stem(0.0 if immediate else MUSIC_FADE_OUT)
 	_kill_music_tween()
 	if immediate or not _music_player.playing:
 		_music_player.stop()
@@ -287,6 +389,144 @@ func stop_music(immediate: bool = false) -> void:
 
 func is_music_playing() -> bool:
 	return _music_player != null and _music_player.playing and not _music_path.is_empty()
+
+
+## Walking into a House: crossfade to its theme and arm its action cues.
+## Returns false when the theme could not be played, so callers can fall back
+## to the synthesised beds.
+func set_house(house_id: int) -> bool:
+	_house_id = house_id
+	_swing_pending = false
+	var theme: Dictionary = HOUSE_THEMES.get(house_id, {})
+	if theme.is_empty():
+		return false
+	var path := str(theme["music"])
+	play_music(path, float(theme.get("db", MUSIC_VOLUME_DB)), HOUSE_CROSSFADE)
+	return is_music_playing() and _music_path == path
+
+
+## Back on the green: the House theme fades and its cues go quiet.
+func clear_house() -> void:
+	var theme: Dictionary = HOUSE_THEMES.get(_house_id, {})
+	_house_id = 0
+	_swing_pending = false
+	if not theme.is_empty() and _music_path == str(theme["music"]):
+		stop_music()
+
+
+func current_house() -> int:
+	return _house_id
+
+
+## True while the House's own loop (not a boss track) is the music bed.
+func is_house_theme_playing(house_id: int) -> bool:
+	var theme: Dictionary = HOUSE_THEMES.get(house_id, {})
+	return not theme.is_empty() and is_music_playing() and _music_path == str(theme["music"])
+
+
+## S'lang did something the current House answers with a sound.
+## `kind`: &"swing", &"strike" (a hit landed), &"skill", &"ward", &"interact".
+func play_house_cue(kind: StringName) -> void:
+	if not _enabled or _house_id == 0:
+		return
+	if kind != &"interact":
+		_motion_boost = 1.0
+	# A swing that lands also reports a strike on the same frame. Hold the
+	# swing a frame so the stronger strike cue wins.
+	if kind == &"swing":
+		_swing_pending = true
+		return
+	if kind == &"strike":
+		_swing_pending = false
+	_fire_cue(kind)
+
+
+func _flush_swing() -> void:
+	if not _swing_pending:
+		return
+	_swing_pending = false
+	_fire_cue(&"swing")
+
+
+func _fire_cue(kind: StringName) -> void:
+	var theme: Dictionary = HOUSE_THEMES.get(_house_id, {})
+	var cues: Dictionary = theme.get("cues", {})
+	if not cues.has(kind):
+		return
+	var cue: Array = cues[kind]
+	var fx_name := str(cue[0])
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - float(_cue_last.get(fx_name, -10.0)) < float(cue[2]):
+		return
+	_cue_last[fx_name] = now
+	play_fx(fx_name, float(cue[1]), 0.04)
+
+
+func _start_motion_stem(music_path: String) -> void:
+	var motion_path := ""
+	for theme in HOUSE_THEMES.values():
+		if str(theme["music"]) == music_path:
+			motion_path = str(theme.get("motion", ""))
+	if motion_path.is_empty():
+		_stop_motion_stem(HOUSE_CROSSFADE * 0.5)
+		return
+	var stream := _load_music_stream(motion_path)
+	if stream == null:
+		_stop_motion_stem()
+		return
+	# Started on the same frame as the main loop, and the same length, so the
+	# two stay locked together.
+	_kill_motion_tween()
+	_motion_player.stream = stream
+	_motion_player.volume_db = -80.0
+	_motion_level = 0.0
+	_motion_active = true
+	_motion_player.play()
+
+
+func _stop_motion_stem(fade: float = 0.0) -> void:
+	_motion_active = false
+	_motion_level = 0.0
+	if _motion_player == null or not _motion_player.playing:
+		return
+	_kill_motion_tween()
+	if fade <= 0.0:
+		_motion_player.stop()
+		_motion_player.volume_db = -80.0
+		return
+	var player := _motion_player
+	_motion_tween = create_tween()
+	_motion_tween.tween_property(player, "volume_db", -80.0, fade) \
+		.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_SINE)
+	_motion_tween.tween_callback(func() -> void:
+		if is_instance_valid(player) and not _motion_active:
+			player.stop()
+	)
+
+
+func _kill_motion_tween() -> void:
+	if _motion_tween != null and _motion_tween.is_valid():
+		_motion_tween.kill()
+	_motion_tween = null
+
+
+## The motion stem swells while she runs and on every blow, and drains away
+## when she stands still.
+func _update_motion(delta: float) -> void:
+	_motion_boost = move_toward(_motion_boost, 0.0, delta * 0.7)
+	if not _motion_active or _motion_player == null or not _motion_player.playing:
+		return
+	var speed := 0.0
+	var player := get_tree().get_first_node_in_group("player") as CharacterBody2D
+	if player != null:
+		speed = player.velocity.length()
+	var want := maxf(clampf(speed / MOTION_FULL_SPEED, 0.0, 1.0) * 0.85, _motion_boost)
+	var rate := 3.0 if want > _motion_level else 0.55
+	_motion_level = move_toward(_motion_level, want, delta * rate)
+	if _motion_level <= 0.005:
+		_motion_player.volume_db = -80.0
+		return
+	_motion_player.volume_db = _music_player.volume_db + MOTION_DB + linear_to_db(_motion_level)
 
 
 ## 0 = silent. Positive `bpm` drives a four-on-the-floor ethnic drum pulse.
@@ -310,6 +550,9 @@ func play_wind_whistle() -> void:
 ## Loud brass shockwave layered on staff strikes and the sonic chime.
 func play_brass_shock() -> void:
 	if not _enabled:
+		return
+	if _fx_stream(BRASS_SHOCK_FX) != null:
+		play_fx(BRASS_SHOCK_FX, 0.0, 0.04)
 		return
 	_add_voice(98.0, 0.40, 8.0)
 	_add_voice(196.0, 0.32, 10.0)

@@ -130,6 +130,9 @@ func _ready() -> void:
 	_ensure_feet_collision()
 	_build_visuals()
 	_apply_light()
+	attacked.connect(func(_at: Vector2, _dir: Vector2) -> void: Audio.play_house_cue(&"swing"))
+	attack_hit.connect(func(_hit: Node2D) -> void: Audio.play_house_cue(&"strike"))
+	chimed.connect(func(_at: Vector2, _radius: float) -> void: Audio.play_house_cue(&"skill"))
 	health_changed.emit(health, max_health)
 
 
@@ -278,6 +281,10 @@ func apply_depth_scale(ratio: float) -> void:
 		_animated.scale = _base_sprite_scale * _depth_scale
 
 
+func depth_scale() -> float:
+	return _depth_scale
+
+
 func _update_idle_breathe(delta: float, input_vector: Vector2) -> void:
 	if _animated == null or _dead:
 		return
@@ -381,6 +388,7 @@ func try_ward() -> bool:
 	_attacking = false
 	velocity *= 0.35
 	Audio.play_fx("slang_ward_raise", -2.0, 0.04)
+	Audio.play_house_cue(&"ward")
 	_raise_ward_fx()
 	return true
 
@@ -417,6 +425,7 @@ func try_beam() -> bool:
 	_play_cast_pose()
 	_charge_beam_fx()
 	Audio.play_sfx(Audio.Sfx.BELL)
+	Audio.play_house_cue(&"skill")
 	var aim := facing
 	var release := create_tween()
 	release.tween_interval(BEAM_CHARGE)

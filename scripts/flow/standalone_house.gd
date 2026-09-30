@@ -26,8 +26,13 @@ func _build_world() -> void:
 func _run_chapter() -> void:
 	if _quest == null:
 		return
+	Audio.set_house(chapter_id)
 	_quest.start_quest()
 	await until(func() -> bool: return _quest.is_complete() or is_finished())
+
+
+func _exit_tree() -> void:
+	Audio.clear_house()
 
 
 func _on_player_attacked(swing_position: Vector2, facing: Vector2) -> void:

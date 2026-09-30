@@ -1,11 +1,18 @@
 class_name QuestBeacon
 extends Node2D
 ## Gold arrow over the current story beat — sits above the target's head.
+## A breadcrumb trail on the floor leads from S'lang to the same target.
 
 var _pulse := 0.0
 var _follow: Node2D
 var _offset := Vector2(0.0, -64.0)
 var _pinned := false
+var _trail := BreadcrumbTrail.new()
+
+
+func _init() -> void:
+	_trail.name = "Trail"
+	add_child(_trail)
 
 
 func _ready() -> void:
@@ -24,6 +31,9 @@ func pin(target: Node2D, offset := Vector2.INF) -> void:
 	_offset = offset if offset != Vector2.INF else _head_offset(target)
 	if target != null:
 		global_position = target.global_position + _offset
+		_trail.follow(target)
+	else:
+		_trail.clear()
 	queue_redraw()
 
 
@@ -33,6 +43,7 @@ func pin_world(world_pos: Vector2) -> void:
 	visible = true
 	_offset = Vector2(0.0, -48.0)
 	global_position = world_pos + _offset
+	_trail.point_at(world_pos)
 	queue_redraw()
 
 
@@ -40,6 +51,7 @@ func clear() -> void:
 	_follow = null
 	_pinned = false
 	visible = false
+	_trail.clear()
 	queue_redraw()
 
 

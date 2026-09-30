@@ -80,6 +80,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if one_shot:
 		_used = true
 		set_prompt_visible(false)
+	Audio.play_house_cue(&"interact")
 	interacted.emit()
 
 
