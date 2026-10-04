@@ -51,6 +51,89 @@ const FLOOR_ROWS := 32
 ## Stand on the painted porch in front of the door. World pixels on the 1536 plate.
 const HOUSE_DOOR_RADIUS := 108.0
 
+## Residents stroll their porch, then the hall, once that house is open.
+## Scripted reveals (the Master Weaver, Fun Kdungon at the loom) wait until
+## the house is restored, and step aside if that chapter is replayed.
+const VILLAGERS: Array[Dictionary] = [
+	{
+		"house": 1,
+		"label": "THE CHIEF",
+		"sheet": "chief",
+		"talk": "Chief",
+		"speak": "Speak with the Chief",
+		"lines": [
+			{"speaker": "The Chief", "text": "I walk this green so the path does not forget us."},
+			{"speaker": "The Chief", "text": "Come closer. The houses can wait a moment."},
+		],
+		"door": Vector2(0.32, 0.66),
+		"exit": Vector2(0.50, 0.86),
+		"outside": [Vector2(0.36, 0.72), Vector2(0.28, 0.76), Vector2(0.44, 0.70)],
+		"inside": [Vector2(0.30, 0.62), Vector2(0.48, 0.70), Vector2(0.58, 0.76), Vector2(0.40, 0.52)],
+	},
+	{
+		"house": 1,
+		"label": "FUN KDUNGON",
+		"sheet": "fun",
+		"talk": "Fun Kdungon",
+		"speak": "Speak with Fun Kdungon",
+		"lines": [
+			{"speaker": "Fun Kdungon", "text": "The fibre likes this sun. My feet like it too."},
+			{"speaker": "Fun Kdungon", "text": "The loom is inside, when you are ready for it."},
+		],
+		"door": Vector2(0.36, 0.66),
+		"exit": Vector2(0.50, 0.84),
+		"outside": [Vector2(0.42, 0.74), Vector2(0.34, 0.80), Vector2(0.48, 0.68)],
+		"inside": [Vector2(0.42, 0.56), Vector2(0.62, 0.48), Vector2(0.50, 0.66), Vector2(0.34, 0.74)],
+	},
+	{
+		"house": 2,
+		"label": "HARVEST QUEEN",
+		"sheet": "queen",
+		"talk": "Harvest Queen",
+		"speak": "Speak with the Harvest Queen",
+		"lines": [
+			{"speaker": "The Harvest Queen", "text": "The hill and the cloth want the same thing. Someone tending them."},
+			{"speaker": "The Harvest Queen", "text": "Speak. The harvest does not run off."},
+		],
+		"door": Vector2(0.685, 0.66),
+		"exit": Vector2(0.50, 0.86),
+		"outside": [Vector2(0.62, 0.72), Vector2(0.74, 0.76), Vector2(0.56, 0.68)],
+		"inside": [Vector2(0.34, 0.70), Vector2(0.50, 0.62), Vector2(0.64, 0.55), Vector2(0.42, 0.48)],
+	},
+	{
+		"house": 4,
+		"label": "MASTER WEAVER",
+		"sheet": "fun",
+		"talk": "Master Weaver",
+		"speak": "Speak with the Master Weaver",
+		"needs_complete": true,
+		"lines": [
+			{"speaker": "Master Weaver", "text": "The pattern holds. I am only walking the length of it."},
+			{"speaker": "Master Weaver", "text": "The loom remembers. I am making sure the path does too."},
+		],
+		"door": Vector2(0.34, 0.46),
+		"exit": Vector2(0.50, 0.82),
+		"outside": [Vector2(0.40, 0.50), Vector2(0.30, 0.52), Vector2(0.48, 0.48)],
+		"inside": [Vector2(0.42, 0.58), Vector2(0.58, 0.52), Vector2(0.50, 0.68)],
+	},
+	{
+		"house": 5,
+		"label": "FUN KDUNGON",
+		"sheet": "fun",
+		"talk": "",
+		"speak": "Speak with Fun Kdungon",
+		"needs_complete": true,
+		"lines": [
+			{"speaker": "Fun Kdungon", "text": "The Sacred Loom is quiet. I am not."},
+			{"speaker": "Fun Kdungon", "text": "Walk with me a little. The great house can spare me."},
+		],
+		"door": Vector2(0.50, 0.32),
+		"exit": Vector2(0.50, 0.82),
+		"outside": [Vector2(0.44, 0.38), Vector2(0.56, 0.40), Vector2(0.50, 0.44)],
+		"inside": [Vector2(0.62, 0.52), Vector2(0.48, 0.60), Vector2(0.55, 0.70)],
+	},
+]
+
 var _doors: Dictionary = {}
 var _quests: Dictionary = {}
 var _house_floors: Dictionary = {}
@@ -65,6 +148,8 @@ var _active_house_id := 0
 var _plaza_cell := Vector2.ZERO
 var _leaving_house := false
 var _trail: BreadcrumbTrail
+var _villagers: Dictionary = {}
+var _villager_chat := false
 
 
 func _build_world() -> void:
@@ -99,6 +184,7 @@ func _build_world() -> void:
 	if get_viewport() != null and not get_viewport().size_changed.is_connected(_on_view_resized):
 		get_viewport().size_changed.connect(_on_view_resized)
 	ColorRestoration.remove_zone("lewet_staff")
+	_refresh_villagers()
 
 
 func _mount_plate() -> void:
@@ -714,6 +800,7 @@ func _enter_house(house_id: int, _from_retry: bool) -> void:
 	player.global_position = _spawn_position
 	player.velocity = Vector2.ZERO
 	_show_house(house_id)
+	_refresh_villagers()
 	_set_house_darkness(quest, true)
 	var gate: HouseExit = _house_exits.get(house_id) as HouseExit
 	if gate != null:
@@ -761,6 +848,7 @@ func _leave_house(house_id: int) -> void:
 	player.velocity = Vector2.ZERO
 	_spawn_position = _plaza_world()
 	_show_ridge()
+	_refresh_villagers()
 	_restore_completed_colors()
 	if hud != null and hud.has_method("set_chapter"):
 		hud.call("set_chapter", chapter_title)
@@ -778,6 +866,7 @@ func _leave_house(house_id: int) -> void:
 func on_house_completed(house_id: int, _next_scene := "") -> void:
 	_restore_completed_colors()
 	_refresh_door_locks()
+	_refresh_villagers()
 	var gate: HouseExit = _house_exits.get(house_id) as HouseExit
 	if gate != null:
 		gate.set_open(true)
@@ -785,6 +874,132 @@ func on_house_completed(house_id: int, _next_scene := "") -> void:
 	if house_id == Houses.count():
 		return
 	objective("Walk the wooden path at the front of the house to leave.")
+
+
+func _refresh_villagers() -> void:
+	if world == null or _plate == null:
+		return
+	var wanted: Dictionary = {}
+	for spec in VILLAGERS:
+		var house_id := int(spec["house"])
+		var key := "%d:%s" % [house_id, str(spec["label"])]
+		if not _villager_should_walk(spec):
+			continue
+		wanted[key] = true
+		if _villagers.has(key) and is_instance_valid(_villagers[key]):
+			continue
+		var walker := _spawn_villager(spec)
+		if walker != null:
+			_villagers[key] = walker
+	var gone: Array[String] = []
+	for key in _villagers.keys():
+		if wanted.has(str(key)):
+			continue
+		var walker: VillageWalker = _villagers[key] as VillageWalker
+		if walker != null and is_instance_valid(walker):
+			walker.release()
+		gone.append(str(key))
+	for key in gone:
+		_villagers.erase(key)
+
+
+func _villager_should_walk(spec: Dictionary) -> bool:
+	var house_id := int(spec["house"])
+	if not GameState.is_house_unlocked(house_id):
+		return false
+	if bool(spec.get("needs_complete", false)):
+		return GameState.is_house_completed(house_id) and not GameState.wants_replay(house_id)
+	return true
+
+
+func _spawn_villager(spec: Dictionary) -> VillageWalker:
+	var house_id := int(spec["house"])
+	var label := str(spec["label"])
+	var stand_in := _find_resident(house_id, label)
+	var plate := _interior_plate(house_id)
+	if stand_in == null or plate == null:
+		return null
+	var walker := VillageWalker.new()
+	walker.name = "Walker_%d_%s" % [house_id, label.replace(" ", "")]
+	walker.house_id = house_id
+	walker.resident_name = label
+	walker.outside_uvs = _uv_list(spec["outside"])
+	walker.inside_uvs = _uv_list(spec["inside"])
+	walker.door_uv = spec["door"]
+	walker.exit_uv = spec["exit"]
+	walker.hub_plate = _plate
+	walker.interior_plate = plate
+	walker.stand_in = stand_in
+	walker.talk_trigger = _find_talk_trigger(house_id, str(spec.get("talk", "")))
+	walker.space_of = _player_house_space
+	walker.sheet_id = str(spec.get("sheet", ""))
+	walker.interior_scale = _interior_scale(house_id)
+	walker.speak_prompt = str(spec.get("speak", "Speak"))
+	var spoken: Variant = spec.get("lines", [])
+	if spoken is Array:
+		walker.chat_lines = spoken
+	walker.chatted.connect(_on_villager_chatted)
+	world.add_child(walker)
+	walker.setup(stand_in.texture_path, stand_in.prop_size)
+	return walker
+
+
+func _on_villager_chatted(walker: VillageWalker) -> void:
+	if _villager_chat or not is_instance_valid(walker):
+		return
+	if dialogue != null and dialogue.visible:
+		return
+	_villager_chat = true
+	walker.hold_chat(true)
+	await say(walker.pick_lines())
+	if is_instance_valid(walker):
+		walker.hold_chat(false)
+	_villager_chat = false
+
+
+func _player_house_space() -> int:
+	return _active_house_id
+
+
+func _interior_scale(house_id: int) -> float:
+	var quest: HouseQuest = _quests.get(house_id) as HouseQuest
+	if quest != null:
+		return quest.painted_player_scale()
+	return 2.6
+
+
+func _uv_list(points: Array) -> Array[Vector2]:
+	var uvs: Array[Vector2] = []
+	for point in points:
+		uvs.append(point as Vector2)
+	return uvs
+
+
+func _interior_plate(house_id: int) -> Node:
+	var quest: HouseQuest = _quests.get(house_id) as HouseQuest
+	if quest == null:
+		return null
+	for child in quest.get_children():
+		if child.has_method("uv_to_global"):
+			return child
+	return null
+
+
+func _find_resident(house_id: int, label: String) -> PlaceholderProp:
+	for node in _house_nodes.get(house_id, []):
+		if node is PlaceholderProp and (node as PlaceholderProp).prop_label == label:
+			return node as PlaceholderProp
+	return null
+
+
+func _find_talk_trigger(house_id: int, needle: String) -> Interactable:
+	if needle.is_empty():
+		return null
+	var want := needle.to_lower()
+	for node in _house_nodes.get(house_id, []):
+		if node is Interactable and want in (node as Interactable).prompt.to_lower():
+			return node as Interactable
+	return null
 
 
 func _refresh_door_locks() -> void:

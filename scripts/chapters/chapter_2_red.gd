@@ -307,10 +307,10 @@ func _run_chapter() -> void:
 	Audio.set_ambience(0.38, 0.0)
 	_set_steps(0)
 	_light_station("queen")
-	objective("The Harvest Queen waits on the porch. Walk to her and press [E].")
+	objective("The Harvest Queen is walking the hall. Find her and press [E].")
 	await wait(0.35)
 	await say([
-		"The porch is a garden, same as the last house. A woman in green stands in the gray — the forest still knows her, even if the hall does not.",
+		"The porch is a garden, same as the last house. A woman in green walks the hall — the forest still knows her, even if the hall does not.",
 		{"speaker": "S'lang", "text": "If she is the land, then the thorns are a wound in her."},
 	])
 	_queen_trigger.set_enabled(true)

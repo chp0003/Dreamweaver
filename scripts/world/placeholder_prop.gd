@@ -523,6 +523,8 @@ static func clean_cutout(image: Image) -> void:
 		pending.append(point + Vector2i.LEFT)
 		pending.append(point + Vector2i.DOWN)
 		pending.append(point + Vector2i.UP)
+	_peel_plate_fringe(image)
+	_despill_green_edge(image)
 	var y_cut := int(float(h) * 0.58)
 	for x in range(w):
 		var last_body := -1
@@ -554,10 +556,69 @@ static func _is_studio_plate(c: Color) -> bool:
 		return true
 	if luma < 0.08 and chroma < 0.08:
 		return true
-	if c.g > 0.70 and c.r < 0.48 and c.b < 0.48:
+	# Neon yellow-lime plates (the chief is about 160, 244, 8). Leafy cloth stays.
+	if c.g > 0.75 and c.b < 0.28 and c.g > c.r + 0.12 and c.g > c.b + 0.40:
 		return true
 	if c.r > 0.55 and c.b > 0.45 and c.g < 0.55 and (c.r + c.b) > c.g * 2.2:
 		return true
+	return false
+
+
+static func _peel_plate_fringe(image: Image) -> void:
+	var w := image.get_width()
+	var h := image.get_height()
+	for _pass in range(6):
+		var doomed: Array[Vector2i] = []
+		for y in range(h):
+			for x in range(w):
+				var color := image.get_pixel(x, y)
+				if color.a < 0.08 or not _is_lime_plate(color):
+					continue
+				if _touches_clear(image, x, y):
+					doomed.append(Vector2i(x, y))
+		if doomed.is_empty():
+			return
+		for point in doomed:
+			image.set_pixelv(point, Color.TRANSPARENT)
+
+
+static func _despill_green_edge(image: Image) -> void:
+	var w := image.get_width()
+	var h := image.get_height()
+	for _pass in range(3):
+		var edits: Array[Dictionary] = []
+		for y in range(h):
+			for x in range(w):
+				var color := image.get_pixel(x, y)
+				if color.a < 0.08 or not _touches_clear(image, x, y) or not _is_lime_plate(color):
+					continue
+				var lead := color.g - maxf(color.r, color.b)
+				if lead > 0.22:
+					edits.append({"p": Vector2i(x, y), "c": Color.TRANSPARENT})
+				else:
+					color.g = maxf(color.r, color.b)
+					edits.append({"p": Vector2i(x, y), "c": color})
+		for edit in edits:
+			image.set_pixelv(edit["p"], edit["c"])
+
+
+static func _is_lime_plate(c: Color) -> bool:
+	return c.g > 0.75 and c.b < 0.28 and c.g > c.r + 0.12 and c.g > c.b + 0.40
+
+
+static func _touches_clear(image: Image, x: int, y: int) -> bool:
+	var w := image.get_width()
+	var h := image.get_height()
+	for oy in range(-1, 2):
+		for ox in range(-1, 2):
+			if ox == 0 and oy == 0:
+				continue
+			var nx := x + ox
+			var ny := y + oy
+			if nx < 0 or ny < 0 or nx >= w or ny >= h:
+				return true
+			if image.get_pixel(nx, ny).a < 0.08:
+				return true
 	return false
 
 

@@ -317,7 +317,7 @@ func _run_chapter() -> void:
 	Audio.set_ambience(0.32, 0.0)
 	_set_steps(0)
 	_light_station("spirit")
-	objective("Fun Kdungon on the hall floor, right of the loom. Walk to her and press [E].")
+	objective("Fun Kdungon is walking this hall. Find her and press [E].")
 	await wait(0.35)
 	await say([
 		"Far wall, left to right: Fun Kdungon, a drying rack, a dye vat. That is the work of this house.",
@@ -331,13 +331,13 @@ func _run_chapter() -> void:
 	await say([
 		{"speaker": "Fun Kdungon", "text": "Weaver's hands. Then tell me — what comes first?"},
 		{"speaker": "S'lang", "text": "The abaca. Strip it, comb it, knot it."},
-		{"speaker": "Fun Kdungon", "text": "Good. The grayness took that out of this house — and it took the Chief with it. He still stands to the left of the loom. Restore him first. He remembers where the shadow struck, and he holds the map of this hall."},
+		{"speaker": "Fun Kdungon", "text": "Good. The grayness took that out of this house — and it took the Chief with it. He walks this hall, and the path outside it. Restore him first. He remembers where the shadow struck, and he holds the map of this hall."},
 	])
 	GameState.unlock_lore("abaca")
 
 	_set_steps(1)
 	_light_station("chief")
-	objective("The Chief stands to the left of the loom. Walk to him and press [E].")
+	objective("The Chief is walking the hall. Find him and press [E].")
 	_chief_trigger.set_enabled(true)
 	await _chief_trigger.interacted
 	_chief_trigger.set_enabled(false)

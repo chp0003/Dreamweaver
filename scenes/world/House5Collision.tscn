@@ -3,6 +3,7 @@
 [ext_resource type="Texture2D" uid="uid://cq3exi7b4uv61" path="res://assets/images/environments/house_sacred/sacred_loom_hall.png" id="1_hall"]
 [ext_resource type="Script" uid="uid://c282enk2jiljv" path="res://scripts/world/editor_plate_ref.gd" id="2_ref"]
 [ext_resource type="Script" uid="uid://clye7sh26pu3e" path="res://scripts/world/hub_collision_debug.gd" id="3_debug"]
+[ext_resource type="Script" uid="uid://ceq8abpf6cinn" path="res://scripts/world/editor_character_ref.gd" id="4_chars"]
 
 [node name="House5Collision" type="Node2D" unique_id=1905938038]
 
@@ -10,6 +11,10 @@
 z_index = -120
 texture = ExtResource("1_hall")
 script = ExtResource("2_ref")
+
+[node name="CharacterRefs" type="Node2D" parent="." unique_id=2064669375]
+z_index = 20
+script = ExtResource("4_chars")
 
 [node name="HallCollision" type="StaticBody2D" parent="." unique_id=922520870]
 z_index = 50
@@ -21,14 +26,15 @@ script = ExtResource("3_debug")
 polygon = PackedVector2Array(-520, -420, 520, -420, 520, -268, -520, -268)
 
 [node name="Loom" type="CollisionPolygon2D" parent="HallCollision" unique_id=2126376532]
-polygon = PackedVector2Array(-187, -268, 209, -266, 236, -30, -250, -45)
+position = Vector2(-17, 1)
+polygon = PackedVector2Array(-187, -268, 209, -266, 224, -206, 247, -198, 251, -170, 258, -147, 273, -154, 294, -144, 288, -125, 254, -112, 255, -24, -250, -45)
 
 [node name="LeftGarden" type="CollisionPolygon2D" parent="HallCollision" unique_id=374570439]
-polygon = PackedVector2Array(-583, 99, -204, 87, -201, 450, -594, 441)
+polygon = PackedVector2Array(-583, 99, -204, 87, -230, 285, -141, 295, -129, 315, -154, 434, -588, 436)
 
 [node name="RightGarden" type="CollisionPolygon2D" parent="HallCollision" unique_id=1425557301]
 position = Vector2(12, 7)
-polygon = PackedVector2Array(202, 81, 576, 76, 565, 430, 170, 423)
+polygon = PackedVector2Array(202, 81, 576, 76, 565, 430, 121, 420, 107, 285, 205, 285, 187, 203, 175, 162)
 
 [node name="LeftWall" type="CollisionPolygon2D" parent="HallCollision" unique_id=247903567]
 polygon = PackedVector2Array(-588, -430, -518, -430, -518, 430, -588, 430)

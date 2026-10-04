@@ -65,11 +65,20 @@ polygon = PackedVector2Array(-138, -351, 66, -474, 269, -351, 232, -211, -96, -2
 
 [node name="Roof_BlackFoundation_Main8" type="CollisionPolygon2D" parent="World/HubCollision" unique_id=1099564884]
 position = Vector2(-108, -47)
-polygon = PackedVector2Array(-376, 80, -277, 126, -352, 279, -426.9999, 245, -444.9999, 170)
+polygon = PackedVector2Array(-376, 80, -277, 126, -308.2306, 189.71042, -305, 289, -312, 356, -402, 321, -470, 284, -476, 221)
+
+[node name="Roof_BlackFoundation_Main10" type="CollisionPolygon2D" parent="World/HubCollision" unique_id=1290039191]
+position = Vector2(378, -209)
+polygon = PackedVector2Array(-386, 101, -337, 105, -341, 285, -371, 292, -402, 272, -401, 217)
 
 [node name="Roof_BlackFoundation_Main" type="CollisionPolygon2D" parent="World/HubCollision" unique_id=464228211]
-position = Vector2(-22, -293)
-polygon = PackedVector2Array(-386, 101, -313, 135, -310, 188, -366, 207, -446.9999, 238, -450, 187)
+position = Vector2(296, -87)
+rotation = 0.0012039023
+polygon = PackedVector2Array(-380, 82, -346, 92, -350, 158, -367, 164, -377, 158, -371, 123)
+
+[node name="Roof_BlackFoundation_Main" type="CollisionPolygon2D" parent="World/HubCollision/Roof_BlackFoundation_Main" unique_id=1905658087]
+position = Vector2(143.00955, 7.8278427)
+polygon = PackedVector2Array(-380, 82, -346, 92, -350, 158, -367, 164, -377, 158, -371, 123)
 
 [node name="Roof_BlackFoundation_Porch" type="CollisionPolygon2D" parent="World/HubCollision" unique_id=1314190359]
 position = Vector2(11, 16)
@@ -136,7 +145,7 @@ polygon = PackedVector2Array(-386, 101, -313, 135, -310, 188, -366, 207, -446.99
 
 [node name="Roof_BlackFoundation_Main4" type="CollisionPolygon2D" parent="World/HubCollision" unique_id=1073136417]
 position = Vector2(186, 293)
-polygon = PackedVector2Array(-376, 80, -262, 105, -254, 177, -249, 211, -249, 246, -426.9999, 245, -555, 250, -649, 191, -548.3199, 199.1475, -475.9999, 205)
+polygon = PackedVector2Array(-376, 80, -262, 105, -254, 177, -249, 211, -249, 246, -426.9999, 245, -555, 250, -669, 178, -548.3199, 199.1475, -475.9999, 205)
 
 [node name="Roof_BlackFoundation_Main5" type="CollisionPolygon2D" parent="World/HubCollision" unique_id=973733649]
 position = Vector2(740.99994, 6.9999695)
@@ -148,7 +157,7 @@ polygon = PackedVector2Array(-388.9999, 88, -313, 135, -229, 176, -302, 250, -36
 
 [node name="ropes" type="CollisionPolygon2D" parent="World/HubCollision" unique_id=1188870678]
 position = Vector2(732.99994, -131.99998)
-polygon = PackedVector2Array(-481.9999, 503, -335.9999, 620.9999, -342.9999, 640.9999, -657, 506, -594, 492.9999, -537.702, 464.6454, -501, 475)
+polygon = PackedVector2Array(-459.99994, 512, -356.99994, 581, -327.99994, 629, -236.99994, 616, -178.99994, 630, -342.9999, 640.9999, -657, 506, -594, 492.9999, -514.99994, 453, -502.99994, 490)
 
 [node name="ropes2" type="CollisionPolygon2D" parent="World/HubCollision" unique_id=1056705521]
 position = Vector2(417, -70.00001)
@@ -177,6 +186,10 @@ polygon = PackedVector2Array(-376, 80, -277, 126, -105, 193, -401, 208, -523, 20
 [node name="Roof_GoldenSun_Porch2" type="CollisionPolygon2D" parent="World/HubCollision" unique_id=945589278]
 position = Vector2(-347, -114)
 polygon = PackedVector2Array(-64.5, -274.4, 184, -299, 163, -77, 82, -65, 48, -110, -49.2, -243.7)
+
+[node name="Roof_BlackFoundation_Main9" type="CollisionPolygon2D" parent="World/HubCollision" unique_id=1475001642]
+position = Vector2(-16, -301)
+polygon = PackedVector2Array(-386, 101, -313, 135, -310, 188, -366, 207, -446.9999, 238, -450, 187)
 
 [node name="Camera" type="Camera2D" parent="." unique_id=1258779641]
 zoom = Vector2(0.84, 0.84)

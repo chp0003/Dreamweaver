@@ -3,6 +3,7 @@
 [ext_resource type="Texture2D" uid="uid://btn6g2qm1d0nb" path="res://assets/images/environments/house_black/black_foundation_hall.png" id="1_hall"]
 [ext_resource type="Script" uid="uid://c282enk2jiljv" path="res://scripts/world/editor_plate_ref.gd" id="2_ref"]
 [ext_resource type="Script" uid="uid://clye7sh26pu3e" path="res://scripts/world/hub_collision_debug.gd" id="3_debug"]
+[ext_resource type="Script" uid="uid://ceq8abpf6cinn" path="res://scripts/world/editor_character_ref.gd" id="4_chars"]
 
 [node name="House1Collision" type="Node2D" unique_id=1306390892]
 
@@ -10,6 +11,10 @@
 z_index = -120
 texture = ExtResource("1_hall")
 script = ExtResource("2_ref")
+
+[node name="CharacterRefs" type="Node2D" parent="." unique_id=1818203238]
+z_index = 20
+script = ExtResource("4_chars")
 
 [node name="HallCollision" type="StaticBody2D" parent="." unique_id=1315134503]
 z_index = 50
@@ -23,5 +28,9 @@ position = Vector2(-153, 260)
 polygon = PackedVector2Array(-102, -774, 625, -767, 915, -779, 920, 251, 419, 251, 392, -158, 694, -140, 762, -196, 734, -289, 640, -272, 570, -341, 595, -446, 463, -448, 60, -467, 43, -489, 44, -489, 58, -460, 39, -453, -45, -473, -169, -494)
 
 [node name="CopyMe2" type="CollisionPolygon2D" parent="HallCollision" unique_id=1345722857]
-position = Vector2(-674, 260)
-polygon = PackedVector2Array(-102, -774, 419, -774, 326, -397, 375, -365, 369, -300, 307, -278, 213, -244, 146, -162, 425, -158, 436, 25, 434, 246, -98, 255, -90, -140)
+position = Vector2(-678, 272)
+polygon = PackedVector2Array(-102, -774, 419, -774, 326, -397, 375, -365, 364, -177, 307, -176, 246, -179, 245, -332, 146, -162, 425, -158, 416, 23, 400, 89, 434, 246, -98, 255, -90, -140)
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="HallCollision" unique_id=333712993]
+position = Vector2(-135, -144)
+polygon = PackedVector2Array(-41, 40, -59, 57, -54, 92, -54.754333, 128.92606, -58, 194, -40, 217, -8, 211, -8, 133, 22, 99, -8, 97, -18, 82, -18, 54, -29, 41)
