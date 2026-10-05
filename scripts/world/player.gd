@@ -104,6 +104,8 @@ var _beam_charge: Node2D
 ## Locked target. Clicking one out of range makes her chase until she can swing.
 var _locked_target: Node2D
 var _chasing := false
+var _talk_npc: Node2D
+var _approaching_talk := false
 var _shockwave_frames: SpriteFrames
 
 var _animated: AnimatedSprite2D
@@ -167,8 +169,11 @@ func _physics_process(delta: float) -> void:
 		input_vector = Input.get_vector("move_left", "move_right", up_down_neg, up_down_pos)
 		if input_vector != Vector2.ZERO:
 			_chasing = false
+			_clear_talk_approach()
 
-	var chase_dir := _chase_direction()
+	var chase_dir := _talk_chase_direction()
+	if chase_dir == Vector2.ZERO:
+		chase_dir = _chase_direction()
 	var anim_stick := input_vector if input_vector != Vector2.ZERO else chase_dir
 	_update_animation(anim_stick)
 
@@ -710,11 +715,90 @@ func try_attack_at(world_point: Vector2) -> bool:
 
 
 func _handle_aqw_click(world_point: Vector2) -> void:
+	var npc := _pick_talk_npc(world_point)
+	if npc != null:
+		approach_npc(npc)
+		return
 	var clicked := _pick_click_target(world_point)
 	if clicked != null:
+		_clear_talk_approach()
 		_engage_target(clicked)
 		return
+	_clear_talk_approach()
 	_set_locked_target(null)
+
+
+func approach_npc(npc: Node2D) -> void:
+	if npc == null or _dead or not input_enabled:
+		return
+	if _talk_npc == npc and _approaching_talk:
+		return
+	_clear_talk_approach()
+	_set_locked_target(null)
+	_chasing = false
+	_talk_npc = npc
+	_approaching_talk = true
+	if npc.has_method("set_selected"):
+		npc.call("set_selected", true)
+	if _in_talk_range(npc):
+		_complete_talk_approach()
+
+
+func _pick_talk_npc(world_point: Vector2) -> Node2D:
+	var best: Node2D = null
+	var best_d := 72.0
+	for node in get_tree().get_nodes_in_group("talkable_npc"):
+		var npc := node as Node2D
+		if npc == null or not npc.visible:
+			continue
+		if npc.has_method("can_be_clicked_at") and not bool(npc.call("can_be_clicked_at", world_point)):
+			continue
+		var d := minf(
+			world_point.distance_to(npc.global_position + Vector2(0.0, -36.0)),
+			world_point.distance_to(npc.global_position)
+		)
+		if d < best_d:
+			best_d = d
+			best = npc
+	return best
+
+
+func _talk_chase_direction() -> Vector2:
+	if not _approaching_talk or _talk_npc == null or not is_instance_valid(_talk_npc):
+		if _approaching_talk:
+			_clear_talk_approach()
+		return Vector2.ZERO
+	if _in_talk_range(_talk_npc):
+		_complete_talk_approach()
+		return Vector2.ZERO
+	var to_npc := _talk_npc.global_position - global_position
+	if to_npc.length() < 4.0:
+		return Vector2.ZERO
+	return to_npc.normalized()
+
+
+func _in_talk_range(npc: Node2D) -> bool:
+	var reach := 56.0
+	if npc.has_method("talk_stop_distance"):
+		reach = float(npc.call("talk_stop_distance"))
+	return global_position.distance_to(npc.global_position) <= reach
+
+
+func _complete_talk_approach() -> void:
+	var npc := _talk_npc
+	_clear_talk_approach()
+	if npc == null or not is_instance_valid(npc):
+		return
+	_face_vector(npc.global_position - global_position)
+	if npc.has_method("receive_player_talk"):
+		npc.call("receive_player_talk")
+
+
+func _clear_talk_approach() -> void:
+	if _talk_npc != null and is_instance_valid(_talk_npc) and _talk_npc.has_method("set_selected"):
+		_talk_npc.call("set_selected", false)
+	_talk_npc = null
+	_approaching_talk = false
 
 
 func _engage_target(target: Variant) -> bool:

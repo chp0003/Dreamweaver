@@ -163,6 +163,7 @@ func _build_world() -> void:
 	_hide_map_reference()
 	if _plate != null and world != null:
 		_plate.reparent_solids_to(world)
+		NpcNav.bake_world(world, _plate.global_world_rect())
 	if player != null:
 		player.set_light_enabled(false)
 		if GameState.current_chapter < 1:

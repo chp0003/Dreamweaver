@@ -69,6 +69,8 @@ func apply_radius(value: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("interact") or event.is_echo():
 		return
+	if _dialogue_open():
+		return
 	if hub_door_priority:
 		if not enabled or (one_shot and _used) or not monitoring:
 			return
@@ -144,11 +146,18 @@ func _center_badge() -> void:
 
 
 func _can_interact() -> bool:
-	if not enabled or (one_shot and _used):
+	if not enabled or (one_shot and _used) or _dialogue_open():
 		return false
 	if hub_door_priority:
 		return _best_hub_door() == self
 	return _player_inside
+
+
+func _dialogue_open() -> bool:
+	if not is_inside_tree():
+		return false
+	var view := get_tree().get_first_node_in_group("dialogue_view")
+	return view != null and view.has_method("is_busy") and bool(view.call("is_busy"))
 
 
 func _on_body_entered(body: Node2D) -> void:
