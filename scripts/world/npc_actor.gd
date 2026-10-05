@@ -20,13 +20,13 @@ const HOVER_TINT := Color(1.18, 1.12, 0.92)
 const SELECT_TINT := Color(1.28, 1.18, 0.78)
 
 @export var walk_speed := 78.0
-@export var walk_fps := 10.0
+@export var walk_fps := 2.0
 @export var arrive_distance := 12.0
 @export var pause_min := 0.8
 @export var pause_max := 2.2
 @export var wander_radius := 0.0
-@export var stuck_seconds := 0.45
-@export var move_epsilon := 10.0
+@export var stuck_seconds := 0.7
+@export var move_epsilon := 8.0
 @export var interact_radius := 74.0
 @export var talk_stop_range := 56.0
 @export var interact_prompt := "Speak"
@@ -62,6 +62,7 @@ var _nav_ready := false
 var _hovered := false
 var _selected := false
 var _resume_after_talk: State = State.IDLE
+var _repath_tries := 0
 
 
 func _ready() -> void:
@@ -79,6 +80,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_sync_collision()
 	if _wants_talk_pose():
 		if state != State.TALKING:
 			_enter_talk()
@@ -97,6 +99,17 @@ func _physics_process(delta: float) -> void:
 			_tick_move(delta)
 		_:
 			_tick_idle(delta)
+
+
+func _sync_collision() -> void:
+	collision_layer = PhysicsLayers.LAYER_ENEMIES
+	collision_mask = PhysicsLayers.MASK_PLAYER_MOVES
+	var feet := get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if feet != null:
+		feet.disabled = false
+		if feet.shape == null:
+			feet.shape = PhysicsLayers.feet_circle(14.0)
+			feet.position = Vector2(0.0, -2.0)
 
 
 func walk_to(world_pos: Vector2) -> void:
@@ -196,9 +209,9 @@ func current_destination() -> Vector2:
 
 func _ensure_body() -> void:
 	collision_layer = PhysicsLayers.LAYER_ENEMIES
-	collision_mask = PhysicsLayers.LAYER_WORLD
+	collision_mask = PhysicsLayers.MASK_PLAYER_MOVES
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
-	safe_margin = 0.08
+	safe_margin = 0.12
 	slide_on_ceiling = true
 	floor_stop_on_slope = false
 	z_as_relative = true
@@ -207,8 +220,9 @@ func _ensure_body() -> void:
 		shape_node = CollisionShape2D.new()
 		shape_node.name = "CollisionShape2D"
 		add_child(shape_node)
-	shape_node.shape = PhysicsLayers.feet_circle(12.0)
+	shape_node.shape = PhysicsLayers.feet_circle(14.0)
 	shape_node.position = Vector2(0.0, -2.0)
+	shape_node.disabled = false
 
 
 func _build_visuals() -> void:
@@ -216,7 +230,7 @@ func _build_visuals() -> void:
 		return
 	var frames := sprite_frames
 	if frames == null and not sheet_id.is_empty():
-		frames = NpcFrames.load_or_build(sheet_id, walk_fps)
+		frames = NpcFrames.load_or_build(sheet_id, NpcFrames.WALK_CYCLES_PER_SEC)
 	if frames != null and not frames.get_animation_names().is_empty():
 		_animated = get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
 		if _animated == null:
@@ -226,7 +240,7 @@ func _build_visuals() -> void:
 		_animated.sprite_frames = frames
 		_animated.centered = true
 		_animated.offset = _base_offset
-		_animated.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		_animated.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		_animated.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
 		_sprite = _animated
 		set_art_scale_factor(_space_scale)
@@ -242,9 +256,9 @@ func _build_agent() -> void:
 		_agent = NavigationAgent2D.new()
 		_agent.name = "NavigationAgent2D"
 		add_child(_agent)
-	_agent.path_desired_distance = 10.0
+	_agent.path_desired_distance = 12.0
 	_agent.target_desired_distance = arrive_distance
-	_agent.radius = 12.0
+	_agent.radius = 16.0
 	_agent.avoidance_enabled = false
 	_agent.debug_enabled = false
 
@@ -313,24 +327,28 @@ func _tick_move(delta: float) -> void:
 	if global_position.distance_to(_destination) <= arrive_distance:
 		_arrive()
 		return
-	var wish := (_destination - global_position).normalized()
-	if _nav_ready and _agent != null and not _agent.is_navigation_finished():
-		var next := _agent.get_next_path_position()
-		if next.distance_to(global_position) > 1.5:
-			wish = global_position.direction_to(next)
+	var wish := _steer()
+	if wish.length_squared() < 0.01:
+		_arrive()
+		return
 	velocity = wish * walk_speed
 	var before := global_position
 	move_and_slide()
-	var traveled := global_position.distance_to(before)
+	var moved := global_position - before
+	var traveled := moved.length()
 	if traveled < move_epsilon * delta:
 		_stuck += delta
 		if _stuck >= stuck_seconds:
+			if _repath_tries < 2 and _repath():
+				_repath_tries += 1
+				_stuck = 0.0
+				return
 			_arrive()
 			return
 		_update_animation(Vector2.ZERO, false)
 	else:
 		_stuck = 0.0
-		_update_animation(velocity, true)
+		_update_animation(moved, true)
 	_ground_sprite()
 
 
@@ -347,6 +365,7 @@ func _tick_talk(_delta: float) -> void:
 func _arrive() -> void:
 	_has_destination = false
 	_stuck = 0.0
+	_repath_tries = 0
 	velocity = Vector2.ZERO
 	move_and_slide()
 	_set_state(State.IDLE)
@@ -356,14 +375,52 @@ func _arrive() -> void:
 	arrived.emit()
 
 
+func _steer() -> Vector2:
+	var to_goal := _destination - global_position
+	if to_goal.length() <= arrive_distance:
+		return Vector2.ZERO
+	if _nav_ready and _agent != null:
+		_agent.target_position = _destination
+		if not _agent.is_navigation_finished():
+			var next := _agent.get_next_path_position()
+			if next.distance_to(global_position) > 2.0:
+				return global_position.direction_to(next)
+	return to_goal.normalized()
+
+
+func _repath() -> bool:
+	if not _nav_ready or _agent == null:
+		return false
+	var map := _agent.get_navigation_map()
+	if map == RID():
+		return false
+	var snapped := NavigationServer2D.map_get_closest_point(map, _destination)
+	if snapped.distance_to(_destination) > 90.0:
+		return false
+	if snapped.distance_to(global_position) < arrive_distance:
+		return false
+	_destination = snapped
+	_agent.target_position = snapped
+	return snapped.distance_to(global_position) > arrive_distance
+
+
 func _set_destination(world_pos: Vector2, next: State) -> void:
-	_destination = world_pos
+	var goal := world_pos
+	if _nav_ready and _agent != null:
+		var map := _agent.get_navigation_map()
+		if map != RID():
+			var snapped := NavigationServer2D.map_get_closest_point(map, world_pos)
+			if snapped.distance_to(world_pos) <= 90.0:
+				goal = snapped
+	_destination = goal
 	_has_destination = true
 	_stuck = 0.0
+	_repath_tries = 0
 	if _nav_ready and _agent != null:
-		_agent.target_position = world_pos
+		_agent.target_position = goal
 	if state != State.TALKING and not movement_locked:
 		_set_state(next)
+	_face_world(goal - global_position)
 
 
 func _pick_wander_point() -> void:
@@ -433,7 +490,9 @@ func _play_anim(anim_name: String) -> void:
 		anim_name = idle_prefix + "down" if anim_name.begins_with(idle_prefix) else walk_prefix + "down"
 		if not _animated.sprite_frames.has_animation(anim_name):
 			return
-	if _animated.animation == anim_name and _animated.is_playing():
+	if _animated.animation == anim_name:
+		if not _animated.is_playing():
+			_animated.play(anim_name)
 		return
 	var keep_stride := _animated.animation.begins_with(walk_prefix) and anim_name.begins_with(walk_prefix)
 	var frame := _animated.frame

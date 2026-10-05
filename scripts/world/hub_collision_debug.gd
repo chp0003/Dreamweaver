@@ -11,11 +11,36 @@ extends StaticBody2D
 
 func _ready() -> void:
 	z_index = 50
+	collision_layer = PhysicsLayers.LAYER_WORLD
+	collision_mask = PhysicsLayers.MASK_WORLD_STATIC
 	if Engine.is_editor_hint():
 		call_deferred("_flatten_collision_tree")
 	else:
+		_flatten_runtime()
 		_bake_polygon_scales()
 	queue_redraw()
+
+
+func _flatten_runtime() -> void:
+	var nested: Array[Node] = []
+	_collect_nested(self, nested)
+	for node in nested:
+		if node.get_parent() == self:
+			continue
+		var node2d := node as Node2D
+		if node2d == null:
+			continue
+		node.reparent(self, true)
+
+
+func _collect_nested(node: Node, out: Array[Node]) -> void:
+	for child in node.get_children():
+		if child is CollisionPolygon2D or child is CollisionShape2D:
+			if child.get_parent() != self:
+				out.append(child)
+			_collect_nested(child, out)
+		elif child is Node2D:
+			_collect_nested(child, out)
 
 
 ## Godot draws a scaled CollisionPolygon2D with the stretch, then physics drops

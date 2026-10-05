@@ -1,50 +1,51 @@
 class_name NpcFrames
 extends RefCounted
-## Builds SpriteFrames for village NPCs from `assets/images/characters/npc_walk/`.
-##
-## Sheet layout (same canvas as S'lang):
-##   One horizontal strip per facing: `{sheet}_{dir}.png`
-##   Cell size: 256 x 192 px
-##   Frame count: width / 256  (usually 8)
-##   Unique dirs: down, down_right, right, up_right, up
-##   West facings use the east sheet + AnimatedSprite2D.flip_h
-##
-## Each cell becomes its own ImageTexture. Sharing one AtlasTexture and
-## rewriting `region` makes every frame show the last cell — the body then
-## slides with no step.
+## SpriteFrames for village NPCs.
+## Idle is the original painted plant. Walk is 8 poses from those same
+## pixels: left foot and right foot step as two pieces, like S'lang.
 
-const SHEET_DIR := "res://assets/images/characters/npc_walk/"
+const WALK_DIR := "res://assets/images/characters/npc_stride/"
+const IDLE_DIR := "res://assets/images/characters/npc_walk/"
 const FRAME_W := 256
 const FRAME_H := 192
 const UNIQUE_DIRS := ["down", "down_right", "right", "up_right", "up"]
-const DEFAULT_WALK_FPS := 10.0
+const WALK_CYCLES_PER_SEC := 2.0
+
 
 static var _cache: Dictionary = {}
 
 
-static func load_or_build(sheet_id: String, walk_fps := DEFAULT_WALK_FPS) -> SpriteFrames:
-	var key := "%s:%.2f" % [sheet_id, walk_fps]
+static func load_or_build(sheet_id: String, walk_cycles := WALK_CYCLES_PER_SEC) -> SpriteFrames:
+	if walk_cycles > 4.0:
+		walk_cycles = WALK_CYCLES_PER_SEC
+	var key := "hip-leg:%s:%.2f" % [sheet_id, walk_cycles]
 	if _cache.has(key):
 		return _cache[key] as SpriteFrames
-	var frames := _build(sheet_id, walk_fps)
+	var frames := _build(sheet_id, walk_cycles)
 	if not frames.get_animation_names().is_empty():
 		_cache[key] = frames
 	return frames
 
 
-static func _build(sheet_id: String, walk_fps: float) -> SpriteFrames:
+static func _build(sheet_id: String, walk_cycles: float) -> SpriteFrames:
 	var frames := SpriteFrames.new()
 	if sheet_id.is_empty():
 		return frames
 	for dir in UNIQUE_DIRS:
-		var cells := _slice_strip(SHEET_DIR + sheet_id + "_" + dir + ".png")
-		if cells.is_empty():
+		var idle_cells := _slice_strip(IDLE_DIR + sheet_id + "_" + dir + ".png")
+		var walk_cells := _slice_strip(WALK_DIR + sheet_id + "_" + dir + ".png")
+		if idle_cells.is_empty() and walk_cells.is_empty():
 			continue
-		_add_anim(frames, "walk_" + dir, cells, true, walk_fps)
-		_add_anim(frames, "idle_" + dir, [cells[0]], true, 1.0)
+		if idle_cells.is_empty():
+			idle_cells = [walk_cells[0]]
+		if walk_cells.is_empty() or walk_cells.size() < 4:
+			walk_cells = idle_cells
+		var fps := float(walk_cells.size()) * maxf(walk_cycles, 0.5)
+		_add_anim(frames, "walk_" + dir, walk_cells, true, fps)
+		_add_anim(frames, "idle_" + dir, [idle_cells[0]], true, 1.0)
 		if dir == "right":
-			_add_anim(frames, "walk_side", cells, true, walk_fps)
-			_add_anim(frames, "idle_side", [cells[0]], true, 1.0)
+			_add_anim(frames, "walk_side", walk_cells, true, fps)
+			_add_anim(frames, "idle_side", [idle_cells[0]], true, 1.0)
 	return frames
 
 
@@ -64,8 +65,6 @@ static func _slice_strip(path: String) -> Array:
 	for i in count:
 		var cell := image.get_region(Rect2i(i * cell_w, 0, cell_w, image.get_height()))
 		cells.append(ImageTexture.create_from_image(cell))
-	if cells.size() > 1 and not _frames_differ(cells):
-		return []
 	return cells
 
 
@@ -77,16 +76,3 @@ static func _add_anim(frames: SpriteFrames, name: String, texs: Array, loop: boo
 	frames.set_animation_speed(name, fps)
 	for tex in texs:
 		frames.add_frame(name, tex as Texture2D)
-
-
-static func _frames_differ(texs: Array) -> bool:
-	if texs.size() < 2:
-		return false
-	var first := (texs[0] as Texture2D).get_image()
-	if first == null:
-		return false
-	for i in range(1, texs.size()):
-		var other := (texs[i] as Texture2D).get_image()
-		if other != null and other.get_data() != first.get_data():
-			return true
-	return false

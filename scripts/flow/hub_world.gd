@@ -235,6 +235,10 @@ func _mount_house(house: Dictionary) -> void:
 		for i in range(world_from, world.get_child_count()):
 			tracked.append(world.get_child(i))
 	_house_nodes[house_id] = tracked
+	if quest.uses_painted_plate():
+		var hall := quest.plate_world_rect()
+		if hall.size.x >= 32.0:
+			NpcNav.bake_region(world, "NpcNav_house%d" % house_id, hall)
 	_set_house_nodes_visible(house_id, false)
 
 
@@ -1115,6 +1119,12 @@ func _disable_non_hub_world_solids() -> void:
 		if child == null or not is_instance_valid(child):
 			continue
 		if child.name == "HubCollision":
+			continue
+		if child.name == "HubSolids" or child.name == "HubBounds":
+			continue
+		if child.name.begins_with("WorldBlocker_"):
+			continue
+		if child is CharacterBody2D or child is NavigationRegion2D:
 			continue
 		_set_static_collision(child, false)
 

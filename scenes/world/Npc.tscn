@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/world/npc_actor.gd" id="1_npc"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_feet"]
-radius = 12.0
+radius = 14.0
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_click"]
 size = Vector2(44, 78)
@@ -23,14 +23,14 @@ position = Vector2(0, -2)
 shape = SubResource("CircleShape2D_feet")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
-texture_filter = 0
+texture_filter = 1
 centered = true
 offset = Vector2(0, -46)
 
 [node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]
 path_desired_distance = 10.0
 target_desired_distance = 12.0
-radius = 12.0
+radius = 14.0
 avoidance_enabled = false
 
 [node name="ClickArea" type="Area2D" parent="."]

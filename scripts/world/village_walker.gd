@@ -89,7 +89,13 @@ func _offer_next_leg() -> void:
 		_rebuild_route()
 	if _points.is_empty():
 		return
-	walk_to(_points[_index])
+	var dest := _points[_index]
+	var hops := 0
+	while dest.distance_to(global_position) < 36.0 and hops < _points.size():
+		_index = (_index + 1) % _points.size()
+		dest = _points[_index]
+		hops += 1
+	walk_to(dest)
 
 
 func _on_arrived() -> void:
@@ -224,9 +230,6 @@ func _player_here() -> bool:
 func _apply_presence() -> void:
 	var here := _player_here()
 	visible = here
-	var feet := get_node_or_null("CollisionShape2D") as CollisionShape2D
-	if feet != null:
-		feet.disabled = not here or _fading > 0.0
 	var tint := Color.WHITE
 	if stand_in != null and is_instance_valid(stand_in):
 		var spr := stand_in.get_sprite()
