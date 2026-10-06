@@ -65,7 +65,10 @@ const BEAM_GOLD := Color(1.55, 1.22, 0.55, 0.96)
 const BEAM_BURST := "res://assets/images/vfx/weave_bolt_burst.png"
 
 @export var max_health := 100.0
-@export var has_staff := false
+@export var has_staff := false:
+	set(value):
+		has_staff = value
+		_apply_staff_visual()
 @export var has_light_beam := false
 @export var has_life_thread := false
 @export var staff_light_enabled := false
@@ -116,11 +119,13 @@ var _shadow: Sprite2D
 var _base_sprite_scale := Vector2.ONE
 var _base_sprite_offset := Vector2(0.0, -46.0)
 var _depth_scale := 1.0
+var _stride_speed := 190.0
 var _idle_time := 0.0
 
 
 func _ready() -> void:
 	add_to_group("player")
+	_stride_speed = speed
 	health = max_health
 	if GameState.has_item("light_beam"):
 		has_light_beam = true
@@ -175,10 +180,9 @@ func _physics_process(delta: float) -> void:
 	if chase_dir == Vector2.ZERO:
 		chase_dir = _chase_direction()
 	var anim_stick := input_vector if input_vector != Vector2.ZERO else chase_dir
-	_update_animation(anim_stick)
 
 	if _dodge_left > 0.0:
-		velocity = _dodge_dir * DODGE_SPEED
+		velocity = _dodge_dir * _dodge_speed()
 	else:
 		var direction := Iso.screen_direction(input_vector)
 		var move_speed := speed * (WARD_SLOW if _ward_left > 0.0 else 1.0)
@@ -196,8 +200,11 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	if collision_mask != PhysicsLayers.MASK_PLAYER_MOVES:
 		collision_mask = PhysicsLayers.MASK_PLAYER_MOVES
+	var moving := _dodge_left <= 0.0 and velocity.length() > 20.0
+	var face_dir := anim_stick if anim_stick != Vector2.ZERO else (velocity if moving else Vector2.ZERO)
+	_update_animation(face_dir, moving)
 	_update_hurt_flash()
-	_update_idle_breathe(delta, anim_stick)
+	_update_idle_breathe(delta, moving)
 	_sync_walk_stride()
 	_sync_body_shadow()
 
@@ -232,14 +239,14 @@ func _unhandled_input(event: InputEvent) -> void:
 # Animation
 # --------------------------------------------------------------------------
 
-func _update_animation(input_vector: Vector2) -> void:
+func _update_animation(facing_dir: Vector2, moving: bool) -> void:
 	if _animated == null:
 		return
 
-	if input_vector != Vector2.ZERO:
-		last_direction = _octant_name(input_vector)
+	if facing_dir != Vector2.ZERO:
+		last_direction = _octant_name(facing_dir)
 
-	var prefix := "attack" if _attacking else ("walk" if input_vector != Vector2.ZERO else "idle")
+	var prefix := "attack" if _attacking else ("walk" if moving else "idle")
 	_play_facing(prefix)
 
 
@@ -258,8 +265,8 @@ func _octant_name(dir: Vector2) -> String:
 
 func _play_facing(prefix: String) -> void:
 	# One three-quarter model for every facing. The directional sheets are
-	# different drawings of S'lang, so swapping octants popped costume, scale,
-	# and stride. West still mirrors the east sheet.
+	# different drawings — swapping them popped costume and size.
+	# West still mirrors the east sheet.
 	_animated.flip_h = FLIP_SHEET.has(last_direction)
 	_play_anim("%s_down_right" % prefix)
 
@@ -284,23 +291,33 @@ func apply_depth_scale(ratio: float) -> void:
 	_depth_scale = ratio
 	if _animated != null:
 		_animated.scale = _base_sprite_scale * _depth_scale
+	match_stride_to(ratio)
+
+
+## 190 px/s matches her feet at the house sprite size. A smaller ridge sprite
+## needs a slower step or she scoots across the painting.
+func match_stride_to(sprite_scale: float, tuned_at := 2.6) -> void:
+	if tuned_at <= 0.01:
+		return
+	speed = _stride_speed * sprite_scale / tuned_at
+
+
+func _dodge_speed() -> float:
+	return DODGE_SPEED * speed / maxf(_stride_speed, 1.0)
 
 
 func depth_scale() -> float:
 	return _depth_scale
 
 
-func _update_idle_breathe(delta: float, input_vector: Vector2) -> void:
+func _update_idle_breathe(_delta: float, moving: bool) -> void:
 	if _animated == null or _dead:
 		return
-	if input_vector != Vector2.ZERO or _attack_timer > 0.0:
+	if moving or _attack_timer > 0.0:
 		_idle_time = 0.0
-		_animated.offset = _base_sprite_offset
-		return
-	_idle_time += delta
-	var bob := sin(_idle_time * 2.2) * 1.4
-	_animated.offset = _base_sprite_offset + Vector2(0.0, bob)
-	_animated.speed_scale = 1.0
+	_animated.offset = _base_sprite_offset
+	if not moving and _attack_timer <= 0.0:
+		_animated.speed_scale = 1.0
 
 
 func _sync_walk_stride() -> void:
@@ -312,8 +329,8 @@ func _sync_walk_stride() -> void:
 		_animated.speed_scale = clampf(spd / maxf(speed, 1.0), 0.82, 1.06)
 		_animated.offset = _base_sprite_offset
 		return
-	if not anim.begins_with("attack"):
-		_animated.speed_scale = 1.0
+	_animated.offset = _base_sprite_offset
+	_animated.speed_scale = 1.0
 
 
 func _update_hurt_flash() -> void:
@@ -375,7 +392,7 @@ func try_dodge() -> bool:
 	_dodge_timer = DODGE_COOLDOWN
 	_invulnerable = maxf(_invulnerable, DODGE_IFRAMES)
 	_attacking = false
-	velocity = _dodge_dir * DODGE_SPEED
+	velocity = _dodge_dir * _dodge_speed()
 	Audio.play_sfx(Audio.Sfx.HIT)
 	Fx.punch(self, 0.08)
 	if _animated != null:
@@ -1166,7 +1183,6 @@ func _build_visuals() -> void:
 		_animated.name = "AnimatedSprite2D"
 		add_child(_animated)
 
-	_animated.sprite_frames = SlangFrames.load_or_build()
 	_animated.centered = true
 	# Locked for every animation — see SlangFrames header comments.
 	# Frame canvas: 256×192 px, feet at bottom-centre. Keep a uniform scale:
@@ -1177,7 +1193,8 @@ func _build_visuals() -> void:
 	_base_sprite_scale = Vector2(art_scale, art_scale)
 	_animated.offset = _base_sprite_offset
 	_animated.scale = _base_sprite_scale
-	_animated.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_animated.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_apply_staff_visual()
 	_animated.play("idle_down_right")
 	_build_shadow()
 	_build_staff_gem()
@@ -1191,6 +1208,29 @@ func _build_visuals() -> void:
 	_swing.z_index = 10
 
 
+func _apply_staff_visual() -> void:
+	if _animated == null:
+		return
+	var frames := SlangFrames.load_or_build() if has_staff else SlangFrames.load_bare()
+	if _animated.sprite_frames == frames:
+		return
+	var anim := String(_animated.animation)
+	var frame := _animated.frame
+	var progress := _animated.frame_progress
+	var playing := _animated.is_playing()
+	_animated.sprite_frames = frames
+	if anim.is_empty() or not frames.has_animation(anim):
+		return
+	if playing:
+		_animated.play(anim)
+	else:
+		_animated.animation = anim
+	var count := frames.get_frame_count(anim)
+	if count > 0:
+		_animated.frame = mini(frame, count - 1)
+		_animated.frame_progress = progress
+
+
 func _build_shadow() -> void:
 	if _shadow != null:
 		return
@@ -1199,33 +1239,37 @@ func _build_shadow() -> void:
 	_shadow.centered = true
 	_shadow.z_as_relative = true
 	_shadow.z_index = -1
+	_shadow.texture = _foot_shadow_texture()
 	_shadow.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	# Flattened silhouette on the ground — not a floor diamond.
-	_shadow.modulate = Color(0.04, 0.03, 0.05, 0.40)
-	_shadow.skew = deg_to_rad(22.0)
+	_shadow.position = Vector2(3.0, 1.0)
 	add_child(_shadow)
 	move_child(_shadow, 0)
 	_sync_body_shadow()
 
 
+func _foot_shadow_texture() -> Texture2D:
+	var w := 56
+	var h := 18
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var cx := float(w) * 0.5
+	var cy := float(h) * 0.5
+	for y in h:
+		for x in w:
+			var nx := (float(x) + 0.5 - cx) / (cx - 1.0)
+			var ny := (float(y) + 0.5 - cy) / (cy - 1.0)
+			var d := nx * nx + ny * ny
+			if d >= 1.0:
+				continue
+			img.set_pixel(x, y, Color(0.02, 0.015, 0.02, (1.0 - d) * 0.42))
+	return ImageTexture.create_from_image(img)
+
+
 func _sync_body_shadow() -> void:
-	if _shadow == null or _animated == null:
+	if _shadow == null:
 		return
-	if _dead or _animated.sprite_frames == null:
-		_shadow.visible = false
-		return
-	var anim := _animated.animation
-	if anim.is_empty() or not _animated.sprite_frames.has_animation(anim):
-		_shadow.visible = false
-		return
-	var frame := clampi(_animated.frame, 0, _animated.sprite_frames.get_frame_count(anim) - 1)
-	_shadow.texture = _animated.sprite_frames.get_frame_texture(anim, frame)
-	_shadow.flip_h = _animated.flip_h
-	_shadow.offset = _animated.offset
-	_shadow.scale = Vector2(_animated.scale.x * 1.08, _animated.scale.y * 0.22)
-	# Iso light from the upper-left; the shadow falls down-right of her feet.
-	_shadow.position = Vector2(9.0, 4.0)
-	_shadow.visible = true
+	_shadow.visible = not _dead
+	_shadow.scale = Vector2(_depth_scale, _depth_scale * 0.92)
 
 
 func _build_staff_gem() -> void:

@@ -491,40 +491,90 @@ static func _should_clean_cutout(path: String, label: String) -> bool:
 		or "harvest" in key or "queen" in key or "fun_kdungon" in key
 
 
-## Knock studio plates and the painted foot-oval off character PNGs.
-static func clean_cutout(image: Image) -> void:
+## Knock the backdrop off a portrait. Skips the full-body fringe and foot pass.
+static func key_backdrop(image: Image) -> void:
 	if image == null:
 		return
 	var w := image.get_width()
 	var h := image.get_height()
-	var seed := image.get_pixel(0, 0)
+	if w < 2 or h < 2:
+		return
+	if image.get_format() != Image.FORMAT_RGBA8:
+		image.convert(Image.FORMAT_RGBA8)
+	var data := image.get_data()
+	var sr := float(data[0]) / 255.0
+	var sg := float(data[1]) / 255.0
+	var sb := float(data[2]) / 255.0
 	var seen := PackedByteArray()
 	seen.resize(w * h)
-	var pending: Array[Vector2i] = []
+	var stack := PackedInt32Array()
+	stack.resize(w * h)
+	var top := 0
 	for x in range(w):
-		pending.append(Vector2i(x, 0))
-		pending.append(Vector2i(x, h - 1))
-	for y in range(h):
-		pending.append(Vector2i(0, y))
-		pending.append(Vector2i(w - 1, y))
-	while not pending.is_empty():
-		var point: Vector2i = pending.pop_back()
-		if point.x < 0 or point.y < 0 or point.x >= w or point.y >= h:
-			continue
-		var index: int = point.y * w + point.x
-		if seen[index] == 1:
-			continue
-		seen[index] = 1
-		var color := image.get_pixelv(point)
+		if seen[x] == 0:
+			seen[x] = 1
+			stack[top] = x
+			top += 1
+		var bottom := (h - 1) * w + x
+		if seen[bottom] == 0:
+			seen[bottom] = 1
+			stack[top] = bottom
+			top += 1
+	for y in range(1, h - 1):
+		var left := y * w
+		var right := left + (w - 1)
+		if seen[left] == 0:
+			seen[left] = 1
+			stack[top] = left
+			top += 1
+		if seen[right] == 0:
+			seen[right] = 1
+			stack[top] = right
+			top += 1
+	var seed := Color(sr, sg, sb)
+	while top > 0:
+		top -= 1
+		var index: int = stack[top]
+		var byte_i := index * 4
+		var color := Color(
+			float(data[byte_i]) / 255.0,
+			float(data[byte_i + 1]) / 255.0,
+			float(data[byte_i + 2]) / 255.0,
+			float(data[byte_i + 3]) / 255.0
+		)
 		if not _is_plate_or_seed(color, seed):
 			continue
-		image.set_pixelv(point, Color.TRANSPARENT)
-		pending.append(point + Vector2i.RIGHT)
-		pending.append(point + Vector2i.LEFT)
-		pending.append(point + Vector2i.DOWN)
-		pending.append(point + Vector2i.UP)
+		data[byte_i + 3] = 0
+		var px := index % w
+		var py := int(index / float(w))
+		if px > 0 and seen[index - 1] == 0:
+			seen[index - 1] = 1
+			stack[top] = index - 1
+			top += 1
+		if px + 1 < w and seen[index + 1] == 0:
+			seen[index + 1] = 1
+			stack[top] = index + 1
+			top += 1
+		if py > 0 and seen[index - w] == 0:
+			seen[index - w] = 1
+			stack[top] = index - w
+			top += 1
+		if py + 1 < h and seen[index + w] == 0:
+			seen[index + w] = 1
+			stack[top] = index + w
+			top += 1
+	image.set_data(w, h, false, Image.FORMAT_RGBA8, data)
+
+
+## Knock studio plates and the painted foot-oval off character PNGs.
+static func clean_cutout(image: Image) -> void:
+	if image == null:
+		return
+	key_backdrop(image)
 	_peel_plate_fringe(image)
 	_despill_green_edge(image)
+	var w := image.get_width()
+	var h := image.get_height()
 	var y_cut := int(float(h) * 0.58)
 	for x in range(w):
 		var last_body := -1

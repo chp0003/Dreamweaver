@@ -27,8 +27,178 @@ const ATTACK_FPS := 13.0
 
 const UNIQUE_DIRS := ["down", "down_right", "right", "up_right", "up"]
 
+static var _armed: SpriteFrames
+static var _bare: SpriteFrames
+
 
 static func load_or_build() -> SpriteFrames:
+	if _armed != null:
+		return _armed
+	_armed = _build_armed()
+	return _armed
+
+
+static func load_bare() -> SpriteFrames:
+	if _bare != null:
+		return _bare
+	var armed := load_or_build()
+	var frames := SpriteFrames.new()
+	for anim in armed.get_animation_names():
+		var drop_staff := str(anim).ends_with("_down_right")
+		var texs: Array = []
+		for i in armed.get_frame_count(anim):
+			var tex := armed.get_frame_texture(anim, i)
+			texs.append(_cut_staff(tex) if drop_staff else tex)
+		_add_anim(
+			frames,
+			anim,
+			texs,
+			armed.get_animation_loop(anim),
+			armed.get_animation_speed(anim)
+		)
+	_bare = frames
+	return frames
+
+
+## The staff is painted into the down-right sheets. A straight cut at the staff
+## column also deletes the fist, which overlaps that x range. Follow the staff
+## as its own thin run and leave the hand on the arm.
+static func _cut_staff(tex: Texture2D) -> Texture2D:
+	var img := _texture_to_image(tex)
+	if img == null:
+		return tex
+	var copy := Image.new()
+	copy.copy_from(img)
+	_erase_staff(copy)
+	return ImageTexture.create_from_image(copy)
+
+
+static func _erase_staff(img: Image) -> void:
+	var h := img.get_height()
+	var staff := Vector2i(-1, -1)
+	var started := false
+	for y in h:
+		var runs := _row_runs(img, y)
+		if runs.is_empty():
+			continue
+		if staff.x < 0 and not started:
+			var tip: Vector2i = runs[runs.size() - 1]
+			var gap := 99
+			if runs.size() > 1:
+				var prev: Vector2i = runs[runs.size() - 2]
+				gap = tip.x - prev.y - 1
+			if tip.y >= 150 and (tip.y - tip.x) <= 24 and gap >= 4:
+				_clear_span(img, y, tip.x, tip.y)
+				staff = tip
+				started = true
+			continue
+		if staff.x < 0:
+			break
+		var best := Vector2i(-1, -1)
+		var best_d := 999.0
+		var mid := (float(staff.x) + float(staff.y)) * 0.5
+		for run_v in runs:
+			var run: Vector2i = run_v
+			if (run.y - run.x) > 24:
+				continue
+			if run.y < staff.x - 5 or run.x > staff.y + 8:
+				continue
+			var d := absf((float(run.x) + float(run.y)) * 0.5 - mid)
+			if d < best_d:
+				best_d = d
+				best = run
+		if best.x < 0 or best.x < staff.x - 10:
+			break
+		_clear_span(img, y, best.x, best.y)
+		staff = best
+	for y in h:
+		for run_v in _row_runs(img, y):
+			var run: Vector2i = run_v
+			if run.x >= 148 and (run.y - run.x) <= 26:
+				_clear_span(img, y, run.x, run.y)
+	for y in h:
+		var runs := _row_runs(img, y)
+		if runs.size() < 2:
+			continue
+		var tip: Vector2i = runs[runs.size() - 1]
+		var prev: Vector2i = runs[runs.size() - 2]
+		var width := tip.y - tip.x + 1
+		var gap := tip.x - prev.y - 1
+		if width <= 8 and gap >= 2 and tip.x >= 128:
+			_clear_span(img, y, tip.x, tip.y)
+	_drop_detached_specks(img)
+
+
+static func _row_runs(img: Image, y: int) -> Array[Vector2i]:
+	var runs: Array[Vector2i] = []
+	var w := img.get_width()
+	var start := -1
+	for x in w:
+		var on := img.get_pixel(x, y).a > 0.12
+		if on and start < 0:
+			start = x
+		elif not on and start >= 0:
+			runs.append(Vector2i(start, x - 1))
+			start = -1
+	if start >= 0:
+		runs.append(Vector2i(start, w - 1))
+	return runs
+
+
+static func _clear_span(img: Image, y: int, x0: int, x1: int) -> void:
+	for x in range(x0, x1 + 1):
+		var c := img.get_pixel(x, y)
+		if c.a <= 0.0:
+			continue
+		c.a = 0.0
+		img.set_pixel(x, y, c)
+
+
+static func _drop_detached_specks(img: Image) -> void:
+	var w := img.get_width()
+	var h := img.get_height()
+	var seen := PackedByteArray()
+	seen.resize(w * h)
+	var stack: Array[Vector2i] = []
+	var steps: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	for y in h:
+		for x in w:
+			var i := y * w + x
+			if seen[i] != 0:
+				continue
+			if img.get_pixel(x, y).a <= 0.12:
+				seen[i] = 1
+				continue
+			stack.clear()
+			stack.append(Vector2i(x, y))
+			seen[i] = 1
+			var pts: Array[Vector2i] = []
+			var min_x := x
+			while not stack.is_empty():
+				var p: Vector2i = stack.pop_back()
+				pts.append(p)
+				min_x = mini(min_x, p.x)
+				for step in steps:
+					var nx: int = p.x + step.x
+					var ny: int = p.y + step.y
+					if nx < 0 or ny < 0 or nx >= w or ny >= h:
+						continue
+					var ni: int = ny * w + nx
+					if seen[ni] != 0:
+						continue
+					if img.get_pixel(nx, ny).a <= 0.12:
+						seen[ni] = 1
+						continue
+					seen[ni] = 1
+					stack.append(Vector2i(nx, ny))
+			if min_x >= 128 and pts.size() < 40:
+				for p in pts:
+					var c := img.get_pixel(p.x, p.y)
+					c.a = 0.0
+					img.set_pixel(p.x, p.y, c)
+
+
+static func _build_armed() -> SpriteFrames:
 	var frames := SpriteFrames.new()
 	var base := _load_texture(BASE_PATH)
 	if base == null:

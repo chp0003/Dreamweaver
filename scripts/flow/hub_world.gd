@@ -3,6 +3,9 @@ extends ChapterBase
 ## Invisible blockers + nameplates sit on the painted houses. Entering a House
 ## hides the plate and frames that interior.
 
+## Extra zoom on the painted ridge. House interiors keep their own framing.
+const HUB_ZOOM_IN := 1.15
+
 const DOOR_LABELS := {
 	1: "GUNO BONG I",
 	2: "GUNO BONG II",
@@ -51,9 +54,8 @@ const FLOOR_ROWS := 32
 ## Stand on the painted porch in front of the door. World pixels on the 1536 plate.
 const HOUSE_DOOR_RADIUS := 108.0
 
-## Residents stroll their porch, then the hall, once that house is open.
-## Scripted reveals (the Master Weaver, Fun Kdungon at the loom) wait until
-## the house is restored, and step aside if that chapter is replayed.
+## Residents stroll their porch, then the hall, only after that house is restored.
+## They step aside if the chapter is replayed.
 const VILLAGERS: Array[Dictionary] = [
 	{
 		"house": 1,
@@ -61,6 +63,7 @@ const VILLAGERS: Array[Dictionary] = [
 		"sheet": "chief",
 		"talk": "Chief",
 		"speak": "Speak with the Chief",
+		"needs_complete": true,
 		"lines": [
 			{"speaker": "The Chief", "text": "I walk this green so the path does not forget us."},
 			{"speaker": "The Chief", "text": "Come closer. The houses can wait a moment."},
@@ -71,26 +74,12 @@ const VILLAGERS: Array[Dictionary] = [
 		"inside": [Vector2(0.30, 0.62), Vector2(0.48, 0.70), Vector2(0.58, 0.76), Vector2(0.40, 0.52)],
 	},
 	{
-		"house": 1,
-		"label": "FUN KDUNGON",
-		"sheet": "fun",
-		"talk": "Fun Kdungon",
-		"speak": "Speak with Fun Kdungon",
-		"lines": [
-			{"speaker": "Fun Kdungon", "text": "The fibre likes this sun. My feet like it too."},
-			{"speaker": "Fun Kdungon", "text": "The loom is inside, when you are ready for it."},
-		],
-		"door": Vector2(0.36, 0.66),
-		"exit": Vector2(0.50, 0.84),
-		"outside": [Vector2(0.42, 0.74), Vector2(0.34, 0.80), Vector2(0.48, 0.68)],
-		"inside": [Vector2(0.42, 0.56), Vector2(0.62, 0.48), Vector2(0.50, 0.66), Vector2(0.34, 0.74)],
-	},
-	{
 		"house": 2,
 		"label": "HARVEST QUEEN",
 		"sheet": "queen",
 		"talk": "Harvest Queen",
 		"speak": "Speak with the Harvest Queen",
+		"needs_complete": true,
 		"lines": [
 			{"speaker": "The Harvest Queen", "text": "The hill and the cloth want the same thing. Someone tending them."},
 			{"speaker": "The Harvest Queen", "text": "Speak. The harvest does not run off."},
@@ -99,22 +88,6 @@ const VILLAGERS: Array[Dictionary] = [
 		"exit": Vector2(0.50, 0.86),
 		"outside": [Vector2(0.62, 0.72), Vector2(0.74, 0.76), Vector2(0.56, 0.68)],
 		"inside": [Vector2(0.34, 0.70), Vector2(0.50, 0.62), Vector2(0.64, 0.55), Vector2(0.42, 0.48)],
-	},
-	{
-		"house": 4,
-		"label": "MASTER WEAVER",
-		"sheet": "fun",
-		"talk": "Master Weaver",
-		"speak": "Speak with the Master Weaver",
-		"needs_complete": true,
-		"lines": [
-			{"speaker": "Master Weaver", "text": "The pattern holds. I am only walking the length of it."},
-			{"speaker": "Master Weaver", "text": "The loom remembers. I am making sure the path does too."},
-		],
-		"door": Vector2(0.34, 0.46),
-		"exit": Vector2(0.50, 0.82),
-		"outside": [Vector2(0.40, 0.50), Vector2(0.30, 0.52), Vector2(0.48, 0.48)],
-		"inside": [Vector2(0.42, 0.58), Vector2(0.58, 0.52), Vector2(0.50, 0.68)],
 	},
 	{
 		"house": 5,
@@ -150,6 +123,8 @@ var _leaving_house := false
 var _trail: BreadcrumbTrail
 var _villagers: Dictionary = {}
 var _villager_chat := false
+## She stays for the chapter 1 farewell, then leaves for chapter 4 on the way out.
+var _fun_holding_farewell := false
 
 
 func _build_world() -> void:
@@ -186,6 +161,7 @@ func _build_world() -> void:
 		get_viewport().size_changed.connect(_on_view_resized)
 	ColorRestoration.remove_zone("lewet_staff")
 	_refresh_villagers()
+	_sync_fun_guide()
 
 
 func _mount_plate() -> void:
@@ -806,6 +782,7 @@ func _enter_house(house_id: int, _from_retry: bool) -> void:
 	player.velocity = Vector2.ZERO
 	_show_house(house_id)
 	_refresh_villagers()
+	_sync_fun_guide()
 	_set_house_darkness(quest, true)
 	var gate: HouseExit = _house_exits.get(house_id) as HouseExit
 	if gate != null:
@@ -839,6 +816,8 @@ func _leave_house(house_id: int) -> void:
 	set_player_input(false)
 	await SceneFader.cover(0.28)
 	_active_house_id = 0
+	if house_id == 1:
+		_fun_holding_farewell = false
 	GameState.set_current_chapter(0)
 	Audio.clear_house()
 	_set_house_darkness(quest, false)
@@ -846,14 +825,16 @@ func _leave_house(house_id: int) -> void:
 	if gate != null:
 		gate.set_plate_visible(false)
 	var door: Dictionary = _doors.get(house_id, {}) as Dictionary
-	if door.has("trigger") and door["trigger"] is Node2D:
-		player.global_position = (door["trigger"] as Node2D).global_position + Vector2(18.0, 28.0)
+	var trigger: Variant = door.get("trigger")
+	if is_instance_valid(trigger) and trigger is Node2D:
+		player.global_position = (trigger as Node2D).global_position + Vector2(18.0, 28.0)
 	else:
 		player.global_position = _hub_world_pos(Houses.get_house(house_id)) + Vector2(18.0, 28.0)
 	player.velocity = Vector2.ZERO
 	_spawn_position = _plaza_world()
 	_show_ridge()
 	_refresh_villagers()
+	_sync_fun_guide()
 	_restore_completed_colors()
 	if hud != null and hud.has_method("set_chapter"):
 		hud.call("set_chapter", chapter_title)
@@ -869,9 +850,12 @@ func _leave_house(house_id: int) -> void:
 
 
 func on_house_completed(house_id: int, _next_scene := "") -> void:
+	if house_id == 1:
+		_fun_holding_farewell = true
 	_restore_completed_colors()
 	_refresh_door_locks()
 	_refresh_villagers()
+	_sync_fun_guide()
 	var gate: HouseExit = _house_exits.get(house_id) as HouseExit
 	if gate != null:
 		gate.set_open(true)
@@ -900,12 +884,28 @@ func _refresh_villagers() -> void:
 	for key in _villagers.keys():
 		if wanted.has(str(key)):
 			continue
-		var walker: VillageWalker = _villagers[key] as VillageWalker
-		if walker != null and is_instance_valid(walker):
-			walker.release()
+		var stored: Variant = _villagers[key]
+		if is_instance_valid(stored):
+			var walker := stored as VillageWalker
+			if walker != null:
+				walker.release()
 		gone.append(str(key))
 	for key in gone:
 		_villagers.erase(key)
+
+
+## One Fun Kdungon. She guides chapter 1, then on the way out she is already
+## waiting in chapter 4. A replay of chapter 1 brings her back for that visit.
+func _sync_fun_guide() -> void:
+	var done := GameState.is_house_completed(1)
+	var staying := _active_house_id == 1 and (not done or _fun_holding_farewell or GameState.wants_replay(1))
+	var sent := done and not staying
+	var first: Node = _quests.get(1) as Node
+	var fourth: Node = _quests.get(4) as Node
+	if first != null and first.has_method("set_guide_here"):
+		first.call("set_guide_here", not sent)
+	if fourth != null and fourth.has_method("set_guide_here"):
+		fourth.call("set_guide_here", sent)
 
 
 func _villager_should_walk(spec: Dictionary) -> bool:
@@ -992,6 +992,8 @@ func _interior_plate(house_id: int) -> Node:
 
 func _find_resident(house_id: int, label: String) -> PlaceholderProp:
 	for node in _house_nodes.get(house_id, []):
+		if not is_instance_valid(node):
+			continue
 		if node is PlaceholderProp and (node as PlaceholderProp).prop_label == label:
 			return node as PlaceholderProp
 	return null
@@ -1002,6 +1004,8 @@ func _find_talk_trigger(house_id: int, needle: String) -> Interactable:
 		return null
 	var want := needle.to_lower()
 	for node in _house_nodes.get(house_id, []):
+		if not is_instance_valid(node):
+			continue
 		if node is Interactable and want in (node as Interactable).prompt.to_lower():
 			return node as Interactable
 	return null
@@ -1089,6 +1093,8 @@ func _set_house_nodes_visible(house_id: int, on: bool) -> void:
 
 
 func _set_area_monitoring(node: Node, on: bool) -> void:
+	if not is_instance_valid(node):
+		return
 	if node is Area2D:
 		var area := node as Area2D
 		area.monitoring = on
@@ -1096,10 +1102,13 @@ func _set_area_monitoring(node: Node, on: bool) -> void:
 		if area is Interactable and not on:
 			(area as Interactable).set_prompt_visible(false)
 	for child in node.get_children():
-		_set_area_monitoring(child, on)
+		if is_instance_valid(child):
+			_set_area_monitoring(child, on)
 
 
 func _set_static_collision(node: Node, on: bool) -> void:
+	if not is_instance_valid(node):
+		return
 	if node is CharacterBody2D or node is Area2D:
 		return
 	if node is StaticBody2D:
@@ -1109,7 +1118,8 @@ func _set_static_collision(node: Node, on: bool) -> void:
 	elif node is CollisionShape2D:
 		(node as CollisionShape2D).disabled = not on
 	for child in node.get_children():
-		_set_static_collision(child, on)
+		if is_instance_valid(child):
+			_set_static_collision(child, on)
 
 
 func _disable_non_hub_world_solids() -> void:
@@ -1188,7 +1198,7 @@ func _show_ridge() -> void:
 	camera_follows_player = true
 	var ridge := _ridge_frame_rect()
 	if camera != null and ridge.size.x >= 8.0:
-		var z := cover_zoom_for(ridge)
+		var z := cover_zoom_for(ridge) * HUB_ZOOM_IN
 		camera_zoom = Vector2(z, z)
 		camera.zoom = camera_zoom
 		camera_limit_rect = ridge
@@ -1221,18 +1231,20 @@ func _set_ridge_art_visible(on: bool) -> void:
 		_scenery_house.visible = on
 	for data in _doors.values():
 		if data is Dictionary:
-			var prop := (data as Dictionary).get("prop") as CanvasItem
-			if prop != null:
-				prop.visible = on
-			var trigger := (data as Dictionary).get("trigger") as Interactable
-			if trigger != null:
-				trigger.visible = on
-				trigger.monitoring = on
-				trigger.monitorable = on
-				trigger.set_process(on)
+			var door_data := data as Dictionary
+			var prop: Variant = door_data.get("prop")
+			if is_instance_valid(prop) and prop is CanvasItem:
+				(prop as CanvasItem).visible = on
+			var trigger: Variant = door_data.get("trigger")
+			if is_instance_valid(trigger) and trigger is Interactable:
+				var door_trigger := trigger as Interactable
+				door_trigger.visible = on
+				door_trigger.monitoring = on
+				door_trigger.monitorable = on
+				door_trigger.set_process(on)
 				if not on:
-					trigger.set_prompt_visible(false)
-				trigger.set_enabled(on)
+					door_trigger.set_prompt_visible(false)
+				door_trigger.set_enabled(on)
 	_refresh_house_guides()
 
 
@@ -1309,7 +1321,7 @@ func _on_view_resized() -> void:
 	else:
 		var ridge := _ridge_frame_rect()
 		if ridge.size.x >= 8.0:
-			var z := cover_zoom_for(ridge)
+			var z := cover_zoom_for(ridge) * HUB_ZOOM_IN
 			camera_zoom = Vector2(z, z)
 			if camera != null:
 				camera.zoom = camera_zoom

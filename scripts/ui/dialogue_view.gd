@@ -34,7 +34,7 @@ var _choosing := false
 var _line_length := 0
 var _presented := false
 var _hint_tween: Tween
-var _bust_cache: Dictionary = {}
+static var _bust_cache: Dictionary = {}
 
 
 func _ready() -> void:
@@ -296,7 +296,7 @@ func _portrait_path(speaker: String) -> String:
 	if "spirit" in key:
 		return "res://assets/images/characters/spirit_of_the_fiber.png"
 	if "master" in key:
-		return "res://assets/images/characters/fun_kdungon.png"
+		return "res://assets/images/characters/master_weaver_ghost_portrait.png"
 	if "shadow" in key or "weaver" in key:
 		return "res://assets/images/enemies/shadow_weaver_idle.png"
 	return "res://assets/images/characters/slang.png"
@@ -314,8 +314,15 @@ func _bust_texture(path: String, speaker: String) -> Texture2D:
 	var image := Palette.read_image(path)
 	if image == null:
 		return null
+	# The portrait well is tiny. Keying a full 864×1152 plate on the speak
+	# frame freezes the game, so shrink before any per-pixel pass.
+	const MAX_H := 220
+	if image.get_height() > MAX_H:
+		var scale := float(MAX_H) / float(image.get_height())
+		var next_w := maxi(8, int(round(float(image.get_width()) * scale)))
+		image.resize(next_w, MAX_H, Image.INTERPOLATE_BILINEAR)
 	if _uses_studio_plate(path, speaker):
-		PlaceholderProp.clean_cutout(image)
+		PlaceholderProp.key_backdrop(image)
 	if "shadow_weaver" in path:
 		image = _first_strip_frame(image, 8)
 		_key_edge_plate(image)

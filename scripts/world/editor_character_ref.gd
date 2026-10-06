@@ -46,7 +46,7 @@ func _rebuild() -> void:
 		3:
 			_slang(Vector2(0.50, 0.72), size)
 		4:
-			_npc("MasterWeaver", "MASTER WEAVER", FUN, Vector2(0.36, 0.58), Vector2(110, 188), size)
+			_npc("FunKdungon", "FUN KDUNGON", FUN, Vector2(0.36, 0.58), Vector2(110, 188), size)
 			_slang(Vector2(0.50, 0.78), size)
 		5:
 			_npc("FunKdungon", "FUN KDUNGON", FUN, Vector2(0.70, 0.48), Vector2(110, 188), size)

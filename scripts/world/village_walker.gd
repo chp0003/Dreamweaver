@@ -280,6 +280,8 @@ func _is_nearest_chat() -> bool:
 		return true
 	var mine := global_position.distance_squared_to(who.global_position)
 	for node in get_tree().get_nodes_in_group("village_walker"):
+		if not is_instance_valid(node):
+			continue
 		var other := node as VillageWalker
 		if other == null or other == self or other.interact == null:
 			continue

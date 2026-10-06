@@ -63,6 +63,7 @@ var _hovered := false
 var _selected := false
 var _resume_after_talk: State = State.IDLE
 var _repath_tries := 0
+var _talk_pulse := 0.0
 
 
 func _ready() -> void:
@@ -80,6 +81,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_talk_pulse += delta * 3.1
 	_sync_collision()
 	if _wants_talk_pose():
 		if state != State.TALKING:
@@ -240,7 +242,7 @@ func _build_visuals() -> void:
 		_animated.sprite_frames = frames
 		_animated.centered = true
 		_animated.offset = _base_offset
-		_animated.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		_animated.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		_animated.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
 		_sprite = _animated
 		set_art_scale_factor(_space_scale)
@@ -619,6 +621,12 @@ func _player_delta() -> Vector2:
 	return delta
 
 
+func _can_show_talk_mark() -> bool:
+	if not visible or _talk_hold or state == State.TALKING:
+		return false
+	return interact != null and interact.enabled
+
+
 func _draw() -> void:
 	if not visible:
 		return
@@ -628,3 +636,20 @@ func _draw() -> void:
 		Vector2(16.0, -3.0) * s, Vector2(8.0, -7.0) * s, Vector2(-8.0, -7.0) * s,
 	])
 	draw_colored_polygon(oval, Color(0.02, 0.02, 0.03, 0.32))
+	if not _can_show_talk_mark():
+		return
+	var vis := art_scale * s
+	var bob := sin(_talk_pulse)
+	var head := Vector2(0.0, (_base_offset.y - 102.0) * vis + bob * 2.4 * vis)
+	var tip := head + Vector2(0.0, 8.0 * vis)
+	var left := head + Vector2(-7.5 * vis, -5.5 * vis)
+	var right := head + Vector2(7.5 * vis, -5.5 * vis)
+	draw_colored_polygon(PackedVector2Array([
+		tip + Vector2(0.0, 1.8 * vis),
+		left + Vector2(-1.4 * vis, -1.1 * vis),
+		right + Vector2(1.4 * vis, -1.1 * vis),
+	]), Palette.alpha(Palette.DREAM_ABYSS, 0.78))
+	var gold: Color = Palette.GOLD_SUN
+	gold.a = 0.82 + 0.16 * bob
+	draw_colored_polygon(PackedVector2Array([tip, left, right]), gold)
+	draw_polyline(PackedVector2Array([left, tip, right]), Palette.GOLD_SACRED, 1.5, true)

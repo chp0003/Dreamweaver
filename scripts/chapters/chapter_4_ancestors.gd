@@ -119,7 +119,7 @@ func _mount_collision() -> void:
 
 
 func _build_hall() -> void:
-	_ghost = place_prop("MASTER WEAVER", _plate.ghost_world(), {
+	_ghost = place_prop("FUN KDUNGON", _plate.ghost_world(), {
 		"texture_path": "res://assets/images/characters/fun_kdungon.png",
 		"prop_size": Vector2(110.0, 188.0),
 		"body_color": Palette.BLACK_CHARCOAL,
@@ -131,6 +131,7 @@ func _build_hall() -> void:
 		"cast_shadow": true,
 	})
 	_ghost.modulate = Color(1.0, 0.96, 0.9, 0.0)
+	_ghost.visible = false
 	# The hall plate is unshaded, so this lamp was only hitting her sprite
 	# and bleaching the black dress white.
 	var sprite := _ghost.get_sprite()
@@ -142,7 +143,7 @@ func _build_hall() -> void:
 	_ghost_aura.aura_color = Color(0.72, 0.58, 0.34, 0.55)
 	_ghost_aura.mote_count = 14
 	_ghost.add_child(_ghost_aura)
-	_ghost_trigger = place_interactable("Listen to the Master Weaver", _plate.ghost_reach_world(), {
+	_ghost_trigger = place_interactable("Speak with Fun Kdungon", _plate.ghost_reach_world(), {
 		"enabled": false,
 		"radius": 120.0,
 	})
@@ -192,26 +193,26 @@ func _run_chapter() -> void:
 	objective("Talk to the woman by the loom. Press [E].")
 
 	await say([
-		"Four stone ancestors stand around a loom. Talk to the Master Weaver first. Then question each statue.",
+		"Four stone ancestors stand around a loom. Talk to Fun Kdungon first. Then question each statue.",
 	])
 
 	await _appear_ghost()
 
 	await say([
-		{"speaker": "Master Weaver", "text": "You carry three colours and no pattern. That is a bag of dye and a bare loom, child, and a bare loom weaves nothing."},
+		{"speaker": "Fun Kdungon", "text": "You carry three colours and no pattern. That is a bag of dye and a bare loom, child, and a bare loom weaves nothing."},
 		{"speaker": "S'lang", "text": "Then teach me the pattern."},
-		{"speaker": "Master Weaver", "text": "It is not mine to hand you. It is held in four stones, and the stones do not answer strangers. They answer those who know what they are looking at."},
+		{"speaker": "Fun Kdungon", "text": "It is not mine to hand you. It is held in four stones, and the stones do not answer strangers. They answer those who know what they are looking at."},
 	])
 
 	_ghost_trigger.set_enabled(true)
-	objective("Hear the Master Weaver's riddle. [E]")
+	objective("Hear Fun Kdungon's riddle. [E]")
 	_point_beacon(_ghost_trigger)
 	await _ghost_trigger.interacted
 	_ghost_trigger.set_enabled(false)
 
 	await say([
-		{"speaker": "Master Weaver", "text": "Hear them, then. One dreams and does not invent. One is torn from a trunk and made worthy. One is beaten so it may give its colour away. One wove until her hands were maps."},
-		{"speaker": "Master Weaver", "text": "Four stones. Four questionings. Answer wrongly three times in this House and you will begin it again — the ancestors do not repeat themselves kindly."},
+		{"speaker": "Fun Kdungon", "text": "Hear them, then. One dreams and does not invent. One is torn from a trunk and made worthy. One is beaten so it may give its colour away. One wove until her hands were maps."},
+		{"speaker": "Fun Kdungon", "text": "Four stones. Four questionings. Answer wrongly three times in this House and you will begin it again — the ancestors do not repeat themselves kindly."},
 	])
 	var known_opening: Array = GameState.lore.duplicate()
 	GameState.unlock_lore("fun_kdungon")
@@ -230,7 +231,7 @@ func _run_chapter() -> void:
 
 	counter("")
 	await say([
-		{"speaker": "Master Weaver", "text": "Four stones, four true answers. Now the loom. The dream is already on it — you only have to stop arguing with it."},
+		{"speaker": "Fun Kdungon", "text": "Four stones, four true answers. Now the loom. The dream is already on it — you only have to stop arguing with it."},
 	])
 
 	await _awaken_loom()
@@ -254,15 +255,29 @@ func _run_chapter() -> void:
 	restore_local_color(_loom_anchor)
 
 	await complete_chapter([
-		{"speaker": "Master Weaver", "text": "Lang Dulay held a hundred of these in her head and gave them away to anyone who would sit still and learn. That is the whole of it. Memory is a craft."},
-		{"speaker": "Master Weaver", "text": "Black, red, gold, and a pattern to put them in. The great house at the centre is open to you now."},
-		{"speaker": "Master Weaver", "text": "The Sacred Loom is already being unwoven."},
+		{"speaker": "Fun Kdungon", "text": "Lang Dulay held a hundred of these in her head and gave them away to anyone who would sit still and learn. That is the whole of it. Memory is a craft."},
+		{"speaker": "Fun Kdungon", "text": "Black, red, gold, and a pattern to put them in. The great house at the centre is open to you now."},
+		{"speaker": "Fun Kdungon", "text": "The Sacred Loom is already being unwoven."},
 	])
+
+
+func set_guide_here(here: bool) -> void:
+	if _ghost == null or not is_instance_valid(_ghost):
+		return
+	_ghost.visible = here
+	if not here:
+		if _ghost_trigger != null and is_instance_valid(_ghost_trigger):
+			_ghost_trigger.set_enabled(false)
+		return
+	var settled := GameState.is_house_completed(house_id) and not GameState.wants_replay(house_id)
+	if settled:
+		_ghost.modulate.a = 1.0
 
 
 func _appear_ghost() -> void:
 	if _ghost == null:
 		return
+	_ghost.visible = true
 	var appear := create_tween()
 	appear.tween_property(_ghost, "modulate:a", 1.0, 1.9).set_ease(Tween.EASE_OUT)
 	if _ghost_aura != null:
@@ -309,7 +324,7 @@ func _align_warps() -> bool:
 			return false
 		banner(str(dream["banner"]), 1.6)
 		await say([
-			{"speaker": "Master Weaver", "text": str(dream["intro"])},
+			{"speaker": "Fun Kdungon", "text": str(dream["intro"])},
 		])
 		var setup := {
 			"difficulty": int(dream["difficulty"]),
@@ -319,7 +334,7 @@ func _align_warps() -> bool:
 		var aligned: bool = await run_mini_game(WARP_ALIGNMENT, setup)
 		if not aligned:
 			await say([
-				{"speaker": "Master Weaver", "text": "You forced it. A warp forced is a warp broken. Rest, and come back to it."},
+				{"speaker": "Fun Kdungon", "text": "You forced it. A warp forced is a warp broken. Rest, and come back to it."},
 			])
 			await fail_chapter()
 			return false
@@ -355,7 +370,7 @@ func _on_statue_interacted(index: int) -> void:
 
 	if not passed:
 		await say([
-			{"speaker": "Master Weaver", "text": "Enough. You are guessing, and the stones will not be guessed at. Begin this House again."},
+			{"speaker": "Fun Kdungon", "text": "Enough. You are guessing, and the stones will not be guessed at. Begin this House again."},
 		])
 		await fail_chapter()
 		return

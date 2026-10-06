@@ -303,6 +303,14 @@ func _on_strand_collected(pickup: Collectible) -> void:
 	_set_steps(2, _collected)
 
 
+func set_guide_here(here: bool) -> void:
+	if _spirit == null or not is_instance_valid(_spirit):
+		return
+	_spirit.visible = here
+	if not here and _spirit_trigger != null and is_instance_valid(_spirit_trigger):
+		_spirit_trigger.set_enabled(false)
+
+
 func apply_restored_color() -> void:
 	super.apply_restored_color()
 	if _plate != null:

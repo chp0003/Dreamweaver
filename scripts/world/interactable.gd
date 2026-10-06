@@ -101,6 +101,8 @@ func _refresh_overlap() -> void:
 	if not monitoring:
 		return
 	for body in get_overlapping_bodies():
+		if not is_instance_valid(body):
+			continue
 		if body is Node2D and (body as Node2D).is_in_group("player"):
 			_player_inside = true
 			if auto_use and _can_interact():
