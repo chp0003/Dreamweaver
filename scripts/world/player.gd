@@ -1077,12 +1077,23 @@ func heal(amount: float) -> float:
 
 
 func heal_full() -> void:
+	if _dead and _chapter_holding_death():
+		return
 	_dead = false
 	health = max_health
 	_invulnerable = INVULNERABLE_TIME
 	if _animated != null:
 		_animated.modulate = Color.WHITE
 	health_changed.emit(health, max_health)
+
+
+func _chapter_holding_death() -> bool:
+	var node: Node = get_parent()
+	while node != null:
+		if node is ChapterBase and (node as ChapterBase)._handling_death:
+			return true
+		node = node.get_parent()
+	return false
 
 
 func is_dead() -> bool:
@@ -1320,8 +1331,7 @@ func _play_shockwave() -> void:
 	if sheet == null:
 		_play_shockwave_fallback()
 		return
-	# Rebuild each cast so a replaced PNG is picked up without a restart.
-	_shockwave_frames = null
+	# Built once per session. A replaced PNG is picked up on the next launch.
 	var sprite := AnimatedSprite2D.new()
 	sprite.name = "Shockwave"
 	sprite.sprite_frames = _get_shockwave_frames(sheet)

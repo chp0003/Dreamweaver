@@ -28,6 +28,15 @@ const RECOVER_POISE_BONUS := 1.6
 const PERFECT_DODGE_POISE := 110.0
 const PERFECT_DODGE_EXPOSE := 1.4
 const PERFECT_DODGE_GAP := 0.7
+## Bolts steer only this long after launch, then fly straight.
+const BOLT_HOMING_TIME := 0.18
+## Landing mark for a dash. Kept unscaled so the tell pulse cannot slide it.
+const DASH_TELL_POINTS := 16
+const DASH_TELL_RADIUS_X := 42.0
+const DASH_TELL_RADIUS_Y := 24.0
+## Real-time freeze when a punish staggers him, or a punish lands in Recover.
+const HITSTOP_STAGGER := 0.07
+const HITSTOP_SCALE := 0.05
 const STAGE_THRESHOLDS: Array[float] = [0.66, 0.33]
 const SHIFT_DURATION := 2.6
 const TAUNT_GAP := 9.0
@@ -135,6 +144,7 @@ var _stage := 1
 var _shift_left := 0.0
 var _combo: Array[Skill] = []
 var _dash_retreat := false
+var _dash_aimed := false
 var _last_skill := Skill.None
 var _since_used := {}
 var _exposed_left := 0.0
@@ -243,15 +253,18 @@ func begin_duel() -> void:
 
 func end_duel() -> void:
 	_active = false
+	_lunge_vel = Vector2.ZERO
+	if _smoke != null:
+		_smoke.emitting = false
+	# _die() already cleared combat state and is holding the death clip.
+	if _dead:
+		return
 	_combo.clear()
 	_restore_time_scale()
-	_lunge_vel = Vector2.ZERO
 	_hide_tell()
 	_clear_adds()
 	if is_in_group("hittable"):
 		remove_from_group("hittable")
-	if _smoke != null:
-		_smoke.emitting = false
 	_clear_blind()
 	_clear_stun_fx()
 	_sync_hp_bar()
@@ -351,6 +364,7 @@ func take_damage(amount: float, _source: Node = null) -> bool:
 		return false
 	var factor := _damage_factor()
 	var punished := factor > 1.0
+	var punish_recover := punished and _phase == Phase.Recover
 	health = maxf(0.0, health - amount * factor)
 	health_changed.emit(health, max_health)
 	_sync_hp_bar()
@@ -361,8 +375,12 @@ func take_damage(amount: float, _source: Node = null) -> bool:
 		return true
 	if _check_stage_shift():
 		return true
+	var staggered_now := false
 	if _phase != Phase.Stagger and _poise >= poise_to_stagger:
 		stagger()
+		staggered_now = _phase == Phase.Stagger
+	if punished and (staggered_now or punish_recover):
+		_hitstop()
 	return true
 
 
@@ -494,15 +512,6 @@ func kneel() -> void:
 
 
 func dissolve_into_light() -> void:
-	_active = false
-	_dead = true
-	_hide_tell()
-	_clear_adds()
-	_clear_stun_fx()
-	if _smoke != null:
-		_smoke.emitting = false
-	_play_visual("death", true)
-	Fx.fiber_burst(self, Palette.GOLD_SUN)
 	var home := scale
 	var tween := create_tween()
 	tween.set_parallel(true)
@@ -666,6 +675,8 @@ func _start_skill(skill: Skill) -> void:
 	_lunge_vel = Vector2.ZERO
 	_face_player()
 	_strike_at = player.global_position if player != null else global_position + _aim * 90.0
+	if skill == Skill.Dash:
+		_prepare_dash_dest()
 	_show_tell()
 	_nova_flashed = false
 	_ghost_cd = 0.0
@@ -977,6 +988,19 @@ func _on_perfect_dodge(victim: Node2D) -> void:
 		stagger()
 
 
+func _hitstop() -> void:
+	if Engine.time_scale < 0.999:
+		return
+	Engine.time_scale = HITSTOP_SCALE
+	var tree := get_tree()
+	if tree == null:
+		_restore_time_scale()
+		return
+	# Real seconds, and it still runs while the tree is paused.
+	# Only lift our own scale, so a perfect-dodge slow-mo that started later is left alone.
+	tree.create_timer(HITSTOP_STAGGER, true, true, true).timeout.connect(_end_hitstop)
+
+
 func _slow_motion(time_scale: float, real_seconds: float) -> void:
 	Engine.time_scale = time_scale
 	var tree := get_tree()
@@ -985,15 +1009,22 @@ func _slow_motion(time_scale: float, real_seconds: float) -> void:
 	tree.create_timer(real_seconds, true, false, true).timeout.connect(_restore_time_scale)
 
 
+func _end_hitstop() -> void:
+	if Engine.time_scale > HITSTOP_SCALE + 0.001:
+		return
+	_restore_time_scale()
+
+
 func _restore_time_scale() -> void:
 	Engine.time_scale = 1.0
 
 
 func _exit_tree() -> void:
+	_clear_blind()
 	_restore_time_scale()
 
 
-func _begin_dash() -> void:
+func _prepare_dash_dest() -> void:
 	var player := _player()
 	var origin := global_position
 	var dest := global_position + _aim * 160.0
@@ -1005,8 +1036,16 @@ func _begin_dash() -> void:
 		if randf() < 0.5:
 			side = -side
 		dest = player.global_position + side.normalized() * 78.0 + _aim * -36.0
-	dest = _slide_limit(origin, _clamp_point(dest))
-	_dash_dest = dest
+	_dash_dest = _slide_limit(origin, _clamp_point(dest))
+	_dash_aimed = true
+
+
+func _begin_dash() -> void:
+	if not _dash_aimed:
+		_prepare_dash_dest()
+	_dash_aimed = false
+	var origin := global_position
+	var dest := _dash_dest
 	var travel := dest - origin
 	_lunge_vel = travel.normalized() * 860.0 if travel.length() > 8.0 else Vector2.ZERO
 	_lay_dash_ghosts(origin, dest)
@@ -1252,7 +1291,12 @@ func _danger_points() -> PackedVector2Array:
 			pts.append(-_aim * 10.0)
 			pts.append(_aim.rotated(-0.55) * 210.0)
 			pts.append(_aim.rotated(0.55) * 210.0)
-		Skill.Lunge, Skill.Dash:
+		Skill.Dash:
+			var landing := to_local(_dash_dest)
+			for i in range(DASH_TELL_POINTS):
+				var a := TAU * float(i) / float(DASH_TELL_POINTS)
+				pts.append(landing + Vector2(cos(a) * DASH_TELL_RADIUS_X, sin(a) * DASH_TELL_RADIUS_Y))
+		Skill.Lunge:
 			pts.append(-_aim * 8.0 + _aim.rotated(-0.28) * 36.0)
 			pts.append(_aim * 168.0)
 			pts.append(-_aim * 8.0 + _aim.rotated(0.28) * 36.0)
@@ -1266,8 +1310,11 @@ func _danger_points() -> PackedVector2Array:
 func _update_tell(progress: float) -> void:
 	if _tell == null:
 		return
-	var pulse := 0.92 + progress * 0.2
-	_tell.scale = Vector2(pulse, pulse)
+	if _skill == Skill.Dash:
+		_tell.scale = Vector2.ONE
+	else:
+		var pulse := 0.92 + progress * 0.2
+		_tell.scale = Vector2(pulse, pulse)
 	if _danger != null:
 		_danger.color = Color(0.94, 0.10, 0.12, 0.26 + progress * 0.34)
 	var rim := _tell.get_node_or_null("Rim") as Line2D
@@ -1599,7 +1646,12 @@ func _build_visuals() -> void:
 	_tell.add_child(rim)
 
 
+static var _shared_body_frames: SpriteFrames
+
+
 func _build_sprite_frames() -> SpriteFrames:
+	if _shared_body_frames != null:
+		return _shared_body_frames
 	var frames := SpriteFrames.new()
 	frames.remove_animation(&"default")
 	var body_scale := _reference_body_scale(SHEET_IDLE)
@@ -1626,9 +1678,13 @@ func _build_sprite_frames() -> SpriteFrames:
 	if not frames.has_animation(&"blind") and frames.has_animation(&"nova"):
 		_add_sheet_anim(frames, &"blind", SHEET_NOVA, 9.0, false, body_scale)
 	if frames.has_animation(&"idle") and frames.has_animation(&"claw") and frames.has_animation(&"slam"):
+		_shared_body_frames = frames
 		return frames
 	push_warning("ShadowWeaverBoss: skill sheets missing, using combined sheet")
-	return _frames_from_original_sheet()
+	frames = _frames_from_original_sheet()
+	if frames != null:
+		_shared_body_frames = frames
+	return frames
 
 
 func _frames_from_original_sheet() -> SpriteFrames:
@@ -1979,6 +2035,7 @@ class _SkillBolt extends Node2D:
 	var frames: SpriteFrames
 	var _spent := false
 	var _travel := 0.0
+	var _age := 0.0
 
 	func _ready() -> void:
 		z_index = 20
@@ -2000,9 +2057,10 @@ class _SkillBolt extends Node2D:
 	func _process(delta: float) -> void:
 		if _spent:
 			return
+		_age += delta
 		if target != null and is_instance_valid(target) and target.is_inside_tree():
 			var aim := target.global_position + Vector2(0.0, -28.0) - global_position
-			if aim.length() > 4.0:
+			if _age < ShadowWeaverBoss.BOLT_HOMING_TIME and aim.length() > 4.0:
 				direction = direction.lerp(aim.normalized(), minf(1.0, delta * 3.8)).normalized()
 			if aim.length() <= 26.0:
 				_impact()

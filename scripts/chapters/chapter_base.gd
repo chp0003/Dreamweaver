@@ -320,24 +320,54 @@ func is_finished() -> bool:
 
 
 ## Waits until `condition` returns true. Used for "collect them all" phases.
+## A death hold pauses the caller so a cleared pack cannot advance the chapter
+## while the life banner is still up. Game over sets `_chapter_finished`, and
+## the caller's own `is_finished()` check then ends the quest.
 func until(condition: Callable) -> void:
-	while not bool(condition.call()):
+	while true:
 		if not is_inside_tree():
 			return
 		var tree := get_tree()
 		if tree == null:
 			return
+		if _handling_death and not is_finished():
+			await tree.process_frame
+			continue
+		if bool(condition.call()):
+			return
 		await tree.process_frame
 
 
+## Chapter beats. Holds while a death is being resolved, and does not finish
+## after game over, so the next line cannot spawn another pack.
+## Slices use the same unpaused scene timer as the old single wait.
 func wait(seconds: float) -> void:
+	var left := seconds
+	while left > 0.0:
+		if not is_inside_tree():
+			return
+		var tree := get_tree()
+		if tree == null:
+			return
+		if _handling_death or is_finished():
+			await tree.create_timer(0.05).timeout
+			continue
+		var step := minf(0.05, left)
+		await tree.create_timer(step).timeout
+		if not is_inside_tree():
+			return
+		if _handling_death or is_finished():
+			continue
+		left -= step
+
+
+func _wait_real(seconds: float) -> void:
 	if not is_inside_tree():
 		return
 	var tree := get_tree()
 	if tree == null:
 		return
-	var timer := tree.create_timer(seconds)
-	await timer.timeout
+	await tree.create_timer(seconds).timeout
 
 
 # --------------------------------------------------------------------------
@@ -516,18 +546,21 @@ func _on_player_died() -> void:
 	if _handling_death or _chapter_finished:
 		return
 	_handling_death = true
+	_restore_boss_time()
 
 	if not GameState.lose_life():
-		await wait(0.8)
-		SceneFader.fade_to_scene(AccountManager.GAME_OVER_SCENE)
+		_chapter_finished = true
+		await _wait_real(0.8)
+		if is_inside_tree():
+			SceneFader.fade_to_scene(AccountManager.GAME_OVER_SCENE)
 		return
 
 	banner("A life spent", 1.6)
-	await wait(1.1)
+	await _wait_real(1.1)
 	if not is_inside_tree():
 		return
-	_respawn_player()
 	_handling_death = false
+	_respawn_player()
 
 
 ## Sends the player to the retry screen, e.g. after failing a quiz outright.
@@ -536,8 +569,21 @@ func fail_chapter() -> void:
 		return
 	_chapter_finished = true
 	set_player_input(false)
-	await wait(0.5)
-	SceneFader.fade_to_scene(AccountManager.GAME_OVER_SCENE)
+	await _wait_real(0.5)
+	if is_inside_tree():
+		SceneFader.fade_to_scene(AccountManager.GAME_OVER_SCENE)
+
+
+func _restore_boss_time() -> void:
+	var tree := get_tree()
+	if tree == null:
+		Engine.time_scale = 1.0
+		return
+	var boss := tree.get_first_node_in_group("boss")
+	if boss != null and is_instance_valid(boss) and boss.has_method("_restore_time_scale"):
+		boss.call("_restore_time_scale")
+		return
+	Engine.time_scale = 1.0
 
 
 func _respawn_player() -> void:

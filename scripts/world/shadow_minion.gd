@@ -12,9 +12,16 @@ const AGGRO_RANGE := 240.0
 const ATTACK_RANGE := 52.0
 const TOUCH_COOLDOWN := 1.1
 const SPECIAL_RANGE := 210.0
-## Casters shoot as soon as they can see S'lang — not melee-close.
+## Casters still walk in from this far. They only loose a bolt inside CASTER_FIRE_RANGE.
 const CASTER_SIGHT := 920.0
-const KILL_HEAL_RATIO := 0.10
+## Close enough to shoot. Matches the outer edge of their strafe band.
+const CASTER_FIRE_RANGE := 460.0
+## Heal on a normal kill, as a fraction of S'lang's max health. Boss adds pay nothing.
+const KILL_HEAL_RATIO := 0.04
+## Chaser tell before the swing. The hit is checked again when this ends.
+const CHASER_WINDUP := 0.28
+## Bolts steer only this long after launch, then fly straight.
+const BOLT_HOMING_TIME := 0.18
 const SHEET_DIR := "res://assets/images/enemies/minion/"
 const COMBAT_FRAMES := 8
 ## Packed cells are 160 px square with the feet on y = 152.
@@ -155,7 +162,8 @@ func _tick(delta: float) -> void:
 	if dist <= ATTACK_RANGE:
 		velocity = Vector2.ZERO
 		move_and_slide()
-		_try_touch()
+		if _touch_timer <= 0.0:
+			_begin_chaser_windup()
 		return
 
 	var to_player := (_player.global_position - global_position).normalized()
@@ -172,7 +180,7 @@ func _move_caster(dist: float) -> void:
 		velocity = toward * speed * 0.55
 	else:
 		velocity = tangent * speed * 0.62
-	if _action_timer <= 0.0 and dist <= CASTER_SIGHT:
+	if _action_timer <= 0.0 and dist <= CASTER_FIRE_RANGE:
 		_begin_special(0.48)
 
 
@@ -188,6 +196,15 @@ func _move_stalker(dist: float) -> void:
 		if _action_timer <= 0.0:
 			_strafe_sign *= -1.0
 			_begin_special(0.34)
+
+
+func _begin_chaser_windup() -> void:
+	_windup_left = CHASER_WINDUP
+	_windup_total = CHASER_WINDUP
+	velocity = Vector2.ZERO
+	if _action_tell != null:
+		_action_tell.visible = true
+		_action_tell.scale = Vector2(1.8, 1.8)
 
 
 func _begin_special(duration: float) -> void:
@@ -208,6 +225,11 @@ func _commit_special() -> void:
 		return
 	var toward := (_player.global_position - global_position).normalized()
 	match combat_style:
+		"chaser":
+			if Iso.iso_distance(global_position, _player.global_position) <= ATTACK_RANGE:
+				_try_touch()
+			else:
+				_touch_timer = TOUCH_COOLDOWN
 		"caster":
 			_play_combat_anim(&"cast", CAST_WINDUP_FRAMES + 1)
 			Audio.play_fx("minion_cast", -2.0)
@@ -339,9 +361,12 @@ func _die() -> void:
 	collision_layer = 0
 	remove_from_group("hittable")
 	set_selected(false)
-	GameState.add_score(25)
+	var boss_add := bool(get_meta("boss_add", false))
+	if not boss_add:
+		GameState.add_score(25)
 	died.emit(self)
-	_grant_kill_heal()
+	if not boss_add:
+		_grant_kill_heal()
 	Audio.play_fx("minion_death", -2.0, 0.1)
 	Fx.fiber_burst(self, Color(0.28, 0.22, 0.32))
 	Fx.hit_flash(self, Color(0.55, 0.42, 0.7))
@@ -458,7 +483,7 @@ func _update_body_anim(delta: float) -> void:
 ## The crouch before a dash, or the orb gathering before a cast, tracks the
 ## windup timer so the tell and the pose finish together.
 func _hold_windup_pose() -> void:
-	var anim := &"cast" if combat_style == "caster" else &"dash"
+	var anim := &"cast" if combat_style == "caster" else (&"attack" if combat_style == "chaser" else &"dash")
 	if not _anim.sprite_frames.has_animation(anim):
 		return
 	var last := CAST_WINDUP_FRAMES if anim == &"cast" else DASH_WINDUP_FRAMES
@@ -655,6 +680,7 @@ class _ShadowBolt extends Node2D:
 	var speed := 340.0
 	var _spent := false
 	var _travel := 0.0
+	var _age := 0.0
 	var _direction := Vector2.RIGHT
 	var _sprite: AnimatedSprite2D
 
@@ -690,10 +716,11 @@ class _ShadowBolt extends Node2D:
 	func _physics_process(delta: float) -> void:
 		if _spent:
 			return
+		_age += delta
 		if target != null and is_instance_valid(target) and target.is_inside_tree():
 			var aim := target.global_position + Vector2(0.0, -28.0)
 			var desired := aim - global_position
-			if desired.length() > 4.0:
+			if _age < ShadowMinion.BOLT_HOMING_TIME and desired.length() > 4.0:
 				_direction = _direction.lerp(desired.normalized(), minf(1.0, delta * 4.5)).normalized()
 			if desired.length() <= 28.0:
 				_impact()

@@ -28,8 +28,9 @@ const WAVE_GROUPS: Array = [
 	[6, 7],
 ]
 
-const LOOM_BLEACH_DAMAGE := 0.18
 const APPROACH_RADIUS := 220.0
+## Flat heal after breach waves 1 and 2. Wave 3 still fills her before the duel.
+const WAVE_HEAL_PARTIAL := 30.0
 const BOSS_MUSIC := "res://assets/audio/music/boss_shadow_weaver.wav"
 const STAGE_LINES := {
 	2: "ENOUGH! You will drown in the dark!",
@@ -53,9 +54,6 @@ var _wave_index := 0
 var _pack_index := 0
 var _spawn_cursor := 0
 var _style_cursor := 0
-var _loom_integrity := 1.0
-var _weave_mode := false
-var _in_weave_game := false
 var _duel_over := false
 var _phase := 0
 var _block_taught := false
@@ -166,7 +164,6 @@ func _build_hall() -> void:
 		"enabled": false,
 		"radius": 120.0,
 	})
-	_loom_trigger.interacted.connect(_on_loom_used)
 	_loom_mark = StationMarker.new()
 	_loom_mark.title = "THE LOOM"
 	_loom.add_child(_loom_mark)
@@ -302,7 +299,7 @@ func _run_chapter() -> void:
 	Audio.set_ambience(0.35, 0.0)
 
 	await say([
-		"The Sacred Loom is the big wooden frame at the back of this hall. Shadows are climbing out of the floor. Kill them first. Then walk to the loom.",
+		"Shadows are climbing out of the floor. Kill them, then walk to the loom.",
 	])
 
 	if not await _phase_one_breach():
@@ -325,7 +322,7 @@ func _phase_one_breach() -> bool:
 	_set_steps(0)
 	objective("Kill the dark figures. Press [Space] to swing.")
 	if hud != null and hud.has_method("set_mode"):
-		hud.call("set_mode", "SPACE  swing     Q  shockwave", Color(0.92, 0.82, 0.5))
+		hud.call("set_mode", "SPACE swing   SHIFT roll   Q shock", Color(0.92, 0.82, 0.5))
 	if not Audio.set_house(house_id):
 		Audio.set_combat_drums(0.85, 148.0)
 	Audio.set_ambience(0.55, 0.0)
@@ -333,8 +330,8 @@ func _phase_one_breach() -> bool:
 		hud.call("show_chime_meter", true)
 	_coach(
 		"Kill the shadows",
-		"Walk with WASD. Press Space to swing the staff. Press Q if they pile on you.",
-		["SPACE", "Q"]
+		"WASD moves. Space swings, Shift rolls, Q when they pile on.",
+		["SPACE", "SHIFT", "Q"]
 	)
 
 	for wave_index in range(WAVE_GROUPS.size()):
@@ -377,10 +374,10 @@ func _phase_one_breach() -> bool:
 	if hud != null and hud.has_method("set_mode"):
 		hud.call("set_mode", "1 ward    2 light beam", Color(0.98, 0.9, 0.55))
 	await say([
-		"The floor is clear. Press 2 to fire a beam of light. It hits hard, then rests for ten seconds. The ward is 1. Walk to the big loom at the back of the hall.",
+		"The floor is clear. 1 wards. 2 fires the beam, then it rests. Walk to the loom.",
 	])
 	objective("Walk to the big loom at the back.")
-	_coach("Walk to the loom", "Go to the gold mark. 1 raises your ward. 2 fires the light beam.", ["1", "2"])
+	_coach("Walk to the loom", "Gold mark. 1 wards. 2 fires the beam.", ["1", "2"])
 	await until(func() -> bool: return _player_near_loom() or is_finished())
 	_clear_coach()
 	return not is_finished()
@@ -427,7 +424,7 @@ func _phase_two_duel() -> bool:
 	_enter_fight_stance()
 	_coach(
 		"Dodge, then punish",
-		"His guard shrugs off hits while he stalks. Roll through a strike (SHIFT) or raise your ward just as it lands (1). Press 2 to fire the light beam, then hit him while he recovers.",
+		"Roll the red, then hit the recover. Shift rolls, 1 wards, 2 is the beam.",
 		["SHIFT", "1", "2", "SPACE"]
 	)
 	_boss.begin_duel()
@@ -442,8 +439,6 @@ func _phase_three_finish() -> void:
 	_phase = 3
 	_set_steps(2)
 	_boss.end_duel()
-	if _boss.has_method("kneel"):
-		_boss.kneel()
 	counter("")
 	_clear_coach()
 	_point_loom(false)
@@ -536,7 +531,10 @@ func _grant_light_beam() -> void:
 func _heal_after_wave() -> void:
 	if player == null or not is_instance_valid(player) or player.is_dead():
 		return
-	player.heal_full()
+	if _wave_index >= WAVE_GROUPS.size() - 1:
+		player.heal_full()
+	else:
+		player.heal(WAVE_HEAL_PARTIAL)
 	Fx.hit_flash(player, Palette.GOLD_SUN)
 	Fx.punch(player, 0.08)
 
@@ -611,14 +609,20 @@ func _dress_veil(body: StaticBody2D) -> void:
 	body.add_child(sparks)
 
 
+static var _blob: Texture2D
+
+
 func _soft_blob() -> Texture2D:
+	if _blob != null:
+		return _blob
 	var image := Image.create(64, 64, false, Image.FORMAT_RGBA8)
 	var centre := Vector2(31.5, 31.5)
 	for y in range(64):
 		for x in range(64):
 			var d := Vector2(x, y).distance_to(centre) / 32.0
 			image.set_pixel(x, y, Color(1, 1, 1, pow(clampf(1.0 - d, 0.0, 1.0), 2.1)))
-	return ImageTexture.create_from_image(image)
+	_blob = ImageTexture.create_from_image(image)
+	return _blob
 
 
 func _lock_loom_approach() -> void:
@@ -683,7 +687,6 @@ func _play_boss_music() -> bool:
 
 
 func _enter_fight_stance() -> void:
-	_weave_mode = false
 	if _loom_trigger != null:
 		_loom_trigger.set_enabled(false)
 	_point_loom(false)
@@ -695,16 +698,7 @@ func _enter_fight_stance() -> void:
 		_plate.set_loom_energy(0.55)
 
 
-func _enter_defend_mode() -> void:
-	_enter_fight_stance()
-
-
-func _enter_weave_mode() -> void:
-	_enter_punish_window()
-
-
 func _enter_punish_window() -> void:
-	_weave_mode = false
 	if _loom_trigger != null:
 		_loom_trigger.set_enabled(false)
 	_point_loom(false)
@@ -724,9 +718,8 @@ func _enter_punish_window() -> void:
 
 ## Staff swings shake the hall. Defence is the dodge, not a parry QTE.
 func _on_player_attacked(_swing_position: Vector2, _facing: Vector2) -> void:
+	# House 5's swing cue is already house5_brass_shockwave. A second call here doubled it.
 	shake_camera(4.5)
-	if _phase == 1:
-		Audio.play_brass_shock()
 
 
 func _on_player_chimed(_origin: Vector2, _radius: float) -> void:
@@ -791,9 +784,18 @@ func _on_boss_stage_changed(stage: int, _line: String) -> void:
 		return
 	shake_camera(16.0)
 	banner(STAGE_LINES.get(stage, "The Weaver rages."), 2.4)
-	counter("PHASE %d  —  he is faster now" % stage)
+	_show_stage_counter_after_shift(stage)
 	if _plate != null:
 		_plate.set_loom_energy(0.35 if stage >= 3 else 0.45)
+
+
+func _show_stage_counter_after_shift(stage: int) -> void:
+	await get_tree().create_timer(ShadowWeaverBoss.SHIFT_DURATION).timeout
+	if _duel_over or _phase != 2 or not is_inside_tree():
+		return
+	if _boss != null and is_instance_valid(_boss) and _boss.is_telegraphing():
+		return
+	counter("PHASE %d  —  he is faster now" % stage)
 
 
 func _on_boss_perfect_dodged() -> void:
@@ -804,7 +806,7 @@ func _on_boss_perfect_dodged() -> void:
 	counter(("PERFECT GUARD" if guarded else "PERFECT DODGE") + "  —  punish him now")
 	if not _perfect_taught:
 		_perfect_taught = true
-		_coach("Perfect timing", "Rolling or warding at the last instant opens him up. Every hit lands hard for a moment.", ["SPACE"])
+		_coach("Perfect timing", "A perfect roll or ward opens him. Swing.", ["SPACE"])
 
 
 func _on_boss_recovered() -> void:
@@ -814,13 +816,8 @@ func _on_boss_recovered() -> void:
 	_enter_fight_stance()
 
 
-func _on_boss_health_changed(current: float, maximum: float) -> void:
+func _on_boss_health_changed(_current: float, _maximum: float) -> void:
 	_sync_boss_hud()
-	if _duel_over:
-		return
-	if _boss != null and _boss.is_telegraphing():
-		return
-	counter("Weaver  %d%%" % roundi(current / maximum * 100.0))
 
 
 func _sync_boss_hud() -> void:
@@ -847,29 +844,6 @@ func _on_boss_defeated() -> void:
 	_duel_over = true
 
 
-func _on_loom_used() -> void:
-	return
-
-
-## The loom's own health bar. Losing it costs a life, not the run.
-func _damage_loom(amount: float) -> void:
-	_loom_integrity = maxf(0.0, _loom_integrity - amount)
-	if hud != null and hud.has_method("set_loom_integrity"):
-		hud.call("set_loom_integrity", _loom_integrity)
-	if _loom_integrity > 0.0:
-		return
-
-	if not GameState.lose_life():
-		_duel_over = true
-		await fail_chapter()
-		return
-
-	banner("The loom took a hit. You lost a life.", 1.8)
-	_loom_integrity = 0.5
-	if hud != null and hud.has_method("set_loom_integrity"):
-		hud.call("set_loom_integrity", _loom_integrity)
-
-
 # --------------------------------------------------------------------------
 # Phase 3 - the payoff
 # --------------------------------------------------------------------------
@@ -887,6 +861,7 @@ func _color_burst() -> void:
 
 	if is_instance_valid(_boss):
 		if _boss.has_method("dissolve_into_light"):
+			Fx.fiber_burst(_boss, Palette.GOLD_SUN)
 			_boss.dissolve_into_light()
 		else:
 			Fx.fiber_burst(_boss, Palette.GOLD_SUN)
