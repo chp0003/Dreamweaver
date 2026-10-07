@@ -110,6 +110,94 @@ static func ring_pulse(host: Node2D, color := Palette.GOLD_SUN, radius := 150.0)
 	tween.chain().tween_callback(ring.queue_free)
 
 
+## The chapter 5 colour burst, sized for a house coming back to life.
+static func restoration_sparkle(host: Node2D) -> void:
+	if host == null or not host.is_inside_tree():
+		return
+	var burst := GPUParticles2D.new()
+	burst.name = "HouseSparkle"
+	burst.texture = _soft_dot()
+	burst.process_material = _restoration_material()
+	burst.amount = 220
+	burst.lifetime = 2.6
+	burst.one_shot = true
+	burst.explosiveness = 0.92
+	burst.z_index = 60
+	burst.position = Vector2(0.0, -40.0)
+	host.add_child(burst)
+	burst.emitting = true
+	var glitter := house_glitter()
+	glitter.amount = 36
+	glitter.position = Vector2(0.0, -20.0)
+	host.add_child(glitter)
+	var tween := host.create_tween()
+	tween.tween_interval(3.4)
+	tween.tween_callback(func() -> void:
+		if is_instance_valid(burst):
+			burst.queue_free()
+		if is_instance_valid(glitter):
+			glitter.queue_free())
+
+
+## Slow gold motes for a house that is already restored.
+static func house_glitter() -> GPUParticles2D:
+	var mat := ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	mat.emission_box_extents = Vector3(78.0, 18.0, 1.0)
+	mat.direction = Vector3(0.0, -1.0, 0.0)
+	mat.spread = 28.0
+	mat.initial_velocity_min = 10.0
+	mat.initial_velocity_max = 32.0
+	mat.gravity = Vector3(0.0, -16.0, 0.0)
+	mat.scale_min = 0.28
+	mat.scale_max = 0.7
+	var ramp := Gradient.new()
+	ramp.set_offset(0, 0.0)
+	ramp.set_color(0, Color(1.0, 0.93, 0.62, 0.0))
+	ramp.add_point(0.2, Color(1.0, 0.9, 0.55, 0.95))
+	ramp.add_point(0.55, Color(0.86, 0.28, 0.22, 0.8))
+	ramp.set_offset(1, 1.0)
+	ramp.set_color(1, Color(1.0, 0.86, 0.4, 0.0))
+	var ramp_texture := GradientTexture1D.new()
+	ramp_texture.gradient = ramp
+	mat.color_ramp = ramp_texture
+	var motes := GPUParticles2D.new()
+	motes.name = "HouseGlitter"
+	motes.texture = _soft_dot()
+	motes.process_material = mat
+	motes.amount = 18
+	motes.lifetime = 1.7
+	motes.preprocess = 0.6
+	motes.z_index = 12
+	motes.emitting = true
+	return motes
+
+
+static func _restoration_material() -> ParticleProcessMaterial:
+	var material := ParticleProcessMaterial.new()
+	material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	material.emission_sphere_radius = 36.0
+	material.direction = Vector3(0.0, -1.0, 0.0)
+	material.spread = 180.0
+	material.initial_velocity_min = 180.0
+	material.initial_velocity_max = 560.0
+	material.gravity = Vector3(0.0, 70.0, 0.0)
+	material.scale_min = 1.6
+	material.scale_max = 5.2
+	material.angular_velocity_min = -180.0
+	material.angular_velocity_max = 180.0
+	var ramp := Gradient.new()
+	ramp.set_offset(0, 0.0)
+	ramp.set_color(0, Color(1.0, 0.92, 0.6, 1.0))
+	ramp.add_point(0.45, Color(0.85, 0.2, 0.16, 1.0))
+	ramp.set_offset(1, 1.0)
+	ramp.set_color(1, Color(0.15, 0.13, 0.13, 0.0))
+	var ramp_texture := GradientTexture1D.new()
+	ramp_texture.gradient = ramp
+	material.color_ramp = ramp_texture
+	return material
+
+
 static func light_burst(host: Node2D, color := Palette.GOLD_SUN) -> void:
 	if host == null or not host.is_inside_tree():
 		return

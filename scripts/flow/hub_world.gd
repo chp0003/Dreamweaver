@@ -125,6 +125,7 @@ var _villagers: Dictionary = {}
 var _villager_chat := false
 ## She stays for the chapter 1 farewell, then leaves for chapter 4 on the way out.
 var _fun_holding_farewell := false
+var _house_sparks: Dictionary = {}
 
 
 func _build_world() -> void:
@@ -692,6 +693,7 @@ func _restore_completed_colors() -> void:
 		ColorRestoration.set_global_gray(0.0)
 		if _plate != null:
 			_plate.sync_restoration(player)
+		_sync_house_sparkles()
 		return
 	if _active_house_id != 0:
 		ColorRestoration.clear_zones()
@@ -710,6 +712,27 @@ func _restore_completed_colors() -> void:
 	ColorRestoration.set_global_gray(0.0)
 	if _plate != null:
 		_plate.sync_restoration(player)
+	_sync_house_sparkles()
+
+
+func _sync_house_sparkles() -> void:
+	if _plate == null:
+		return
+	for house in Houses.LIST:
+		var house_id := int(house["id"])
+		var want := GameState.is_house_completed(house_id) or GameState.game_completed
+		if want:
+			if _house_sparks.has(house_id) and is_instance_valid(_house_sparks[house_id]):
+				continue
+			var motes := Fx.house_glitter()
+			motes.position = _plate.uv_to_world(Houses.hub_solid_centre(house) + Vector2(0.0, -0.03))
+			_plate.add_child(motes)
+			_house_sparks[house_id] = motes
+		elif _house_sparks.has(house_id):
+			var stored: Variant = _house_sparks[house_id]
+			if is_instance_valid(stored):
+				(stored as Node).queue_free()
+			_house_sparks.erase(house_id)
 
 
 func _run_chapter() -> void:
@@ -998,7 +1021,7 @@ func _find_resident(house_id: int, label: String) -> PlaceholderProp:
 			return node as PlaceholderProp
 	return null
 
-
+ 	
 func _find_talk_trigger(house_id: int, needle: String) -> Interactable:
 	if needle.is_empty():
 		return null
@@ -1181,6 +1204,9 @@ func _show_house(house_id: int) -> void:
 			stage.configure(house_id, camera)
 		fit_camera_to_floor(_house_floors.get(house_id) as Node2D)
 	_restore_completed_colors()
+	if _trail != null:
+		_trail.clear()
+		_trail.visible = false
 
 
 func _show_ridge() -> void:
@@ -1219,6 +1245,8 @@ func _show_ridge() -> void:
 	if stage != null:
 		stage.visible = true
 		stage.configure(0, camera)
+	if _trail != null:
+		_trail.visible = true
 
 
 func _set_ridge_art_visible(on: bool) -> void:

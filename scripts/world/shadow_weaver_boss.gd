@@ -57,6 +57,11 @@ const FRAME_GUTTER := 12
 const STRIKE_SPLIT := 4
 const SPRITE_SCALE := Vector2(0.78, 0.78)
 const STRIP_FRAMES := 8
+## Walk cycle was authored for this chase speed. Playback scales with real speed
+## so the feet do not slide.
+const WALK_REF_SPEED := 182.0
+## Horizontal distance the player must exceed before the sprite re-flips.
+const FACE_DEADZONE := 14.0
 const ORIGINAL_SHEET := "res://assets/images/enemies/shadow_weaver_boss_sheet.png"
 const SHEET_IDLE := "res://assets/images/enemies/shadow_weaver_idle.png"
 const SHEET_WALK := "res://assets/images/enemies/shadow_weaver_walk.png"
@@ -220,6 +225,9 @@ func _physics_process(delta: float) -> void:
 	var flinching := _phase == Phase.Recover and _hurt_anim_left > 0.0
 	if (_phase == Phase.Windup or _phase == Phase.Active or _phase == Phase.Recover) and not flinching:
 		_drive_skill_pose()
+	elif _phase == Phase.Approach or _phase == Phase.Stagger:
+		# Idle breathing, feet stay planted.
+		_apply_body_pose(sin(Time.get_ticks_msec() * 0.0035) * 0.012, 0.0)
 	move_and_slide()
 	_clamp_arena()
 
@@ -1072,15 +1080,22 @@ func _chase_player(delta: float) -> void:
 	var flinching := _hurt_anim_left > 0.0
 	if flinching:
 		speed *= 0.35
-	var gait := "idle"
+	var moving := false
 	if dist > keep_range + 16.0:
 		velocity = to_player.normalized() * speed
-		gait = "walk"
+		moving = true
 	elif dist < keep_range * 0.45:
 		velocity = -to_player.normalized() * speed * 0.55
-		gait = "walk"
-	if not flinching:
-		_play_visual(gait)
+		moving = true
+	if flinching:
+		return
+	if moving:
+		_play_visual("walk")
+		# Playback follows real speed so the feet do not slide.
+		if _sprite != null:
+			_sprite.speed_scale = clampf(velocity.length() / WALK_REF_SPEED, 0.5, 1.6)
+	else:
+		_play_visual("idle")
 
 
 func _face_player() -> void:
@@ -1093,7 +1108,11 @@ func _face_player() -> void:
 	else:
 		_aim = _aim.normalized()
 	if _sprite != null:
-		_sprite.flip_h = player.global_position.x < global_position.x
+		# Deadzone stops the sprite mirroring back and forth when the player
+		# is directly above or below him.
+		var dx := player.global_position.x - global_position.x
+		if absf(dx) > FACE_DEADZONE:
+			_sprite.flip_h = dx < 0.0
 
 
 func _slide_limit(from: Vector2, to: Vector2) -> Vector2:
@@ -1345,6 +1364,9 @@ func _flash(tint: Color) -> void:
 func _play_visual(anim: StringName, force := false) -> void:
 	if _sprite == null or not _sprite.sprite_frames.has_animation(anim):
 		return
+	# Only the walk cycle is speed-scaled; every other clip plays at normal rate.
+	if anim != &"walk":
+		_sprite.speed_scale = 1.0
 	if not force and _sprite.animation == anim and _sprite.is_playing():
 		return
 	_sprite.play(anim)
@@ -1356,8 +1378,9 @@ func _on_visual_finished() -> void:
 	var anim := _sprite.animation
 	if _sprite.sprite_frames.get_animation_loop(anim):
 		return
-	# Hold the last pose through the hit and the punish window.
-	if _phase == Phase.Recover or _phase == Phase.Windup or _phase == Phase.Active or _phase == Phase.Dead:
+	# Hold the last pose through the hit, the punish window and the stage-shift bellow.
+	if _phase == Phase.Recover or _phase == Phase.Windup or _phase == Phase.Active \
+			or _phase == Phase.Dead or _phase == Phase.Shift:
 		_sprite.pause()
 		return
 	_sprite.play(&"idle")
@@ -1368,6 +1391,7 @@ func _arm_skill_anim(anim: String) -> void:
 		return
 	if not _sprite.sprite_frames.has_animation(anim):
 		return
+	_sprite.speed_scale = 1.0
 	_sprite.animation = anim
 	_sprite.pause()
 	_sprite.frame = 0
@@ -1441,23 +1465,35 @@ func _skill_color() -> Color:
 			return Color(0.74, 0.22, 0.98)
 
 
+## Positions and squashes the sprite with the feet pinned to the ground.
+## squash < 0 crouches (shorter, wider); squash > 0 stretches (taller, narrower).
+func _apply_body_pose(squash: float, lean: float) -> void:
+	if _sprite == null:
+		return
+	var sy := 1.0 + squash
+	_sprite.scale = Vector2(SPRITE_SCALE.x * (1.0 - squash * 0.6), SPRITE_SCALE.y * sy)
+	var feet := (float(BODY_SIZE.y) * 0.5 - 8.0) * SPRITE_SCALE.y
+	var facing := -1.0 if _sprite.flip_h else 1.0
+	_sprite.position = _sprite_home + Vector2(lean * facing, feet * (1.0 - sy))
+
+
 func _ease_body_lean() -> void:
 	if _sprite == null:
 		return
 	var lean := 0.0
+	var squash := 0.0
 	match _phase:
 		Phase.Windup:
 			var t := clampf(_phase_t / maxf(_windup, 0.05), 0.0, 1.0)
 			lean = -8.0 * t
+			squash = -0.07 * t
 		Phase.Active:
 			var t := clampf(_phase_t / maxf(_active_len, 0.05), 0.0, 1.0)
 			lean = lerpf(12.0, 0.0, t)
-		Phase.Recover:
-			lean = 0.0
+			squash = lerpf(0.10, 0.0, t * t)
 		_:
-			lean = 0.0
-	var facing := -1.0 if _sprite.flip_h else 1.0
-	_sprite.position = _sprite_home + Vector2(lean * facing, 0.0)
+			pass
+	_apply_body_pose(squash, lean)
 
 
 func _strike_flourish() -> void:

@@ -315,6 +315,7 @@ func _run_chapter() -> void:
 ## PHASE 1 - clear every shadow before the Loom can be approached.
 func _phase_one_breach() -> bool:
 	_phase = 1
+	_point_loom(false)
 	_shadows_alive = 0
 	_shadows_total = _count_planned_shadows()
 	_spawn_cursor = 0
@@ -670,8 +671,12 @@ func _player_near_loom() -> bool:
 # --------------------------------------------------------------------------
 
 func _materialize_boss() -> void:
+	_boss.global_position = _plate.boss_world()
+	_boss.z_index = 0
 	_boss.visible = true
-	_boss.z_index = 8
+	if player != null and is_instance_valid(player):
+		player.global_position = _boss.global_position + Vector2(0.0, 220.0)
+		player.velocity = Vector2.ZERO
 	_boss.play_entrance_roar()
 	shake_camera(12.0)
 	var appear := create_tween()

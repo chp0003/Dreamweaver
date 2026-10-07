@@ -145,6 +145,7 @@ func set_restore(amount: float) -> void:
 
 
 func bloom_restore(duration := 3.2) -> void:
+	Fx.restoration_sparkle(self)
 	if _material == null:
 		return
 	var tween := create_tween()

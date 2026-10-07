@@ -90,6 +90,14 @@ func point_at(world_pos: Vector2) -> void:
 func clear() -> void:
 	_target_node = null
 	_target_pos = Vector2.INF
+	_route = PackedVector2Array()
+	_route_len = 0.0
+	_markers.clear()
+	_strength = 0.0
+	_lit.clear()
+	queue_redraw()
+	if is_instance_valid(_cores):
+		_cores.queue_redraw()
 
 
 func is_active() -> bool:
@@ -110,7 +118,7 @@ func _retarget() -> void:
 
 func _goal() -> Vector2:
 	if _target_node != null:
-		if not is_instance_valid(_target_node):
+		if not is_instance_valid(_target_node) or not _target_node.is_visible_in_tree():
 			_target_node = null
 			return Vector2.INF
 		return _target_node.global_position + _target_offset
@@ -360,7 +368,14 @@ func _lit_stones() -> Array:
 		var band := minf(pulse_phase, PULSE_GAP * sc - pulse_phase) / (PULSE_WIDTH * sc)
 		var pulse := exp(-band * band)
 		var twinkle := 0.82 + 0.18 * sin(_time * 3.1 + float(k) * 1.7)
-		lit.append([to_local(_markers[k]), k, fade * twinkle, pulse])
+		var toward := Vector2(0.0, -1.0)
+		if k > 0:
+			toward = _markers[k - 1] - _markers[k]
+		elif _markers.size() > 1:
+			toward = _markers[0] - _markers[1]
+		if toward.length_squared() < 0.01:
+			toward = Vector2(0.0, -1.0)
+		lit.append([to_local(_markers[k]), k, fade * twinkle, pulse, toward.normalized()])
 	return lit
 
 
@@ -369,65 +384,39 @@ func _orb_position(at: Vector2, k: int, pulse: float) -> Vector2:
 	return at + Vector2(0.0, (-9.0 - pulse * 5.0) * _scale + bob)
 
 
-## Additive layer: ground pools, orb halos and drifting sparks.
+## Additive layer: a flat pool under each step, on the floor.
 func _draw() -> void:
 	var sc := _scale
 	for stone in _lit:
 		var at: Vector2 = stone[0]
-		var k: int = stone[1]
 		var alpha: float = stone[2]
 		var pulse: float = stone[3]
+		var pool := Vector2(28.0, 12.0) * sc * (1.0 + pulse * 0.2)
 		var glow := color
-
-		# Soft pool of light on the ground, flattened to sit in the iso floor.
-		var pool := Vector2(42.0, 21.0) * sc * (1.0 + pulse * 0.45)
-		glow.a = (0.42 + pulse * 0.45) * alpha
+		glow.a = (0.28 + pulse * 0.22) * alpha
 		draw_texture_rect(_glow, Rect2(at - pool * 0.5, pool), false, glow)
 
-		var orb_at := _orb_position(at, k, pulse)
-		var orb := Vector2(22.0, 22.0) * sc * (1.0 + pulse * 0.6)
-		glow.a = (0.75 + pulse * 0.25) * alpha
-		draw_texture_rect(_glow, Rect2(orb_at - orb * 0.5, orb), false, glow)
 
-		# A spark drifts up off every other stone.
-		if k % 2 == 0:
-			var life := fposmod(_time * 0.55 + float(k) * 0.37, 1.0)
-			var drift := Vector2(sin(float(k) * 3.1 + _time * 1.4) * 5.0, -12.0 - life * 30.0) * sc
-			var spark := core_color
-			spark.a = sin(life * PI) * 0.65 * alpha
-			draw_circle(at + drift, (1.1 + (1.0 - life) * 0.8) * sc, spark)
-
-
-## Solid layer: the woven diamond and the orb's heart, outlined so they still
-## read on sunlit paving where additive light washes out.
+## Solid layer: a small chevron on the floor, pointing at the goal.
 func _draw_cores() -> void:
 	var sc := _scale
 	var rim := Color(0.09, 0.06, 0.04)
 	for stone in _lit:
 		var at: Vector2 = stone[0]
-		var k: int = stone[1]
 		var alpha: float = stone[2]
 		var pulse: float = stone[3]
+		var toward: Vector2 = stone[4]
 		var core := core_color
-		core.a = (0.85 + pulse * 0.15) * alpha
-		rim.a = 0.55 * alpha
-
-		var d := (4.4 + pulse * 2.0) * sc
-		var diamond := PackedVector2Array([
-			at + Vector2(0.0, -d * 0.55),
-			at + Vector2(d, 0.0),
-			at + Vector2(0.0, d * 0.55),
-			at + Vector2(-d, 0.0),
-		])
-		var outline := diamond.duplicate()
-		outline.append(diamond[0])
-		_cores.draw_polyline(outline, rim, 1.6 * sc, true)
-		_cores.draw_colored_polygon(diamond, core)
-
-		var orb_at := _orb_position(at, k, pulse)
-		var r := (1.9 + pulse * 1.2) * sc
-		_cores.draw_circle(orb_at, r + 0.9 * sc, rim)
-		_cores.draw_circle(orb_at, r, core)
+		core.a = (0.9 + pulse * 0.1) * alpha
+		rim.a = 0.7 * alpha
+		var side := Vector2(-toward.y, toward.x)
+		var reach := (7.0 + pulse * 1.4) * sc
+		var wide := 5.2 * sc
+		var tip := at + toward * reach
+		var left := at - toward * reach * 0.35 + side * wide
+		var right := at - toward * reach * 0.35 - side * wide
+		_cores.draw_colored_polygon(PackedVector2Array([tip, left, right]), core)
+		_cores.draw_polyline(PackedVector2Array([left, tip, right]), rim, 1.4 * sc, true)
 
 
 func _make_glow() -> Texture2D:

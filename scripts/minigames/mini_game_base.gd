@@ -36,6 +36,8 @@ var attempt := 0
 var running := false
 
 var _time_left := 0.0
+var _clock_on := false
+var _begin_button: Button
 var _backdrop: ColorRect
 var _panel: WovenFrame
 var _title_label: Label
@@ -66,7 +68,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if not running or time_limit <= 0.0:
+	if not _clock_on or time_limit <= 0.0:
 		return
 	_time_left = maxf(0.0, _time_left - delta)
 	_timer_bar.value = _time_left
@@ -101,7 +103,7 @@ func _reset_round() -> void:
 
 func start_round() -> void:
 	attempt += 1
-	running = true
+	_clock_on = false
 	_time_left = time_limit
 	_result_layer.visible = false
 	if _result_art != null:
@@ -111,14 +113,33 @@ func start_round() -> void:
 	_timer_bar.max_value = maxf(time_limit, 0.001)
 	_timer_bar.value = _time_left
 	_refresh_attempts()
-	set_status("")
+	var timed := time_limit > 0.0
+	running = not timed
+	if _begin_button != null:
+		_begin_button.visible = timed
 	_reset_round()
+	if timed:
+		set_status("Read the instructions. The timer starts when you begin.")
+
+
+func _on_begin_pressed() -> void:
+	if time_limit <= 0.0 or _clock_on:
+		return
+	running = true
+	_clock_on = true
+	_time_left = time_limit
+	if _timer_bar != null:
+		_timer_bar.value = _time_left
+	if _begin_button != null:
+		_begin_button.visible = false
+	set_status("")
 
 
 func succeed(message := "") -> void:
 	if not running:
 		return
 	running = false
+	_clock_on = false
 	GameState.add_score(reward_score)
 	Audio.play_sfx(Audio.Sfx.SUCCESS)
 	_show_result(true, message)
@@ -128,6 +149,7 @@ func fail(message := "") -> void:
 	if not running:
 		return
 	running = false
+	_clock_on = false
 	Audio.play_sfx(Audio.Sfx.FAIL)
 	_show_result(false, message)
 
@@ -225,6 +247,14 @@ func _build_chrome() -> void:
 	_instruction_label.add_theme_font_size_override("font_size", 15)
 	_instruction_label.add_theme_color_override("font_color", Color(0.87, 0.8, 0.64))
 	column.add_child(_instruction_label)
+
+	_begin_button = Button.new()
+	_begin_button.text = "Begin"
+	_begin_button.visible = false
+	_begin_button.custom_minimum_size = Vector2(200.0, 44.0)
+	_begin_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_begin_button.pressed.connect(_on_begin_pressed)
+	column.add_child(_begin_button)
 
 	_timer_bar = ProgressBar.new()
 	_timer_bar.custom_minimum_size = Vector2(0.0, 10.0)

@@ -4,17 +4,18 @@ extends CharacterBody2D
 ## S'lang, the Dreamweaver.
 ##
 ## Movement uses CharacterBody2D + move_and_slide() against world solids on
-## PhysicsLayers.LAYER_WORLD (props, room bounds, fences). Input is WASD in
-## screen space (squashed vertically to match the isometric tiles).
+## PhysicsLayers.LAYER_WORLD (props, room bounds, fences). WASD is the direction
+## she moves and faces. Space swings that way. A left click can still lock an
+## enemy and run her in.
 ##
 ## Visuals are an AnimatedSprite2D driven from velocity in 8 directions:
 ##   down, down_right, right, up_right, up, and the three west mirrors via flip_h.
 ## Sheets live in SlangFrames / slang_8dir.
 ##
 ## Combat (once the Lewet Staff is equipped):
-##   Space             - melee staff sweep
+##   Space             - melee staff sweep along WASD, or her current facing
 ##   Shift / RMB       - dodge roll with i-frames
-##   1                 - woven ward that blocks every blow for a moment
+##   1                 - woven ward, a damage barrier that holds for a few seconds
 ##   2                 - light beam, unlocked after Chapter 5 waves 1–3
 ##   Q                 - sonic shockwave around her feet
 ##   Left-click enemy  - lock, run in, then melee when she is close enough
@@ -51,11 +52,14 @@ const DODGE_COOLDOWN := 0.68
 const DODGE_TIME := 0.24
 const DODGE_SPEED := 540.0
 const DODGE_IFRAMES := 0.38
-const WARD_TIME := 0.6
+const WARD_TIME := 4.5
 const WARD_PERFECT := 0.22
-const WARD_COOLDOWN := 2.6
-const WARD_SLOW := 0.45
+const WARD_COOLDOWN := 6.5
+const WARD_BARRIER := 100.0
+const WARD_SLOW := 0.82
 const WARD_COLOR := Color(1.0, 0.82, 0.38)
+const WARD_SHEET := "res://assets/images/vfx/slang_ward.png"
+const WARD_SHEET_FRAMES := 8
 const BEAM_COOLDOWN := 10.0
 const BEAM_DAMAGE := 230.0
 const BEAM_LENGTH := 560.0
@@ -99,8 +103,10 @@ var _dodge_timer := 0.0
 var _dodge_left := 0.0
 var _dodge_dir := Vector2.ZERO
 var _ward_left := 0.0
+var _ward_hp := 0.0
 var _ward_timer := 0.0
 var _ward_fx: Node2D
+var _ward_frames: SpriteFrames
 var _beam_timer := 0.0
 var _beam_root := 0.0
 var _beam_charge: Node2D
@@ -157,24 +163,22 @@ func _physics_process(delta: float) -> void:
 	if _ward_left > 0.0:
 		_ward_left = maxf(0.0, _ward_left - delta)
 		if _ward_left <= 0.0:
+			_ward_hp = 0.0
 			_drop_ward_fx()
+		else:
+			_refresh_ward_tint()
 	if _attack_anim_left <= 0.0:
 		_attacking = false
 		if _animated != null:
 			_animated.rotation_degrees = 0.0
 
 	_validate_locked_target()
+	var input_vector := _steering()
+	if input_vector != Vector2.ZERO:
+		_chasing = false
+		_clear_talk_approach()
 	_try_auto_attack()
 	_face_locked_target()
-
-	var input_vector := Vector2.ZERO
-	if input_enabled and not _dead:
-		var up_down_neg := "move_up" if InputMap.has_action("move_up") else "move_forward"
-		var up_down_pos := "move_down" if InputMap.has_action("move_down") else "move_back"
-		input_vector = Input.get_vector("move_left", "move_right", up_down_neg, up_down_pos)
-		if input_vector != Vector2.ZERO:
-			_chasing = false
-			_clear_talk_approach()
 
 	var chase_dir := _talk_chase_direction()
 	if chase_dir == Vector2.ZERO:
@@ -184,18 +188,19 @@ func _physics_process(delta: float) -> void:
 	if _dodge_left > 0.0:
 		velocity = _dodge_dir * _dodge_speed()
 	else:
-		var direction := Iso.screen_direction(input_vector)
 		var move_speed := speed * (WARD_SLOW if _ward_left > 0.0 else 1.0)
 		if _beam_root > 0.0:
 			move_speed *= 0.2
-		if direction != Vector2.ZERO:
-			if _locked_target == null:
-				facing = direction
-			velocity = velocity.move_toward(direction * move_speed, acceleration * delta)
+		if input_vector != Vector2.ZERO:
+			var direction := input_vector.normalized()
+			facing = direction
+			velocity = direction * move_speed
 		elif chase_dir != Vector2.ZERO:
-			velocity = velocity.move_toward(chase_dir * speed, acceleration * delta)
+			velocity = chase_dir.normalized() * move_speed
 		else:
-			velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
+			velocity = Vector2.ZERO
+	if Input.is_action_pressed("attack"):
+		try_attack()
 
 	move_and_slide()
 	if collision_mask != PhysicsLayers.MASK_PLAYER_MOVES:
@@ -368,14 +373,21 @@ func _apply_light() -> void:
 # --------------------------------------------------------------------------
 
 func try_attack() -> bool:
+	if not input_enabled or _dead or not has_staff or _attack_timer > 0.0:
+		return false
 	if _dodge_left > 0.0 or _beam_root > 0.0:
 		return false
-	var boss := get_tree().get_first_node_in_group("boss") as Node2D
-	if _is_valid_hit(boss) and _in_melee_range(boss):
-		return _engage_target(boss)
-	if _is_valid_hit(_locked_target):
-		return _engage_target(_locked_target)
-	return try_attack_at(get_global_mouse_position())
+	_chasing = false
+	var stick := _steering()
+	var aim := stick if stick != Vector2.ZERO else facing
+	if aim == Vector2.ZERO:
+		aim = Vector2(0.0, 1.0)
+	var assist := _nearest_ahead(aim)
+	if assist != null:
+		_face_vector(assist.global_position - global_position)
+	else:
+		_face_vector(aim)
+	return _swing_staff(null)
 
 
 func try_dodge() -> bool:
@@ -384,7 +396,7 @@ func try_dodge() -> bool:
 	var up_down_neg := "move_up" if InputMap.has_action("move_up") else "move_forward"
 	var up_down_pos := "move_down" if InputMap.has_action("move_down") else "move_back"
 	var stick := Input.get_vector("move_left", "move_right", up_down_neg, up_down_pos)
-	var dir := Iso.screen_direction(stick)
+	var dir := stick.normalized() if stick != Vector2.ZERO else Vector2.ZERO
 	if dir == Vector2.ZERO:
 		dir = facing if facing != Vector2.ZERO else Vector2(0, 1)
 	_dodge_dir = dir
@@ -400,12 +412,13 @@ func try_dodge() -> bool:
 	return true
 
 
-## Raises a woven ward. Every blow is blocked while it holds; one caught in the
-## first instant is a perfect guard, which enemies can treat like a perfect dodge.
+## Raises a woven ward. It soaks a pool of damage, then breaks. A blow caught
+## in the first instant is a perfect guard and does not spend the barrier.
 func try_ward() -> bool:
 	if not input_enabled or _dead or not has_staff or _ward_timer > 0.0 or _dodge_left > 0.0 or _beam_root > 0.0:
 		return false
 	_ward_left = WARD_TIME
+	_ward_hp = WARD_BARRIER
 	_ward_timer = WARD_COOLDOWN
 	_attacking = false
 	velocity *= 0.35
@@ -435,10 +448,11 @@ func try_beam() -> bool:
 		return false
 	if _beam_timer > 0.0 or _dodge_left > 0.0 or _beam_root > 0.0:
 		return false
-	if _is_valid_hit(_locked_target):
+	var stick := _steering()
+	if stick != Vector2.ZERO:
+		_face_vector(stick)
+	elif _chasing and _is_valid_hit(_locked_target):
 		_face_vector(_locked_target.global_position - global_position)
-	else:
-		_aim_from_mouse()
 	_beam_timer = BEAM_COOLDOWN
 	_beam_root = BEAM_CHARGE
 	_attacking = true
@@ -648,8 +662,10 @@ func is_perfect_evade() -> bool:
 	return is_dodge_invulnerable() or (not _dead and _ward_left > WARD_TIME - WARD_PERFECT)
 
 
-func _block_with_ward() -> void:
+func _block_with_ward(amount: float) -> void:
 	var perfect := _ward_left > WARD_TIME - WARD_PERFECT
+	if not perfect:
+		_ward_hp = maxf(0.0, _ward_hp - amount)
 	Audio.play_fx("slang_ward_block", 0.0 if perfect else -3.0, 0.05)
 	Fx.punch(self, 0.06)
 	Fx.ring_pulse(self, WARD_COLOR, 110.0 if perfect else 70.0)
@@ -658,46 +674,77 @@ func _block_with_ward() -> void:
 		var flare := _ward_fx.create_tween()
 		flare.tween_property(_ward_fx, "modulate", Color.WHITE, 0.2)
 	warded.emit(perfect)
+	if _ward_hp <= 0.0:
+		_ward_left = 0.0
+		_drop_ward_fx()
+
+
+func _refresh_ward_tint() -> void:
+	if _ward_fx == null or not is_instance_valid(_ward_fx):
+		return
+	var remain := clampf(_ward_hp / WARD_BARRIER, 0.0, 1.0)
+	_ward_fx.modulate.a = lerpf(0.78, 0.92, remain)
 
 
 func _raise_ward_fx() -> void:
 	_drop_ward_fx()
-	var ward := Node2D.new()
+	var frames := _ward_sprite_frames()
+	if frames == null:
+		return
+	var ward := AnimatedSprite2D.new()
 	ward.name = "Ward"
-	ward.position = Vector2(0.0, -40.0)
+	ward.sprite_frames = frames
+	ward.centered = true
 	ward.z_index = 6
-	var dome := Polygon2D.new()
-	var rim := Line2D.new()
-	var weave := Line2D.new()
-	var dome_points := PackedVector2Array()
-	for i in range(40):
-		var a := TAU * float(i) / 40.0
-		dome_points.append(Vector2(cos(a) * 52.0, sin(a) * 62.0))
-	dome.polygon = dome_points
-	dome.color = Palette.alpha(WARD_COLOR, 0.16)
-	rim.points = dome_points
-	rim.closed = true
-	rim.width = 3.0
-	rim.default_color = Palette.alpha(WARD_COLOR, 0.9)
-	# A second, rotated ellipse reads as threads crossing over the dome.
-	for i in range(40):
-		var a := TAU * float(i) / 40.0
-		weave.add_point(Vector2(cos(a) * 58.0, sin(a) * 26.0).rotated(0.5))
-	weave.closed = true
-	weave.width = 2.0
-	weave.default_color = Palette.alpha(WARD_COLOR, 0.6)
-	var additive := CanvasItemMaterial.new()
-	additive.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	for part: CanvasItem in [dome, rim, weave]:
-		part.material = additive
-		ward.add_child(part)
+	ward.z_as_relative = true
+	ward.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	ward.modulate.a = 0.92
 	add_child(ward)
+	ward.play(&"hold")
 	_ward_fx = ward
-	ward.scale = Vector2(0.4, 0.4)
+	_fit_ward()
+	var fitted := ward.scale
+	ward.scale = fitted * 0.45
 	var grow := ward.create_tween()
-	grow.set_parallel(true)
-	grow.tween_property(ward, "scale", Vector2.ONE, 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	grow.tween_property(weave, "rotation", TAU * 0.5, WARD_TIME)
+	grow.tween_property(ward, "scale", fitted, 0.12)\
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _ward_sprite_frames() -> SpriteFrames:
+	if _ward_frames != null:
+		return _ward_frames
+	var image := Palette.read_image(WARD_SHEET)
+	if image == null:
+		return null
+	var frames := SpriteFrames.new()
+	frames.add_animation(&"hold")
+	frames.set_animation_loop(&"hold", true)
+	frames.set_animation_speed(&"hold", 8.0)
+	var cell_w := maxi(1, int(image.get_width() / float(WARD_SHEET_FRAMES)))
+	var cell_h := image.get_height()
+	for i in WARD_SHEET_FRAMES:
+		var cell := image.get_region(Rect2i(i * cell_w, 0, cell_w, cell_h))
+		frames.add_frame(&"hold", ImageTexture.create_from_image(cell))
+	_ward_frames = frames
+	return frames
+
+
+## Ward is centered on her and taller than her body, so the cloth covers her.
+func _fit_ward() -> void:
+	if _ward_fx == null or not is_instance_valid(_ward_fx):
+		return
+	var ward := _ward_fx as AnimatedSprite2D
+	if ward == null:
+		return
+	var frame_h := 336.0
+	if ward.sprite_frames != null and ward.sprite_frames.has_animation(&"hold"):
+		var tex := ward.sprite_frames.get_frame_texture(&"hold", 0)
+		if tex != null:
+			frame_h = tex.get_height()
+	var body := 92.0 * maxf(_depth_scale, 0.2)
+	var fitted := body * 1.35 / frame_h
+	_ward_fx.scale = Vector2(fitted, fitted)
+	_ward_fx.position = Vector2(0.0, -body * 0.5)
 
 
 func _drop_ward_fx() -> void:
@@ -831,7 +878,9 @@ func _engage_target(target: Variant) -> bool:
 
 
 func _try_auto_attack() -> void:
-	if not input_enabled or _dead or not has_staff:
+	if not input_enabled or _dead or not has_staff or not _chasing:
+		return
+	if _steering() != Vector2.ZERO:
 		return
 	if _locked_target == null or _attack_timer > 0.0 or _dodge_left > 0.0:
 		return
@@ -914,11 +963,43 @@ func _validate_locked_target() -> void:
 
 
 func _face_locked_target() -> void:
-	if _dodge_left > 0.0:
+	if _dodge_left > 0.0 or not _chasing or _steering() != Vector2.ZERO:
 		return
 	if _locked_target == null or not is_instance_valid(_locked_target):
 		return
 	_face_vector(_locked_target.global_position - global_position)
+
+
+func _steering() -> Vector2:
+	if not input_enabled or _dead:
+		return Vector2.ZERO
+	var up_down_neg := "move_up" if InputMap.has_action("move_up") else "move_forward"
+	var up_down_pos := "move_down" if InputMap.has_action("move_down") else "move_back"
+	return Input.get_vector("move_left", "move_right", up_down_neg, up_down_pos)
+
+
+## Closest enemy in front of `aim`, close enough for the staff to reach.
+func _nearest_ahead(aim: Vector2) -> Node2D:
+	if aim.length() < 0.01:
+		return null
+	var aim_n := aim.normalized()
+	var best: Node2D = null
+	var best_d := MELEE_REACH
+	for node in get_tree().get_nodes_in_group("hittable"):
+		if not _is_valid_hit(node):
+			continue
+		var target := node as Node2D
+		var to_target := target.global_position - global_position
+		if to_target.length() < 1.0:
+			continue
+		if aim_n.dot(to_target.normalized()) < 0.55:
+			continue
+		var dist := Iso.iso_distance(global_position, target.global_position)
+		if dist > best_d:
+			continue
+		best_d = dist
+		best = target
+	return best
 
 
 ## Prefer the hittable under the cursor; otherwise the closest near the click.
@@ -1042,8 +1123,8 @@ func is_dodge_invulnerable() -> bool:
 func take_damage(amount: float, _source: Node = null) -> void:
 	if _dead or amount <= 0.0:
 		return
-	if _ward_left > 0.0:
-		_block_with_ward()
+	if _ward_left > 0.0 and _ward_hp > 0.0:
+		_block_with_ward(amount)
 		return
 	if _invulnerable > 0.0:
 		return
@@ -1195,6 +1276,7 @@ func _build_visuals() -> void:
 		add_child(_animated)
 
 	_animated.centered = true
+	_animated.z_index = 4
 	# Locked for every animation — see SlangFrames header comments.
 	# Frame canvas: 256×192 px, feet at bottom-centre. Keep a uniform scale:
 	# scaling X by canvas width would squash S'lang after widening attack cells.

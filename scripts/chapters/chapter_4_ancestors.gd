@@ -253,6 +253,8 @@ func _run_chapter() -> void:
 		_plate.bloom_restore(2.8)
 		_plate.bloom_sanctity(1.0, 2.2)
 	restore_local_color(_loom_anchor)
+	if _beacon != null:
+		_beacon.clear()
 
 	await complete_chapter([
 		{"speaker": "Fun Kdungon", "text": "Lang Dulay held a hundred of these in her head and gave them away to anyone who would sit still and learn. That is the whole of it. Memory is a craft."},
