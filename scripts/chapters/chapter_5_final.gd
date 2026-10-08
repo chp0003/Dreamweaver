@@ -7,10 +7,10 @@ extends "res://scripts/chapters/house_quest.gd"
 ##                                darkness pools. WASD to move, Space for a
 ##                                staff sweep, Q for the sonic shockwave. The
 ##                                loom is sealed until every sprite is gone.
-##   Phase 2  The Duel            the Shadow Weaver fights with a real skill kit
-##                                (claw, lunge, slam, volley, dash, nova).
-##                                Dodge the red tells, punish the recover.
-##   Phase 3  Colour returns      beating the Weaver triggers the Color Burst.
+##   Phase 2  The Duel            Defend: roll and ward the bleach tells.
+##                                Weave: a heavy stun opens the loom. E starts
+##                                the rhythm track; clean notes damage him.
+##   Phase 3  The Finishing Stitch  a W A S D stitch, then the Color Burst.
 
 const COLLISION_SCENE := "res://scenes/world/House5Collision.tscn"
 
@@ -32,6 +32,13 @@ const APPROACH_RADIUS := 220.0
 ## Flat heal after breach waves 1 and 2. Wave 3 still fills her before the duel.
 const WAVE_HEAL_PARTIAL := 30.0
 const BOSS_MUSIC := "res://assets/audio/music/boss_shadow_weaver.wav"
+const RHYTHM_TRACK := "res://scenes/minigames/RhythmTrack.tscn"
+const FINISHING_STITCH := "res://scenes/minigames/QteSequence.tscn"
+## One clean rhythm note, before the stagger damage bonus.
+const WEAVE_NOTE_DAMAGE := 55.0
+const LOOM_MAX := 100.0
+const LOOM_BLEACH_HIT := 16.0
+const WEAVE_WAIT := 12.0
 const STAGE_LINES := {
 	2: "ENOUGH! You will drown in the dark!",
 	3: "No! I will not fade! I will not be forgotten!",
@@ -59,6 +66,10 @@ var _phase := 0
 var _block_taught := false
 var _weave_taught := false
 var _perfect_taught := false
+var _weaving := false
+var _loom_pressed := false
+var _loom_hp := LOOM_MAX
+var _burst_live := false
 
 
 func uses_painted_plate() -> bool:
@@ -137,6 +148,7 @@ func _mount_collision() -> void:
 				_plate.attach_solids(world)
 		return
 	var root := packed.instantiate() as Node2D
+	strip_editor_marks(root)
 	root.name = "House5Collision"
 	var hall := root.get_node_or_null("HallCollision") as StaticBody2D
 	if hall != null:
@@ -164,6 +176,8 @@ func _build_hall() -> void:
 		"enabled": false,
 		"radius": 120.0,
 	})
+	if _loom_trigger != null:
+		_loom_trigger.interacted.connect(_on_loom_used)
 	_loom_mark = StationMarker.new()
 	_loom_mark.title = "THE LOOM"
 	_loom.add_child(_loom_mark)
@@ -408,9 +422,11 @@ func _phase_two_duel() -> bool:
 	if hud != null:
 		if hud.has_method("show_boss_health"):
 			hud.call("show_boss_health", true)
-		elif hud.has_method("show_loom_integrity"):
+		if hud.has_method("show_loom_integrity"):
 			hud.call("show_loom_integrity", true)
+		_loom_hp = LOOM_MAX
 		_sync_boss_hud()
+		_sync_loom_hud()
 
 	if not _boss.telegraph_started.is_connected(_on_telegraph_started):
 		_boss.telegraph_started.connect(_on_telegraph_started)
@@ -424,41 +440,52 @@ func _phase_two_duel() -> bool:
 
 	_enter_fight_stance()
 	_coach(
-		"Dodge, then punish",
-		"Roll the red, then hit the recover. Shift rolls, 1 wards, 2 is the beam.",
-		["SHIFT", "1", "2", "SPACE"]
+		"Defend, then weave",
+		"A whistle means a bleach attack. Roll or ward. When he drops, press E at the loom.",
+		["SHIFT", "1", "E"]
 	)
 	_boss.begin_duel()
 
-	await until(func() -> bool: return _duel_over or is_finished())
+	await until(func() -> bool: return (_duel_over and not _weaving) or is_finished())
 	clear_camera_focus()
 	return not is_finished()
 
 
-## PHASE 3 - the Weaver is down. Colour returns. No minigame.
+## PHASE 3 - the Weaver kneels. The last stitch, then the Color Burst.
 func _phase_three_finish() -> void:
 	_phase = 3
 	_set_steps(2)
 	_boss.end_duel()
+	if _boss_alive() or (_boss != null and is_instance_valid(_boss)):
+		_boss.kneel()
 	counter("")
 	_clear_coach()
 	_point_loom(false)
-	if hud != null and hud.has_method("set_mode"):
-		hud.call("set_mode", "")
 	if hud != null:
 		if hud.has_method("show_boss_health"):
 			hud.call("show_boss_health", false)
-		elif hud.has_method("show_loom_integrity"):
+		if hud.has_method("show_loom_integrity"):
 			hud.call("show_loom_integrity", false)
 	if player != null and is_instance_valid(player) and not player.is_dead():
 		player.heal_full()
-	objective("")
 	Audio.set_combat_drums(0.25, 104.0)
 	if is_instance_valid(_loom):
-		focus_camera_on(_loom.global_position + Vector2(0.0, -40.0), Vector2(1.12, 1.12))
+		focus_camera_on(_loom.global_position + Vector2(0.0, -30.0), Vector2(1.42, 1.42))
 	await say([
 		{"speaker": "S'lang", "text": "I remember you. That is enough."},
 	])
+	objective("The last stitch. Press each letter before the bar empties.")
+	if hud != null and hud.has_method("set_mode"):
+		hud.call("set_mode", "FINISH  —  W A S D", Color(0.98, 0.9, 0.55))
+	var stitched := false
+	while not stitched and not is_finished():
+		stitched = await run_mini_game(FINISHING_STITCH, {}, _wire_finish)
+		if not stitched and not is_finished():
+			_burst_live = false
+			await say(["The thread slips. Begin the stitch again."])
+	if hud != null and hud.has_method("set_mode"):
+		hud.call("set_mode", "")
+	objective("")
 	await _color_burst()
 	await _closing_cutscene()
 
@@ -489,7 +516,7 @@ func _spawn_pack(count: int) -> void:
 		var minion := place_minion(origin, {
 			"combat_style": style,
 			"max_health": 38.0 if style == "caster" else 42.0,
-			"speed": 84.0 if style == "caster" else (108.0 if style == "dasher" else 96.0),
+			"speed": 84.0 if style == "caster" else (128.0 if style == "dasher" else 118.0),
 			"touch_damage": 9.0 if style == "caster" else 11.0,
 			"spawn_delay": 0.22 + float(i) * 0.10,
 		})
@@ -695,30 +722,115 @@ func _enter_fight_stance() -> void:
 	if _loom_trigger != null:
 		_loom_trigger.set_enabled(false)
 	_point_loom(false)
-	objective("Dodge the skills. Kill the Weaver.")
+	objective("Defend. Roll the red tells. Ward with [1].")
 	if hud != null and hud.has_method("set_mode"):
-		hud.call("set_mode", "SHIFT dodge   1 ward   2 beam   SPACE strike   Q shock", Color(0.94, 0.72, 0.48))
-	counter("Roll the red. Hit the recover.")
+		hud.call("set_mode", "DEFEND  —  Shift roll   1 ward", Color(0.94, 0.72, 0.48))
+	counter("Defend mode. A whistle warns you.")
 	if _plate != null:
 		_plate.set_loom_energy(0.55)
 
 
-func _enter_punish_window() -> void:
+func _on_loom_used() -> void:
+	if _phase != 2 or not _weaving:
+		return
+	_loom_pressed = true
 	if _loom_trigger != null:
 		_loom_trigger.set_enabled(false)
-	_point_loom(false)
-	objective("It's stunned. Hit it. Press [Space].")
+
+
+func _open_weave() -> void:
+	if _weaving or _duel_over or _phase != 2:
+		return
+	_weaving = true
+	_loom_pressed = false
+	if _boss != null and is_instance_valid(_boss):
+		_boss.set_combat_paused(true)
+	if _loom_trigger != null:
+		_loom_trigger.set_enabled(true)
+	_point_loom(true, "[E]")
+	objective("He's stunned. Press [E] at the Sacred Loom.")
 	if hud != null and hud.has_method("set_mode"):
-		hud.call("set_mode", "HIT  —  now", Color(0.92, 0.84, 0.5))
-	counter("Stunned — swing.")
+		hud.call("set_mode", "WEAVE  —  press E at the loom", Color(0.95, 0.84, 0.45))
+	counter("Weave mode. The loom takes the rhythm.")
 	if not _weave_taught:
 		_weave_taught = true
-		_coach("Punish", "The Weaver is down. Stay on it and swing.", ["SPACE"])
+		_coach("Weave", "Walk to the loom and press E. Match the notes with W A S D.", ["E"])
 	if _plate != null:
 		_plate.set_loom_energy(1.4)
 	if _loom_aura != null:
 		_loom_aura.set_energy(1.3, 0.4)
 		_loom_aura.burst()
+
+	var waited := 0.0
+	while waited < WEAVE_WAIT and not _loom_pressed and not _duel_over and not is_finished():
+		await wait(0.1)
+		waited += 0.1
+	if _loom_trigger != null:
+		_loom_trigger.set_enabled(false)
+	_point_loom(false)
+	_clear_coach()
+	if _loom_pressed and not _duel_over and not is_finished() and _boss_alive():
+		if hud != null and hud.has_method("set_mode"):
+			hud.call("set_mode", "WEAVE  —  W A S D", Color(0.95, 0.84, 0.45))
+		await run_mini_game(RHYTHM_TRACK, {}, _wire_rhythm)
+	_close_weave()
+
+
+func _wire_rhythm(game: Node) -> void:
+	if game.has_signal("note_resolved"):
+		game.connect("note_resolved", _on_rhythm_note)
+
+
+func _on_rhythm_note(hit: bool) -> void:
+	if not hit or not _boss_alive():
+		return
+	_boss.take_damage(WEAVE_NOTE_DAMAGE, player)
+	Fx.light_burst(_boss, Palette.GOLD_SUN)
+	_repair_loom(4.0)
+
+
+func _close_weave() -> void:
+	var was_weaving := _weaving
+	_weaving = false
+	_loom_pressed = false
+	if _loom_trigger != null:
+		_loom_trigger.set_enabled(false)
+	_point_loom(false)
+	if _boss_alive():
+		_boss.set_combat_paused(false)
+		if was_weaving:
+			_boss.end_stagger_early()
+	if not _duel_over and not is_finished():
+		_enter_fight_stance()
+
+
+func _boss_alive() -> bool:
+	return _boss != null and is_instance_valid(_boss) and _boss.health > 0.0
+
+
+func _damage_loom(amount: float) -> void:
+	_loom_hp = maxf(0.0, _loom_hp - amount)
+	_sync_loom_hud()
+	if _plate != null:
+		_plate.set_loom_energy(0.25 + 0.75 * (_loom_hp / LOOM_MAX))
+	if _loom_hp > 0.0:
+		return
+	banner("The loom frays.", 1.4)
+	shake_camera(8.0)
+	if player != null and is_instance_valid(player) and not player.is_dead():
+		player.take_damage(22.0, _boss)
+	_loom_hp = 40.0
+	_sync_loom_hud()
+
+
+func _repair_loom(amount: float) -> void:
+	_loom_hp = minf(LOOM_MAX, _loom_hp + amount)
+	_sync_loom_hud()
+
+
+func _sync_loom_hud() -> void:
+	if hud != null and hud.has_method("set_loom_integrity"):
+		hud.call("set_loom_integrity", _loom_hp / LOOM_MAX)
 
 
 ## Staff swings shake the hall. Defence is the dodge, not a parry QTE.
@@ -743,6 +855,7 @@ func _on_player_attack_hit(_hit: Node2D) -> void:
 
 
 func _on_telegraph_started(_window: float) -> void:
+	Audio.play_wind_whistle()
 	if not _block_taught:
 		_block_taught = true
 		_clear_coach()
@@ -773,15 +886,16 @@ func _on_telegraph_resolved(parried: bool) -> void:
 		shake_camera(6.0)
 		return
 	shake_camera(10.0 if _boss != null and _boss.is_heavy_attack() else 6.0)
+	_damage_loom(LOOM_BLEACH_HIT if _boss != null and _boss.is_heavy_attack() else LOOM_BLEACH_HIT * 0.5)
 	if _boss != null and _boss.is_heavy_attack():
-		counter("Missed — now hit it")
+		counter("The bleach lands. The loom frays.")
 	else:
-		counter("Keep swinging")
+		counter("Keep defending")
 
 
 func _on_boss_staggered(_duration: float) -> void:
-	_enter_punish_window()
 	shake_camera(8.0)
+	_open_weave()
 
 
 func _on_boss_stage_changed(stage: int, _line: String) -> void:
@@ -808,14 +922,15 @@ func _on_boss_perfect_dodged() -> void:
 		return
 	shake_camera(5.0)
 	var guarded := player != null and player.is_warding()
-	counter(("PERFECT GUARD" if guarded else "PERFECT DODGE") + "  —  punish him now")
+	counter(("PERFECT GUARD" if guarded else "PERFECT DODGE") + "  —  the loom holds")
+	_repair_loom(8.0)
 	if not _perfect_taught:
 		_perfect_taught = true
 		_coach("Perfect timing", "A perfect roll or ward opens him. Swing.", ["SPACE"])
 
 
 func _on_boss_recovered() -> void:
-	if _duel_over:
+	if _duel_over or _weaving:
 		return
 	_clear_coach()
 	_enter_fight_stance()
@@ -830,8 +945,7 @@ func _sync_boss_hud() -> void:
 		return
 	if hud.has_method("set_boss_health"):
 		hud.call("set_boss_health", _boss.health, _boss.max_health)
-	elif hud.has_method("set_loom_integrity"):
-		hud.call("set_loom_integrity", _boss.health_ratio())
+	_sync_loom_hud()
 
 
 func _update_duel_camera() -> void:
@@ -853,6 +967,31 @@ func _on_boss_defeated() -> void:
 # Phase 3 - the payoff
 # --------------------------------------------------------------------------
 
+func _wire_finish(game: Node) -> void:
+	if game.has_signal("final_stitch"):
+		game.final_stitch.connect(_launch_color_burst)
+
+
+## The last correct key throws the burst out from the loom.
+func _launch_color_burst() -> void:
+	if _burst_live:
+		return
+	_burst_live = true
+	Audio.play_sfx(Audio.Sfx.CHIME)
+	Audio.play_brass_shock()
+	shake_camera(16.0)
+	if _plate != null:
+		_plate.set_loom_energy(1.8)
+	if _loom_aura != null:
+		_loom_aura.set_energy(1.6, 0.6)
+		_loom_aura.burst()
+	var burst := _make_burst()
+	burst.global_position = _loom.global_position if is_instance_valid(_loom) else Vector2.ZERO
+	var host: Node = world if world != null else self
+	host.add_child(burst)
+	burst.emitting = true
+
+
 ## Full-screen particle bloom, then the grayscale shader is switched off for
 ## good and the save is marked complete.
 func _color_burst() -> void:
@@ -860,8 +999,7 @@ func _color_burst() -> void:
 	counter("")
 	objective("")
 	banner("Colour returns.")
-	Audio.play_sfx(Audio.Sfx.CHIME)
-	Audio.play_brass_shock()
+	_launch_color_burst()
 	shake_camera(10.0)
 
 	if is_instance_valid(_boss):
@@ -874,22 +1012,16 @@ func _color_burst() -> void:
 			dissolve.set_parallel(true)
 			dissolve.tween_property(_boss, "modulate:a", 0.0, 1.15)
 			dissolve.tween_property(_boss, "scale", Vector2(1.7, 0.12), 1.15)
-	await wait(0.85)
+	await wait(0.2)
 
 	if _loom != null:
-		ColorRestoration.bloom_zone("color_burst", _loom, 280.0, 1.0, 1.1)
-	await wait(1.0)
+		ColorRestoration.bloom_zone("color_burst", _loom, 280.0, 1.0, 0.45)
+	await wait(0.2)
 
 	if _loom != null:
 		ColorRestoration.bloom_zone("color_burst", _loom, 720.0, 1.0, 1.4)
 	Audio.play_sfx(Audio.Sfx.SUCCESS)
 	Audio.play_sfx(Audio.Sfx.BELL)
-
-	var burst := _make_burst()
-	burst.global_position = _loom.global_position if is_instance_valid(_loom) else Vector2.ZERO
-	world.add_child(burst)
-	burst.emitting = true
-	shake_camera(16.0)
 
 	var flash := ColorRect.new()
 	flash.color = Color(1, 0.96, 0.82, 0)
@@ -923,12 +1055,14 @@ func _color_burst() -> void:
 func _make_burst() -> GPUParticles2D:
 	var material := ParticleProcessMaterial.new()
 	material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	material.emission_sphere_radius = 24.0
+	material.emission_sphere_radius = 18.0
 	material.direction = Vector3(0.0, -1.0, 0.0)
 	material.spread = 180.0
-	material.initial_velocity_min = 260.0
-	material.initial_velocity_max = 740.0
-	material.gravity = Vector3(0.0, 80.0, 0.0)
+	material.initial_velocity_min = 480.0
+	material.initial_velocity_max = 1100.0
+	material.gravity = Vector3.ZERO
+	material.radial_accel_min = 40.0
+	material.radial_accel_max = 160.0
 	material.scale_min = 2.2
 	material.scale_max = 7.0
 	material.angular_velocity_min = -220.0
@@ -948,10 +1082,10 @@ func _make_burst() -> GPUParticles2D:
 	var particles := GPUParticles2D.new()
 	particles.name = "ColorBurst"
 	particles.process_material = material
-	particles.amount = 900
-	particles.lifetime = 2.8
+	particles.amount = 1100
+	particles.lifetime = 1.7
 	particles.one_shot = true
-	particles.explosiveness = 0.94
+	particles.explosiveness = 1.0
 	particles.emitting = false
 	particles.z_index = 60
 	return particles

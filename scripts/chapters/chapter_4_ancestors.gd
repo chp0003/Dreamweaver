@@ -102,6 +102,7 @@ func _mount_collision() -> void:
 				_plate.attach_solids(world)
 		return
 	var root := packed.instantiate() as Node2D
+	strip_editor_marks(root)
 	root.name = "House4Collision"
 	var hall := root.get_node_or_null("HallCollision") as StaticBody2D
 	if hall != null:
@@ -177,6 +178,8 @@ func _build_hall() -> void:
 		trigger.interacted.connect(_on_statue_interacted.bind(i))
 		_statue_triggers.append(trigger)
 
+	if _hall_is_settled() or GameState.lore.has("taboo"):
+		return
 	var scroll := place_collectible("Lore Scroll: Taboos of the Loom", _plate.scroll_world(), {
 		"texture_path": "res://assets/images/lore/lore_taboo.png",
 		"tint": Color(0.78, 0.72, 0.56),
@@ -263,7 +266,26 @@ func _run_chapter() -> void:
 	])
 
 
+func apply_restored_color() -> void:
+	super.apply_restored_color()
+	if _plate != null:
+		_plate.set_restore(1.0)
+		_plate.set_sanctity(1.0)
+		_plate.set_loom_energy(1.2)
+		for i in 4:
+			_plate.set_statue_energy(i, 0.85)
+	if _hall_is_settled():
+		_hide_settled_guide()
+		_remove_settled_scroll()
+
+
+func _hall_is_settled() -> bool:
+	return GameState.is_house_completed(house_id) and not GameState.wants_replay(house_id)
+
+
 func set_guide_here(here: bool) -> void:
+	if _hall_is_settled():
+		here = false
 	if _ghost == null or not is_instance_valid(_ghost):
 		return
 	_ghost.visible = here
@@ -271,9 +293,24 @@ func set_guide_here(here: bool) -> void:
 		if _ghost_trigger != null and is_instance_valid(_ghost_trigger):
 			_ghost_trigger.set_enabled(false)
 		return
-	var settled := GameState.is_house_completed(house_id) and not GameState.wants_replay(house_id)
-	if settled:
-		_ghost.modulate.a = 1.0
+
+
+func _hide_settled_guide() -> void:
+	if _ghost != null and is_instance_valid(_ghost):
+		_ghost.visible = false
+		_ghost.modulate.a = 0.0
+	if _ghost_trigger != null and is_instance_valid(_ghost_trigger):
+		_ghost_trigger.set_enabled(false)
+
+
+func _remove_settled_scroll() -> void:
+	var tree := get_tree()
+	if tree == null:
+		return
+	for node in tree.get_nodes_in_group("collectible"):
+		var item := node as Collectible
+		if item != null and item.lore_id == "taboo":
+			item.queue_free()
 
 
 func _appear_ghost() -> void:

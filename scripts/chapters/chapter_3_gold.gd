@@ -105,6 +105,7 @@ func _mount_collision() -> void:
 				_plate.attach_solids(world)
 		return
 	var root := packed.instantiate() as Node2D
+	strip_editor_marks(root)
 	root.name = "House3Collision"
 	var hall := root.get_node_or_null("HallCollision") as StaticBody2D
 	if hall != null:

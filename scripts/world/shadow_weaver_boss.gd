@@ -98,6 +98,7 @@ var health := 100.0
 
 var _active := false
 var _dead := false
+var _combat_paused := false
 var _phase := Phase.Approach
 var _skill := Skill.None
 var _timer := 0.55
@@ -180,7 +181,7 @@ func _physics_process(delta: float) -> void:
 	for key in _cds.keys():
 		_cds[key] = maxf(0.0, float(_cds[key]) - delta)
 	velocity = Vector2.ZERO
-	if not _active or _dead:
+	if not _active or _dead or _combat_paused:
 		move_and_slide()
 		return
 	match _phase:
@@ -306,6 +307,11 @@ func is_staggered() -> bool:
 
 func is_telegraphing() -> bool:
 	return _phase == Phase.Windup
+
+
+## Holds the duel still while S'lang is at the loom. Stagger time does not run out.
+func set_combat_paused(paused: bool) -> void:
+	_combat_paused = paused
 
 
 func current_move() -> String:
@@ -550,6 +556,7 @@ func _die() -> void:
 func _end_stagger() -> void:
 	_phase = Phase.Approach
 	_stagger_left = 0.0
+	_poise = 0.0
 	_timer = 0.55
 	_clear_stun_fx()
 	_play_visual("idle", true)

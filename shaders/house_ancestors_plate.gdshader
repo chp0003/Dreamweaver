@@ -13,6 +13,8 @@ uniform float statue_energy[4];
 uniform vec2 loom_uv = vec2(0.50, 0.38);
 uniform float loom_energy = 0.0;
 
+#include "res://shaders/plate_motion.gdshaderinc"
+
 vec3 hub_curse(vec3 c) {
 	float luma = dot(c, vec3(0.299, 0.587, 0.114));
 	vec3 dead = vec3(luma);
@@ -25,7 +27,10 @@ vec3 hub_curse(vec3 c) {
 }
 
 void fragment() {
-	vec3 c = texture(TEXTURE, UV).rgb;
+	vec3 still = texture(TEXTURE, UV).rgb;
+	vec2 moved = motion_uv(UV, still, TEXTURE_PIXEL_SIZE, TIME);
+	vec3 c = texture(TEXTURE, moved).rgb;
+	c += vec3(1.0, 0.74, 0.38) * motion_glow(UV, still, TIME);
 	vec3 dead = hub_curse(c);
 	vec2 from_centre = (UV - vec2(0.50, 0.36)) * vec2(1.10, 1.08);
 	float vig = smoothstep(0.34, 1.18, length(from_centre));
@@ -46,6 +51,9 @@ void fragment() {
 
 	vec3 night = base * vec3(0.16, 0.15, 0.14);
 	vec3 cream = vec3(1.04, 0.98, 0.88);
-	vec3 seen = mix(night, base * mix(vec3(1.0), cream, sanctity * 0.18), clamp(light, 0.0, 1.0));
+	// During the quest the hall is a dark room lit by S'lang. Once memory has
+	// returned, the whole floor stays lit.
+	float revealed = mix(clamp(light, 0.0, 1.0), 1.0, restore * sanctity);
+	vec3 seen = mix(night, base * mix(vec3(1.0), cream, sanctity * 0.18), revealed);
 	COLOR = vec4(clamp(seen, 0.0, 1.0), 1.0);
 }

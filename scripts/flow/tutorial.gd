@@ -24,6 +24,24 @@ func creep_world(index: int) -> Vector2:
 	return Iso.cell_to_world(Vector2(-4.5, 1.2) if index == 0 else Vector2(4.5, 1.6))
 
 
+func strand_world() -> Vector2:
+	if _plate != null:
+		return _plate.strand_world()
+	return Iso.cell_to_world(Vector2(-1.4, 2.4))
+
+
+func spawn_tutorial_strand() -> Collectible:
+	return spawn_collectible("Faded Abaca Strand", Vector2.ZERO, {
+		"position": strand_world(),
+		"texture_path": "res://assets/images/props/abaca_strand.png",
+		"tint": Color(1.0, 0.92, 0.55),
+		"score_value": 0,
+		"highlight": true,
+		"art_size": Vector2(96.0, 36.0),
+		"pickup_radius": 56.0,
+	})
+
+
 func _build_world() -> void:
 	if floor_node != null:
 		floor_node.visible = false

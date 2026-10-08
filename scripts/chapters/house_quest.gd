@@ -46,6 +46,17 @@ func build() -> void:
 	_build_world()
 
 
+## Collision scenes carry editor-only people and a second copy of the painting.
+## Those must not enter the running game, or a frozen S'lang stays in the hall.
+func strip_editor_marks(root: Node) -> void:
+	if root == null:
+		return
+	for node_name in ["CharacterRefs", "PlateRef"]:
+		var mark := root.get_node_or_null(node_name)
+		if mark != null:
+			mark.free()
+
+
 ## Painted-plate Houses (Chapter 1) skip the iso diamond and walk a 16:9 picture.
 func uses_painted_plate() -> bool:
 	return false

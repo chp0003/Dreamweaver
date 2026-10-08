@@ -41,6 +41,8 @@ var _regions: Array[Rect2] = []
 ## Medium only: slots that show Fun Kdungon. Plain wood slots are not part of the solve.
 var _figure_slots: Array[bool] = []
 var _portrait_on_plate := Rect2i()
+var _plate_image: Image
+var _celebrating := false
 var _board_size := Vector2(420.0, 420.0)
 var _cell := Vector2.ZERO
 var _gap := 4.0
@@ -148,6 +150,7 @@ func _reset_round() -> void:
 	_moves = 0
 	_selected = -1
 	_sliding = false
+	_celebrating = false
 	_drag_from = -1
 	_ignore_click = false
 	_load_cloth()
@@ -163,6 +166,12 @@ func _reset_round() -> void:
 
 func _process(delta: float) -> void:
 	super._process(delta)
+	# A board that is already whole (no further slide) still has to finish.
+	if _celebrating or not running or _sliding or _current.is_empty():
+		return
+	if _is_solved():
+		_celebrating = true
+		_finish_solved()
 
 
 func _load_cloth() -> void:
@@ -170,6 +179,7 @@ func _load_cloth() -> void:
 	if path.is_empty():
 		path = _default_cloth_path()
 	_portrait_on_plate = Rect2i()
+	_plate_image = null
 	_cloth = _load_texture(path)
 	if _cloth == null and difficulty == Difficulty.Hard:
 		_cloth = _load_texture(HARD_FALLBACK_PATH)
@@ -258,6 +268,7 @@ func _compose_portrait_plate(source: Texture2D) -> Texture2D:
 	var origin := Vector2i((PORTRAIT_PLATE.x - dw) / 2, (PORTRAIT_PLATE.y - dh) / 2)
 	_portrait_on_plate = Rect2i(origin.x, origin.y, dw, dh)
 	plate.blend_rect(cropped, Rect2i(0, 0, dw, dh), origin)
+	_plate_image = plate
 	return ImageTexture.create_from_image(plate)
 
 
@@ -302,14 +313,41 @@ func _slice_regions() -> Array[Rect2]:
 
 func _mark_figure_slots(regions: Array[Rect2]) -> void:
 	_figure_slots.clear()
-	var figure_only := difficulty == Difficulty.Medium and _portrait_on_plate.size.x > 0
+	var figure_only := difficulty == Difficulty.Medium and _plate_image != null
 	for region in regions:
 		if not figure_only:
 			_figure_slots.append(true)
 			continue
-		var cell := Rect2i(int(region.position.x), int(region.position.y), int(ceil(region.size.x)), int(ceil(region.size.y)))
-		var overlap := cell.intersection(_portrait_on_plate)
-		_figure_slots.append(overlap.size.x > 0 and overlap.size.y > 0)
+		# Her bounding box is wider than her body. A wood tile that only
+		# clips that box is still wood, and must not block the finish.
+		_figure_slots.append(_cell_shows_figure(region))
+
+
+func _cell_shows_figure(region: Rect2) -> bool:
+	var image := _plate_image
+	if image == null:
+		return true
+	var wood := Palette.EARTH_WOOD
+	var x0 := clampi(int(region.position.x), 0, image.get_width() - 1)
+	var y0 := clampi(int(region.position.y), 0, image.get_height() - 1)
+	var x1 := clampi(int(ceil(region.end.x)), x0 + 1, image.get_width())
+	var y1 := clampi(int(ceil(region.end.y)), y0 + 1, image.get_height())
+	var seen := 0
+	var figure := 0
+	var y := y0
+	while y < y1:
+		var x := x0
+		while x < x1:
+			var color := image.get_pixel(x, y)
+			seen += 1
+			var diff := absf(color.r - wood.r) + absf(color.g - wood.g) + absf(color.b - wood.b)
+			if diff > 0.14:
+				figure += 1
+			x += 3
+		y += 3
+	if seen == 0:
+		return false
+	return float(figure) / float(seen) >= 0.1
 
 
 func _slot_matters(index: int) -> bool:
@@ -562,13 +600,19 @@ func _slide_animated(a: int, b: int) -> void:
 	_paint_tiles()
 	_refresh_hud()
 	_sliding = false
+	if _is_solved() and not _celebrating:
+		_celebrating = true
+		_finish_solved()
 
-	if _is_solved():
-		await _celebrate()
-		if difficulty == Difficulty.Medium:
-			succeed("Fun Kdungon stands whole.")
-		else:
-			succeed("The warp matches the dream. The cloth remembers itself.")
+
+func _finish_solved() -> void:
+	await _celebrate()
+	if not is_inside_tree() or not running:
+		return
+	if difficulty == Difficulty.Medium:
+		succeed("Fun Kdungon stands whole.")
+	else:
+		succeed("The warp matches the dream. The cloth remembers itself.")
 
 
 func _make_fly(source: TextureButton) -> TextureRect:

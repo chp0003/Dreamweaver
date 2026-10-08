@@ -106,6 +106,7 @@ func _mount_collision() -> void:
 				_plate.attach_solids(world)
 		return
 	var root := packed.instantiate() as Node2D
+	strip_editor_marks(root)
 	root.name = "House2Collision"
 	var hall := root.get_node_or_null("HallCollision") as StaticBody2D
 	if hall != null:
@@ -123,8 +124,10 @@ func _mount_collision() -> void:
 
 
 func _build_work_line() -> void:
-	_grow_vines()
-	_raise_vine_barrier()
+	# A restored visit is a clear hall. Vines only return if the quest runs again.
+	if not _hall_is_settled():
+		_grow_vines()
+		_raise_vine_barrier()
 
 	_mortar = _anchor("MortarAnchor", _plate.mortar_world())
 	_mortar_trigger = place_interactable("Crush the roots", _plate.mortar_reach_world(), {
@@ -297,11 +300,29 @@ func apply_restored_color() -> void:
 	super.apply_restored_color()
 	if _plate != null:
 		_plate.set_restore(1.0)
+	_clear_settled_vines()
+
+
+func _clear_settled_vines() -> void:
+	if not _hall_is_settled():
+		return
+	for vine in _vines:
+		if vine != null and is_instance_valid(vine):
+			vine.queue_free()
+	_vines.clear()
+	_drop_vine_barrier()
 	if _queen != null:
 		_queen.set_tint(Color.WHITE)
 
 
+func _hall_is_settled() -> bool:
+	return GameState.is_house_completed(house_id) and not GameState.wants_replay(house_id)
+
+
 func _run_chapter() -> void:
+	if _vines.is_empty():
+		_grow_vines()
+		_raise_vine_barrier()
 	if player != null and not player.has_staff:
 		player.has_staff = true
 	Audio.set_ambience(0.38, 0.0)
@@ -342,7 +363,7 @@ func _run_chapter() -> void:
 	_light_station("")
 	if _beacon != null:
 		_beacon.clear()
-	objective("Find 5 red roots in the hall. Shadows rise when you get close — press [Space] to swing.")
+	objective("Find 5 red roots in the hall. Press [R] to pick them up. Shadows rise when you get close — press [Space] to swing.")
 	_arm_root_ambushes()
 	await until(func() -> bool: return _roots >= ROOT_TOTAL)
 	_disarm_root_ambushes()

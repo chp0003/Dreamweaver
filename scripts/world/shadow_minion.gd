@@ -10,7 +10,7 @@ signal damaged(amount: float, source: Node)
 
 const AGGRO_RANGE := 240.0
 const ATTACK_RANGE := 52.0
-const TOUCH_COOLDOWN := 1.1
+const TOUCH_COOLDOWN := 0.68
 const SPECIAL_RANGE := 210.0
 ## Casters still walk in from this far. They only loose a bolt inside CASTER_FIRE_RANGE.
 const CASTER_SIGHT := 920.0
@@ -19,7 +19,7 @@ const CASTER_FIRE_RANGE := 460.0
 ## Heal on a normal kill, as a fraction of S'lang's max health. Boss adds pay nothing.
 const KILL_HEAL_RATIO := 0.04
 ## Chaser tell before the swing. The hit is checked again when this ends.
-const CHASER_WINDUP := 0.28
+const CHASER_WINDUP := 0.16
 ## Bolts steer only this long after launch, then fly straight.
 const BOLT_HOMING_TIME := 0.18
 const SHEET_DIR := "res://assets/images/enemies/minion/"
@@ -32,7 +32,7 @@ const BODY_ANIMS := {
 	&"spawn": [14.0, false],
 	&"idle": [7.0, true],
 	&"walk": [11.0, true],
-	&"attack": [18.0, false],
+	&"attack": [26.0, false],
 	&"dash": [16.0, false],
 	&"cast": [14.0, false],
 	&"hurt": [22.0, false],
@@ -113,7 +113,9 @@ func _tick(delta: float) -> void:
 		return
 
 	var away := global_position - _player.global_position
-	if _hurt_lock > 0.0:
+	# A chaser who has already started the swing still lands it. Cancelling
+	# that tell on every hit is why they died before the first attack.
+	if _hurt_lock > 0.0 and not (_windup_left > 0.0 and combat_style != "caster"):
 		_cancel_special()
 		velocity = away.normalized() * 150.0 if away.length() > 0.01 else Vector2.ZERO
 		move_and_slide()
@@ -151,7 +153,7 @@ func _tick(delta: float) -> void:
 		move_and_slide()
 		return
 	if combat_style == "dasher" and _action_timer <= 0.0 and dist < SPECIAL_RANGE:
-		_begin_special(0.48)
+		_begin_special(0.30)
 		move_and_slide()
 		return
 	if combat_style == "stalker":
@@ -195,7 +197,7 @@ func _move_stalker(dist: float) -> void:
 		velocity = tangent * speed * 0.82
 		if _action_timer <= 0.0:
 			_strafe_sign *= -1.0
-			_begin_special(0.34)
+			_begin_special(0.22)
 
 
 func _begin_chaser_windup() -> void:
@@ -210,7 +212,7 @@ func _begin_chaser_windup() -> void:
 func _begin_special(duration: float) -> void:
 	_windup_left = duration
 	_windup_total = duration
-	_action_timer = randf_range(2.0, 3.2)
+	_action_timer = randf_range(2.0, 3.2) if combat_style == "caster" else randf_range(1.05, 1.55)
 	velocity = Vector2.ZERO
 	_anim_locked = false
 	if _action_tell != null:
@@ -226,10 +228,10 @@ func _commit_special() -> void:
 	var toward := (_player.global_position - global_position).normalized()
 	match combat_style:
 		"chaser":
-			if Iso.iso_distance(global_position, _player.global_position) <= ATTACK_RANGE:
+			if Iso.iso_distance(global_position, _player.global_position) <= ATTACK_RANGE * 1.35:
 				_try_touch()
 			else:
-				_touch_timer = TOUCH_COOLDOWN
+				_touch_timer = 0.18
 		"caster":
 			_play_combat_anim(&"cast", CAST_WINDUP_FRAMES + 1)
 			Audio.play_fx("minion_cast", -2.0)

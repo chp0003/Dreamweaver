@@ -65,6 +65,9 @@ func _ready() -> void:
 	_sprite.scale = Vector2.ONE
 	_apply_grade()
 	add_child(_sprite)
+	var ambience := HouseAmbience.new()
+	ambience.name = "Ambience"
+	add_child(ambience)
 	_add_edge_walls()
 	_add_ash()
 	_push_lights()

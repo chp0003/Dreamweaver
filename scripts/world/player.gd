@@ -26,6 +26,8 @@ signal attacked(swing_position: Vector2, facing: Vector2)
 signal chimed(origin: Vector2, radius: float)
 signal staff_acquired
 signal attack_hit(hit: Node2D)
+signal dodged
+signal ward_raised
 signal warded(perfect: bool)
 
 @export var speed: float = 190.0
@@ -409,6 +411,7 @@ func try_dodge() -> bool:
 	Fx.punch(self, 0.08)
 	if _animated != null:
 		_animated.modulate = Color(1.35, 1.4, 1.6)
+	dodged.emit()
 	return true
 
 
@@ -425,6 +428,7 @@ func try_ward() -> bool:
 	Audio.play_fx("slang_ward_raise", -2.0, 0.04)
 	Audio.play_house_cue(&"ward")
 	_raise_ward_fx()
+	ward_raised.emit()
 	return true
 
 
@@ -688,25 +692,16 @@ func _refresh_ward_tint() -> void:
 
 func _raise_ward_fx() -> void:
 	_drop_ward_fx()
-	var frames := _ward_sprite_frames()
-	if frames == null:
-		return
-	var ward := AnimatedSprite2D.new()
+	var ward := WardRing.new()
 	ward.name = "Ward"
-	ward.sprite_frames = frames
-	ward.centered = true
-	ward.z_index = 6
-	ward.z_as_relative = true
-	ward.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	ward.modulate.a = 0.92
 	add_child(ward)
-	ward.play(&"hold")
 	_ward_fx = ward
 	_fit_ward()
 	var fitted := ward.scale
-	ward.scale = fitted * 0.45
+	ward.scale = fitted * 0.72
 	var grow := ward.create_tween()
-	grow.tween_property(ward, "scale", fitted, 0.12)\
+	grow.tween_property(ward, "scale", fitted, 0.16)\
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
@@ -733,18 +728,13 @@ func _ward_sprite_frames() -> SpriteFrames:
 func _fit_ward() -> void:
 	if _ward_fx == null or not is_instance_valid(_ward_fx):
 		return
-	var ward := _ward_fx as AnimatedSprite2D
-	if ward == null:
-		return
-	var frame_h := 336.0
-	if ward.sprite_frames != null and ward.sprite_frames.has_animation(&"hold"):
-		var tex := ward.sprite_frames.get_frame_texture(&"hold", 0)
-		if tex != null:
-			frame_h = tex.get_height()
 	var body := 92.0 * maxf(_depth_scale, 0.2)
-	var fitted := body * 1.35 / frame_h
+	var tex_size := 1024.0
+	if _ward_fx is Sprite2D and (_ward_fx as Sprite2D).texture != null:
+		tex_size = (_ward_fx as Sprite2D).texture.get_width()
+	var fitted := body * 2.35 / tex_size
 	_ward_fx.scale = Vector2(fitted, fitted)
-	_ward_fx.position = Vector2(0.0, -body * 0.5)
+	_ward_fx.position = Vector2(0.0, -body * 0.46)
 
 
 func _drop_ward_fx() -> void:
@@ -756,7 +746,7 @@ func _drop_ward_fx() -> void:
 	var fade := ward.create_tween()
 	fade.set_parallel(true)
 	fade.tween_property(ward, "modulate:a", 0.0, 0.14)
-	fade.tween_property(ward, "scale", Vector2(1.25, 1.25), 0.14)
+	fade.tween_property(ward, "scale", ward.scale * 1.12, 0.14)
 	fade.chain().tween_callback(ward.queue_free)
 
 

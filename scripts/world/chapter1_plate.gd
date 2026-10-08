@@ -67,6 +67,9 @@ func _ready() -> void:
 	_sprite.scale = Vector2(plate_scale, plate_scale)
 	_apply_grade()
 	add_child(_sprite)
+	var ambience := HouseAmbience.new()
+	ambience.name = "Ambience"
+	add_child(ambience)
 	_add_edge_walls()
 	# Interior walls are drawn in scenes/world/House1Collision.tscn — same as HubCollision.
 	queue_redraw()

@@ -24,7 +24,7 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	offset_left = -210.0
 	offset_right = 210.0
-	offset_top = -196.0
+	offset_top = -228.0
 	offset_bottom = -28.0
 	modulate.a = 0.0
 	visible = true

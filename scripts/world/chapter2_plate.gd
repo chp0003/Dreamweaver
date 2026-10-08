@@ -69,6 +69,9 @@ func _ready() -> void:
 	_sprite.scale = Vector2(plate_scale, plate_scale)
 	_apply_grade()
 	add_child(_sprite)
+	var ambience := HouseAmbience.new()
+	ambience.name = "Ambience"
+	add_child(ambience)
 	_add_edge_walls()
 	# Interior solids are drawn in scenes/world/House2Collision.tscn — same as
 	# House1Collision / HubCollision: traced polygons, not axis-aligned boxes.

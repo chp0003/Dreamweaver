@@ -1,9 +1,11 @@
 class_name Collectible
 extends Area2D
-## A pickup S'lang walks over: faded abaca strands, hulo roots, lore scrolls.
+## A pickup S'lang takes with [R]: faded abaca strands, hulo roots, lore scrolls.
 ##
 ## Chapters spawn these with `Collectible.spawn()` and count the `collected`
-## signal against their quest total.
+## signal against their quest total. [E] stays on Interactable for NPCs.
+
+const PromptScene := preload("res://scripts/ui/interaction_prompt.gd")
 
 signal collected(collectible: Collectible)
 
@@ -16,26 +18,97 @@ signal collected(collectible: Collectible)
 @export var lore_id := ""
 ## Quest pickups pulse gold so they read in a gray hall.
 @export var highlight := false
+## Zero keeps the usual small footprint. The tutorial strand passes a larger one.
+@export var art_size := Vector2.ZERO
 
 var _taken := false
+var _player_inside := false
 var _art: PlaceholderProp
+var _prompt: Label
 
 
 func _ready() -> void:
 	add_to_group("collectible")
 	collision_layer = 0
 	collision_mask = 1
+	z_index = 6
 	body_entered.connect(_on_body_entered)
+	body_exited.connect(_on_body_exited)
+	set_process(false)
 	_ensure_shape()
 	_build_art()
+	_build_prompt()
 	if highlight:
 		_start_shimmer()
+
+
+func _process(_delta: float) -> void:
+	var show := _can_pickup() and _nearest_collectible() == self
+	_set_prompt_visible(show)
+	if show:
+		_follow_prompt()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _taken or event.is_echo() or not event.is_action_pressed("pickup"):
+		return
+	if not _can_pickup() or _nearest_collectible() != self:
+		return
+	get_viewport().set_input_as_handled()
+	_take()
 
 
 func _on_body_entered(body: Node2D) -> void:
 	if _taken or not body.is_in_group("player"):
 		return
+	_player_inside = true
+	set_process(true)
+
+
+func _on_body_exited(body: Node2D) -> void:
+	if not body.is_in_group("player"):
+		return
+	_player_inside = false
+	_set_prompt_visible(false)
+	set_process(false)
+
+
+func _can_pickup() -> bool:
+	return not _taken and _player_inside and not _dialogue_open()
+
+
+func _dialogue_open() -> bool:
+	if not is_inside_tree():
+		return false
+	var view := get_tree().get_first_node_in_group("dialogue_view")
+	return view != null and view.has_method("is_busy") and bool(view.call("is_busy"))
+
+
+## One [R] takes the closest item when several radii overlap.
+func _nearest_collectible() -> Collectible:
+	var player := get_tree().get_first_node_in_group("player") as Node2D
+	if player == null:
+		return null
+	var best: Collectible = null
+	var best_d := INF
+	for node in get_tree().get_nodes_in_group("collectible"):
+		var item := node as Collectible
+		if item == null or not item._can_pickup():
+			continue
+		var distance := item.global_position.distance_to(player.global_position)
+		if distance < best_d:
+			best_d = distance
+			best = item
+	return best
+
+
+func _take() -> void:
+	if _taken:
+		return
 	_taken = true
+	_player_inside = false
+	_set_prompt_visible(false)
+	set_process(false)
 	set_deferred("monitoring", false)
 	Audio.play_sfx(Audio.Sfx.PICKUP)
 	GameState.add_score(score_value)
@@ -48,6 +121,30 @@ func _on_body_entered(body: Node2D) -> void:
 	tween.tween_property(self, "position", position + Vector2(0.0, -34.0), 0.32)
 	tween.tween_property(self, "modulate:a", 0.0, 0.32)
 	tween.chain().tween_callback(queue_free)
+
+
+func _build_prompt() -> void:
+	_prompt = PromptScene.new()
+	_prompt.text = "R  ·  %s" % item_label
+	_prompt.visible = false
+	_prompt.top_level = true
+	add_child(_prompt)
+	# Dialogue hides every world_chrome node, then shows them all again.
+	# A pickup prompt should appear only while S'lang is standing on that item.
+	_prompt.remove_from_group("world_chrome")
+	_prompt.reset_size()
+
+
+func _set_prompt_visible(value: bool) -> void:
+	if _prompt != null:
+		_prompt.visible = value
+
+
+func _follow_prompt() -> void:
+	if _prompt == null or not _prompt.visible:
+		return
+	var screen := get_global_transform_with_canvas() * Vector2(0.0, -52.0)
+	_prompt.global_position = screen - Vector2(_prompt.size.x * 0.5, _prompt.size.y)
 
 
 func _ensure_shape() -> void:
@@ -66,7 +163,10 @@ func _build_art() -> void:
 	_art.name = "Art"
 	_art.prop_label = item_label
 	_art.texture_path = texture_path
-	_art.prop_size = Vector2(34.0, 38.0) if highlight else Vector2(28.0, 28.0)
+	if art_size != Vector2.ZERO:
+		_art.prop_size = art_size
+	else:
+		_art.prop_size = Vector2(34.0, 38.0) if highlight else Vector2(28.0, 28.0)
 	_art.body_color = tint
 	_art.accent_color = tint.lightened(0.3)
 	_art.show_label = false

@@ -99,6 +99,7 @@ func _mount_collision() -> void:
 	if packed == null:
 		return
 	var root := packed.instantiate() as Node2D
+	strip_editor_marks(root)
 	root.name = "House1Collision"
 	var hall := root.get_node_or_null("HallCollision") as StaticBody2D
 	if hall != null:
@@ -353,7 +354,7 @@ func _run_chapter() -> void:
 	await say([
 		{"speaker": "The Chief", "text": "I am still here. The grayness took my name first, then the paths."},
 		{"speaker": "S'lang", "text": "Then give them back. Where did the shadow strike first?"},
-		{"speaker": "The Chief", "text": "Here. This hall. I keep the valley's memory — and the first map. Ten pale strands hide in the hall and the garden below. Walk them. Remember them. That is how a village is defended: by knowing the ground before the dark does."},
+		{"speaker": "The Chief", "text": "Here. This hall. I keep the valley's memory — and the first map. Ten pale strands hide in the hall and the garden below. Stand on each one and press [R]. Remember them. That is how a village is defended: by knowing the ground before the dark does."},
 	])
 	GameState.unlock_lore("the_chief")
 
@@ -362,7 +363,7 @@ func _run_chapter() -> void:
 	_light_station("")
 	if _beacon != null:
 		_beacon.clear()
-	objective("Search the hall and the garden below. Strands hide by the loom, the vat, and the plant beds.")
+	objective("Search the hall and the garden below. Press [R] to pick up the abaca strands.")
 	await until(func() -> bool: return _collected >= STRAND_TOTAL)
 	if _beacon != null:
 		_beacon.clear()

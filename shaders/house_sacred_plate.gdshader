@@ -12,6 +12,8 @@ uniform float player_radius = 0.36;
 uniform vec2 loom_uv = vec2(0.50, 0.34);
 uniform float loom_energy = 0.0;
 
+#include "res://shaders/plate_motion.gdshaderinc"
+
 vec3 hub_curse(vec3 c) {
 	float luma = dot(c, vec3(0.299, 0.587, 0.114));
 	vec3 dead = vec3(luma);
@@ -24,7 +26,10 @@ vec3 hub_curse(vec3 c) {
 }
 
 void fragment() {
-	vec3 c = texture(TEXTURE, UV).rgb;
+	vec3 still = texture(TEXTURE, UV).rgb;
+	vec2 moved = motion_uv(UV, still, TEXTURE_PIXEL_SIZE, TIME);
+	vec3 c = texture(TEXTURE, moved).rgb;
+	c += vec3(1.0, 0.74, 0.38) * motion_glow(UV, still, TIME);
 	vec3 dead = hub_curse(c);
 	vec2 from_centre = (UV - vec2(0.50, 0.36)) * vec2(1.08, 1.06);
 	float vig = smoothstep(0.42, 1.22, length(from_centre));

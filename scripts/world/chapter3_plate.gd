@@ -62,6 +62,9 @@ func _ready() -> void:
 	_sprite.scale = Vector2.ONE
 	_apply_grade()
 	add_child(_sprite)
+	var ambience := HouseAmbience.new()
+	ambience.name = "Ambience"
+	add_child(ambience)
 	_add_edge_walls()
 	_push_torch_uvs()
 	# Interior solids are drawn in scenes/world/House3Collision.tscn — same as

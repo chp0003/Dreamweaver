@@ -13,6 +13,8 @@ const STAFF_UV := Vector2(0.52, 0.34)
 const STAFF_REACH_UV := Vector2(0.52, 0.40)
 ## Open planks between the painted loom and the floor motif — not on the cloth.
 const GODDESS_UV := Vector2(0.44, 0.56)
+## Mid floor, above the tutorial card. The front mat sits under that card.
+const STRAND_UV := Vector2(0.62, 0.52)
 const CREEP_UVS: Array[Vector2] = [
 	Vector2(0.40, 0.56),
 	Vector2(0.64, 0.58),
@@ -93,6 +95,10 @@ func staff_reach_world() -> Vector2:
 
 func goddess_world() -> Vector2:
 	return uv_to_global(GODDESS_UV)
+
+
+func strand_world() -> Vector2:
+	return uv_to_global(STRAND_UV)
 
 
 func attach_solids(_host: Node2D) -> void:
