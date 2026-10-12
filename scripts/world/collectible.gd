@@ -25,6 +25,7 @@ var _taken := false
 var _player_inside := false
 var _art: PlaceholderProp
 var _prompt: Label
+var _badge: Label
 
 
 func _ready() -> void:
@@ -34,10 +35,11 @@ func _ready() -> void:
 	z_index = 6
 	body_entered.connect(_on_body_entered)
 	body_exited.connect(_on_body_exited)
-	set_process(false)
 	_ensure_shape()
 	_build_art()
 	_build_prompt()
+	_build_badge()
+	set_process(true)
 	if highlight:
 		_start_shimmer()
 
@@ -45,8 +47,10 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	var show := _can_pickup() and _nearest_collectible() == self
 	_set_prompt_visible(show)
-	if show:
-		_follow_prompt()
+	if _badge != null:
+		_badge.visible = not _taken and not show and not _dialogue_open()
+	if not show and _badge != null and not _taken:
+		_badge.visible = true
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -70,7 +74,8 @@ func _on_body_exited(body: Node2D) -> void:
 		return
 	_player_inside = false
 	_set_prompt_visible(false)
-	set_process(false)
+	if _badge != null and not _taken:
+		_badge.visible = true
 
 
 func _can_pickup() -> bool:
@@ -108,6 +113,8 @@ func _take() -> void:
 	_taken = true
 	_player_inside = false
 	_set_prompt_visible(false)
+	if _badge != null:
+		_badge.visible = false
 	set_process(false)
 	set_deferred("monitoring", false)
 	Audio.play_sfx(Audio.Sfx.PICKUP)
@@ -124,27 +131,58 @@ func _take() -> void:
 
 
 func _build_prompt() -> void:
-	_prompt = PromptScene.new()
-	_prompt.text = "R  ·  %s" % item_label
+	_prompt = _make_mark("R   ·   pick up", 26)
 	_prompt.visible = false
-	_prompt.top_level = true
+	_prompt.position = Vector2(-90.0, -118.0)
 	add_child(_prompt)
-	# Dialogue hides every world_chrome node, then shows them all again.
-	# A pickup prompt should appear only while S'lang is standing on that item.
 	_prompt.remove_from_group("world_chrome")
-	_prompt.reset_size()
+
+
+func _build_badge() -> void:
+	_badge = _make_mark("R", 28)
+	_badge.position = Vector2(-16.0, -78.0)
+	add_child(_badge)
+	_badge.remove_from_group("world_chrome")
+
+
+func _make_mark(text: String, font_size: int) -> Label:
+	var mark := PromptScene.new()
+	mark.text = text
+	mark.z_index = 80
+	mark.z_as_relative = true
+	mark.top_level = false
+	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mark.add_theme_font_size_override("font_size", font_size)
+	mark.add_theme_color_override("font_color", Color(1.0, 0.92, 0.45))
+	mark.custom_minimum_size = Vector2(48.0 if text.length() < 3 else 190.0, font_size + 12)
+	return mark
+
+
+func _draw() -> void:
+	if _taken:
+		return
+	var centre := Vector2(0.0, -52.0)
+	draw_circle(centre, 22.0, Color(0.05, 0.03, 0.02, 0.88))
+	draw_arc(centre, 22.0, 0.0, TAU, 32, Color(1.0, 0.84, 0.28), 3.0)
+	var font := ThemeDB.fallback_font
+	if font == null:
+		return
+	var font_size := 26
+	var text_size := font.get_string_size("R", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+	draw_string(
+		font,
+		centre + Vector2(-text_size.x * 0.5, text_size.y * 0.32),
+		"R",
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		font_size,
+		Color(1.0, 0.94, 0.55)
+	)
 
 
 func _set_prompt_visible(value: bool) -> void:
 	if _prompt != null:
 		_prompt.visible = value
-
-
-func _follow_prompt() -> void:
-	if _prompt == null or not _prompt.visible:
-		return
-	var screen := get_global_transform_with_canvas() * Vector2(0.0, -52.0)
-	_prompt.global_position = screen - Vector2(_prompt.size.x * 0.5, _prompt.size.y)
 
 
 func _ensure_shape() -> void:

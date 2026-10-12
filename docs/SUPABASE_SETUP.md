@@ -20,7 +20,7 @@ Authentication → **Providers** → **Email**:
 1. Open **SQL Editor** → New query.
 2. Open [`supabase/schema.sql`](../supabase/schema.sql), **copy the entire file**, paste, Run.
 3. Safe to re-run if you already applied an older version — it adds the `email` column, keeps RLS, and creates `fetch_leaderboard()` for the Gateway leaderboard.
-4. You should see `profiles` (with `username` + `email`) and `player_saves` under **Table Editor**. Re-run this SQL if the in-game leaderboard only shows your own name while other weavers exist in the cloud.
+4. You should see `profiles` (with `username` + `email`) and `player_saves` under **Table Editor**. Re-run this SQL if the in-game leaderboard is missing registered weavers. `fetch_leaderboard()` lists every Auth user, and the script backfills a `profiles` row for any login that does not have one.
 
 ## 4. Copy API keys into the game
 

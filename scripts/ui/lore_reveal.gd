@@ -102,7 +102,7 @@ func _build() -> void:
 	_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_body.theme_type_variation = &"TaglineLabel"
-	_body.add_theme_font_size_override("font_size", 17)
+	_body.add_theme_font_size_override("font_size", 22)
 	column.add_child(_body)
 
 	_continue = Button.new()

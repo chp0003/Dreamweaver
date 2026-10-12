@@ -298,10 +298,12 @@ func complete_chapter(closing_lines: Array = [], next_scene := "") -> void:
 
 	var house := Houses.get_house(house_id)
 	var essence := str(house.get("essence", ""))
-	if not essence.is_empty():
-		banner("%s Restored" % Houses.essence_name(essence), 2.4)
+	var restored := Houses.essence_name(essence) if not essence.is_empty() else Houses.short_name_for(house_id)
+	var summary := GameState.last_clear_summary
+	if summary.is_empty():
+		banner("%s Restored" % restored, 2.4)
 	else:
-		banner("%s Restored" % Houses.short_name_for(house_id), 2.4)
+		banner("%s Restored   ·   %s" % [restored, summary], 3.2)
 
 	if not closing_lines.is_empty() and dialogue != null:
 		await dialogue.play(closing_lines)

@@ -212,3 +212,41 @@ static func lore_entry(entry_id: String) -> Dictionary:
 
 static func total_lore() -> int:
 	return LORE_ENTRIES.size()
+
+
+## Written into S'lang's bag when a House is restored. The statue quizzes in
+## the House of the Dream Ancestors are answerable from these notes.
+const JOURNALS: Array[Dictionary] = [
+	{
+		"house": 1,
+		"title": "Note — Black Foundation",
+		"text": "T'nalak is woven from abaca, a relative of the banana. The trunk is stripped, the fibre combed to a hair, then knotted end to end into one continuous thread. Fibre that bends and holds a knot is kept. Fibre that snaps, cracks, or frays is set aside.",
+	},
+	{
+		"house": 2,
+		"title": "Note — Red Courage",
+		"text": "The red of T'nalak comes from loko root, also called hulo. It is pounded in a mortar until it gives its colour away. The black comes from steeping the tied fibres in a bath of k'nalum leaves and soot-rich mud. The Harvest Queen taught that weaving is a cycle of growth, and that Life-Thread — press Q — bursts corrupted thorns.",
+	},
+	{
+		"house": 3,
+		"title": "Note — Golden Sun",
+		"text": "A T'boli weaver does not invent her pattern. Fun Kdungon sends it in a damgo, a dream, and the weaver's work is to remember what was shown while she slept. The T'boli word for that dream is damgo. Gold is not a dye. It is the sun and the brass. The lewet sings: press Q near a dead torch and the brass wakes it. Lang Dulay of Lake Sebu kept more than a hundred of these dream patterns and taught them to the weavers who came after her.",
+	},
+	{
+		"house": 4,
+		"title": "Note — Dream Ancestors",
+		"text": "Four stones hold the pattern. The Dreamer remembers the damgo. The Fibre is abaca, knotted end to end. The Dye is loko red and k'nalum black. The Master is Lang Dulay, who preserved the patterns by teaching them. The loom is not stepped over. A weaver in a bad temper leaves it, rather than weaving her mood into the thread.",
+	},
+	{
+		"house": 5,
+		"title": "Note — The Sacred Loom",
+		"text": "The Shadow Weaver is what a pattern becomes when nobody remembers it. It cannot be ended by striking alone. It is out-remembered: the colours, the dream, and the hands that were taught to carry them.",
+	},
+]
+
+
+static func journal_for(house_id: int) -> Dictionary:
+	for entry in JOURNALS:
+		if int(entry.get("house", 0)) == house_id:
+			return entry
+	return {}

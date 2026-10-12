@@ -37,7 +37,7 @@ func _ready() -> void:
 		hint.text = bin_hint
 		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		hint.add_theme_font_size_override("font_size", 12)
+		hint.add_theme_font_size_override("font_size", 18)
 		hint.add_theme_color_override("font_color", Color(0.78, 0.72, 0.58))
 		column.add_child(hint)
 

@@ -25,6 +25,7 @@ func _ready() -> void:
 	layer = 130
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	visible = false
+	add_to_group("pause_menu")
 
 	_settings = load(SETTINGS_SCENE).instantiate()
 	add_child(_settings)
@@ -42,6 +43,11 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_echo() or not event.is_action_pressed("pause"):
+		return
+	var bag := get_tree().get_first_node_in_group("inventory_overlay")
+	if bag != null and bag.has_method("is_open") and bool(bag.call("is_open")):
+		bag.call("close")
+		get_viewport().set_input_as_handled()
 		return
 	get_viewport().set_input_as_handled()
 	if visible:

@@ -74,7 +74,7 @@ func _build_content(_parent: Control) -> void:
 	_step_label = Label.new()
 	_step_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_step_label.theme_type_variation = &"FieldLabel"
-	_step_label.add_theme_font_size_override("font_size", 18)
+	_step_label.add_theme_font_size_override("font_size", 24)
 	stack.add_child(_step_label)
 
 	_glyph_label = Label.new()

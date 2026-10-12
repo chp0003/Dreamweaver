@@ -50,6 +50,7 @@ func _on_retry_pressed() -> void:
 	# wiped, progress in other Houses untouched.
 	GameState.refill_lives()
 	GameState.reset_quiz_mistakes()
+	GameState.queue_fresh_attempt()
 	if GameState.current_chapter == 4:
 		GameState.restore_house_score()
 	SceneFader.fade_to_scene(GameState.current_chapter_scene())

@@ -30,6 +30,18 @@ var replay_house_id := 0
 var objective := ""
 ## Score when the current House began. Chapter 4 restores this on a failed retake.
 var house_score_mark := 0
+## Seconds spent with S'lang on screen. Menus do not count.
+var play_seconds := 0.0
+## How many times each House was begun, including retakes. Keys are "1".."5".
+var house_attempts := {}
+## Notes earned by restoring a House. Values are house ids.
+var journals: Array = []
+## Shown on the restore banner: time, try, and the points just earned.
+var last_clear_summary := ""
+var _house_clock := 0.0
+var _clock_house := 0
+var _save_clock := 0.0
+var _pending_fresh_attempt := false
 
 
 func _ready() -> void:
@@ -53,6 +65,13 @@ func new_game() -> void:
 	game_completed = false
 	objective = ""
 	replay_house_id = 0
+	play_seconds = 0.0
+	house_attempts = {}
+	journals = []
+	last_clear_summary = ""
+	_house_clock = 0.0
+	_clock_house = 0
+	_pending_fresh_attempt = false
 	ColorRestoration.reset()
 	save()
 	_announce_all()
@@ -70,11 +89,17 @@ func load_from_account() -> void:
 	lore = _as_string_array(data.get("lore", []))
 	score = int(data.get("score", 0))
 	game_completed = bool(data.get("game_completed", false))
+	play_seconds = float(data.get("play_seconds", 0.0))
+	house_attempts = _as_attempt_map(data.get("house_attempts", {}))
+	journals = _as_int_array(data.get("journals", []))
+	_house_clock = float(data.get("house_clock", 0.0))
+	_clock_house = int(data.get("clock_house", 0))
 	quiz_mistakes = 0
 	objective = ""
 	replay_house_id = 0
 	if unlocked_houses.is_empty():
 		unlocked_houses = [1]
+	_backfill_journals()
 	sync_house_unlocks()
 	_announce_all()
 
@@ -107,6 +132,11 @@ func save() -> void:
 		"lore": lore,
 		"score": score,
 		"game_completed": game_completed,
+		"play_seconds": play_seconds,
+		"house_attempts": house_attempts,
+		"journals": journals,
+		"house_clock": _house_clock,
+		"clock_house": _clock_house,
 	})
 
 
@@ -186,7 +216,8 @@ func sync_house_unlocks() -> void:
 func complete_house(house_id: int) -> void:
 	if not is_house_completed(house_id):
 		completed_houses.append(house_id)
-		add_score(Houses.COMPLETION_SCORE)
+		last_clear_summary = _award_chapter_clear(house_id)
+		grant_journal(house_id)
 	var house := Houses.get_house(house_id)
 	var essence := str(house.get("essence", ""))
 	if not essence.is_empty():
@@ -376,8 +407,155 @@ func complete_game() -> void:
 	if game_completed:
 		return
 	game_completed = true
-	add_score(Houses.VICTORY_SCORE)
+	var bonus := _victory_bonus()
+	add_score(bonus)
+	var line := "+%d for finishing the dream" % bonus
+	if last_clear_summary.is_empty():
+		last_clear_summary = line
+	else:
+		last_clear_summary = "%s   ·   %s" % [last_clear_summary, line]
 	save()
+
+
+func _process(delta: float) -> void:
+	var tree := get_tree()
+	if tree == null or tree.paused:
+		return
+	if tree.get_first_node_in_group("player") == null:
+		return
+	play_seconds += delta
+	if _clock_house > 0:
+		_house_clock += delta
+	_save_clock += delta
+	if _save_clock < 20.0:
+		return
+	_save_clock = 0.0
+	save()
+
+
+## A retake from the retry screen. The next House entry counts as a new try.
+func queue_fresh_attempt() -> void:
+	_pending_fresh_attempt = true
+
+
+func consume_fresh_attempt() -> bool:
+	var fresh := _pending_fresh_attempt
+	_pending_fresh_attempt = false
+	return fresh
+
+
+## Starts or resumes the clock for a House. A fresh try resets that clock.
+func pause_house_clock() -> void:
+	if _clock_house == 0:
+		return
+	_clock_house = 0
+	save()
+
+
+func note_house_entered(house_id: int, fresh_attempt: bool) -> void:
+	var key := str(house_id)
+	var tries := int(house_attempts.get(key, 0))
+	if fresh_attempt or tries == 0:
+		house_attempts[key] = tries + 1
+		_house_clock = 0.0
+	_clock_house = house_id
+	save()
+
+
+func grant_journal(house_id: int) -> void:
+	if house_id <= 0 or _int_array_has(journals, house_id):
+		return
+	if CultureData.journal_for(house_id).is_empty():
+		return
+	journals.append(house_id)
+	inventory_changed.emit()
+
+
+func _backfill_journals() -> void:
+	var changed := false
+	for house_id in completed_houses:
+		var id := int(house_id)
+		if _int_array_has(journals, id):
+			continue
+		if CultureData.journal_for(id).is_empty():
+			continue
+		journals.append(id)
+		changed = true
+	if changed:
+		inventory_changed.emit()
+		save()
+
+
+func _as_attempt_map(value: Variant) -> Dictionary:
+	var out := {}
+	if typeof(value) != TYPE_DICTIONARY:
+		return out
+	for key in (value as Dictionary).keys():
+		out[str(key)] = int((value as Dictionary)[key])
+	return out
+
+
+## Inside the target time pays the full speed bonus. Twice that long pays none.
+## Each retake after the first keeps a little less of the clear.
+func _award_chapter_clear(house_id: int) -> String:
+	var seconds := _house_clock
+	_clock_house = 0
+	var attempts := maxi(1, int(house_attempts.get(str(house_id), 1)))
+	var target := _chapter_target_seconds(house_id)
+	var speed := clampf((target * 2.0 - seconds) / target, 0.0, 1.0)
+	var attempt_mult := maxf(0.45, 1.0 - 0.15 * float(attempts - 1))
+	var points := int(round((700.0 + 500.0 * speed) * attempt_mult))
+	add_score(points)
+	return "+%d   ·   %s, %s" % [points, _format_duration(seconds), _attempt_phrase(attempts)]
+
+
+func _victory_bonus() -> int:
+	var target := 80.0 * 60.0
+	var speed := clampf((target * 2.0 - play_seconds) / target, 0.0, 1.0)
+	var extra := maxi(0, _total_attempts() - Houses.count())
+	var attempt_mult := maxf(0.5, 1.0 - 0.1 * float(extra))
+	return int(round((float(Houses.VICTORY_SCORE) + 900.0 * speed) * attempt_mult))
+
+
+func _total_attempts() -> int:
+	var total := 0
+	for key in house_attempts.keys():
+		total += int(house_attempts[key])
+	return total
+
+
+func _chapter_target_seconds(house_id: int) -> float:
+	match house_id:
+		1, 2:
+			return 14.0 * 60.0
+		3:
+			return 12.0 * 60.0
+		4:
+			return 16.0 * 60.0
+		_:
+			return 18.0 * 60.0
+
+
+func _format_duration(seconds: float) -> String:
+	var total := maxi(0, int(seconds))
+	if total < 60:
+		return "%d sec" % total
+	var minutes := int(total / 60.0)
+	if minutes < 60:
+		return "%d min" % minutes
+	return "%dh %dm" % [int(minutes / 60.0), minutes % 60]
+
+
+func _attempt_phrase(attempts: int) -> String:
+	match attempts:
+		1:
+			return "first try"
+		2:
+			return "2nd try"
+		3:
+			return "3rd try"
+		_:
+			return "%dth try" % attempts
 
 
 func _announce_all() -> void:

@@ -38,7 +38,7 @@ func _build_content(parent: Control) -> void:
 	_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_prompt_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_prompt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_prompt_label.add_theme_font_size_override("font_size", 22)
+	_prompt_label.add_theme_font_size_override("font_size", 28)
 	_prompt_label.add_theme_color_override("font_color", Color(0.96, 0.91, 0.79))
 	parent.add_child(_prompt_label)
 

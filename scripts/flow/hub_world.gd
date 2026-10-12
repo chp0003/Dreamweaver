@@ -818,6 +818,8 @@ func _enter_house(house_id: int, _from_retry: bool) -> void:
 	if exit != null:
 		exit.set_enabled(GameState.is_house_completed(house_id))
 	set_player_input(true)
+	if not GameState.is_house_completed(house_id):
+		GameState.note_house_entered(house_id, GameState.consume_fresh_attempt())
 	if GameState.wants_replay(house_id) or not GameState.is_house_completed(house_id):
 		quest.start_quest()
 	else:
@@ -842,6 +844,7 @@ func _leave_house(house_id: int) -> void:
 	if house_id == 1:
 		_fun_holding_farewell = false
 	GameState.set_current_chapter(0)
+	GameState.pause_house_clock()
 	Audio.clear_house()
 	_set_house_darkness(quest, false)
 	var gate: HouseExit = _house_exits.get(house_id) as HouseExit

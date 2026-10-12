@@ -49,7 +49,9 @@ func sign_up(email_value: String, password: String, username_value: String) -> D
 		return result
 	_apply_auth_payload(result.get("data", {}), display)
 	if has_session():
-		await upsert_profile(display, email)
+		if username.strip_edges().is_empty():
+			username = display
+		await _ensure_profile()
 	return result
 
 
@@ -69,7 +71,7 @@ func sign_in(email_value: String, password: String) -> Dictionary:
 		return result
 	_apply_auth_payload(result.get("data", {}), "")
 	if has_session():
-		await _refresh_profile_username()
+		await _ensure_profile()
 	return result
 
 
@@ -129,23 +131,40 @@ func upsert_profile(username_value: String, email_value: String = "") -> Diction
 	)
 
 
-func _refresh_profile_username() -> void:
+## Keep a profiles row for this login. A missing row used to hide the weaver.
+func _ensure_profile() -> void:
 	var res := await _request(
 		HTTPClient.METHOD_GET,
 		"/rest/v1/profiles?id=eq.%s&select=username,email" % user_id,
 		null,
 		true
 	)
-	if not bool(res.get("ok", false)):
-		return
-	var rows: Variant = res.get("data", [])
-	if typeof(rows) != TYPE_ARRAY or (rows as Array).is_empty():
-		return
-	var row: Dictionary = (rows as Array)[0]
-	var name := str(row.get("username", "")).strip_edges()
-	if not name.is_empty():
+	if bool(res.get("ok", false)):
+		var rows: Variant = res.get("data", [])
+		if typeof(rows) == TYPE_ARRAY and not (rows as Array).is_empty():
+			var row: Dictionary = (rows as Array)[0]
+			var stored := str(row.get("username", "")).strip_edges()
+			if not stored.is_empty():
+				username = stored
+				_save_session()
+			return
+	var name := username.strip_edges()
+	if name.is_empty() and user_email.find("@") > 0:
+		name = user_email.split("@")[0]
+	if name.is_empty():
+		name = "weaver"
+	var created := await upsert_profile(name, user_email)
+	if bool(created.get("ok", false)):
 		username = name
 		_save_session()
+		return
+	var err := str(created.get("error", "")).to_lower()
+	if "duplicate" in err or "unique" in err or "username" in err:
+		var suffixed := "%s %s" % [name, user_id.substr(0, 4)]
+		var retry := await upsert_profile(suffixed, user_email)
+		if bool(retry.get("ok", false)):
+			username = suffixed
+			_save_session()
 
 
 func fetch_save() -> Dictionary:
@@ -188,16 +207,57 @@ func delete_save() -> Dictionary:
 	)
 
 
-## Username + progress for every weaver. Needs fetch_leaderboard() in schema.sql.
+## Username + progress for every registered weaver.
+## Pages through PostgREST so a row cap cannot drop the rest of the village.
+## Needs fetch_leaderboard() from schema.sql (re-run it if names are missing).
 func fetch_leaderboard() -> Dictionary:
 	if not has_session():
 		return _fail("Not signed in.")
-	return await _request(
-		HTTPClient.METHOD_POST,
-		"/rest/v1/rpc/fetch_leaderboard",
-		{},
-		true
-	)
+	const PAGE := 1000
+	var offset := 0
+	var all: Array = []
+	var seen := {}
+	while offset < 50000:
+		var res: Dictionary = await _request(
+			HTTPClient.METHOD_POST,
+			"/rest/v1/rpc/fetch_leaderboard",
+			{},
+			true,
+			{"Range": "%d-%d" % [offset, offset + PAGE - 1]}
+		)
+		if not bool(res.get("ok", false)):
+			if offset == 0 and all.is_empty():
+				return await _request(
+					HTTPClient.METHOD_POST,
+					"/rest/v1/rpc/fetch_leaderboard",
+					{},
+					true
+				)
+			break
+		var data: Variant = res.get("data", [])
+		if typeof(data) != TYPE_ARRAY:
+			if all.is_empty():
+				return res
+			break
+		var batch: Array = data
+		var added := 0
+		for entry in batch:
+			if typeof(entry) != TYPE_DICTIONARY:
+				continue
+			var dict := entry as Dictionary
+			var uid := str(dict.get("user_id", "")).strip_edges()
+			var key := uid
+			if key.is_empty():
+				key = "%s|%s" % [str(dict.get("username", "")), str(dict.get("updated_at", ""))]
+			if seen.has(key):
+				continue
+			seen[key] = true
+			all.append(dict)
+			added += 1
+		if batch.size() < PAGE or added == 0:
+			break
+		offset += PAGE
+	return {"ok": true, "status": 200, "data": all, "error": ""}
 
 
 # --------------------------------------------------------------------------

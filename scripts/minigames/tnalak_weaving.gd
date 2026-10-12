@@ -29,7 +29,7 @@ func _build_content(parent: Control) -> void:
 	_hint = Label.new()
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hint.add_theme_font_size_override("font_size", 16)
+	_hint.add_theme_font_size_override("font_size", 22)
 	_hint.add_theme_color_override("font_color", Palette.GOLD_SACRED)
 	parent.add_child(_hint)
 

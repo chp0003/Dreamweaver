@@ -206,6 +206,14 @@ const ITEM_NAMES := {
 	"lewet_staff": "Lewet Staff",
 	"master_pattern": "Sacred Master Pattern",
 	"tnalak_cloth": "T'nalak Cloth",
+	"light_beam": "Light Beam",
+}
+
+const ITEM_NOTES := {
+	"lewet_staff": "The beater. Space swings, Shift rolls, 1 raises a ward, and Q sounds the brass.",
+	"master_pattern": "The pattern the ancestors kept. The Sacred Loom will not hold without it.",
+	"tnalak_cloth": "The cloth woven in the House of the Black Foundation.",
+	"light_beam": "Press 2. A beam of remembered sunlight. It rests after each firing.",
 }
 
 
@@ -301,3 +309,7 @@ static func essence_color(essence_id: String) -> Color:
 
 static func item_name(item_id: String) -> String:
 	return str(ITEM_NAMES.get(item_id, item_id.capitalize()))
+
+
+static func item_note(item_id: String) -> String:
+	return str(ITEM_NOTES.get(item_id, ""))

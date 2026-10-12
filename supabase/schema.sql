@@ -136,9 +136,63 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- Public leaderboard: usernames + progress only (no emails). Bypasses own-row RLS.
-create or replace function public.fetch_leaderboard()
+-- Every registered login gets a profile, including accounts created before the
+-- trigger existed and profiles that were deleted while the Auth user remained.
+do $$
+declare
+  rec record;
+  base_name text;
+  final_name text;
+  n int;
+begin
+  for rec in
+    select u.id, u.email, u.raw_user_meta_data
+    from auth.users u
+    where u.deleted_at is null
+      and not exists (select 1 from public.profiles p where p.id = u.id)
+  loop
+    base_name := left(coalesce(
+      nullif(trim(rec.raw_user_meta_data->>'username'), ''),
+      nullif(split_part(coalesce(rec.email, ''), '@', 1), ''),
+      'weaver'
+    ), 40);
+    final_name := base_name;
+    n := 2;
+    while exists (
+      select 1 from public.profiles where lower(username) = lower(final_name)
+    ) loop
+      final_name := left(base_name, 36) || ' ' || n::text;
+      n := n + 1;
+      exit when n > 50;
+    end loop;
+    begin
+      insert into public.profiles (id, username, email)
+      values (rec.id, final_name, coalesce(rec.email, ''))
+      on conflict (id) do nothing;
+    exception when unique_violation then
+      begin
+        insert into public.profiles (id, username, email)
+        values (
+          rec.id,
+          left(final_name, 36) || ' ' || left(rec.id::text, 4),
+          coalesce(nullif(rec.email, ''), 'recovered-' || rec.id::text)
+        )
+        on conflict (id) do nothing;
+      exception when unique_violation then
+        null;
+      end;
+    end;
+  end loop;
+end $$;
+
+-- Public leaderboard: every registered weaver, username + progress only (no emails).
+-- Reads auth.users so a missing profiles row cannot hide a registration.
+-- Bypasses own-row RLS. Drop first because the return columns changed.
+drop function if exists public.fetch_leaderboard();
+
+create function public.fetch_leaderboard()
 returns table (
+  user_id uuid,
   username text,
   progress jsonb,
   updated_at timestamptz
@@ -149,14 +203,23 @@ set search_path = public
 stable
 as $$
   select
-    p.username,
+    u.id,
+    coalesce(
+      nullif(trim(p.username), ''),
+      nullif(trim(u.raw_user_meta_data->>'username'), ''),
+      nullif(split_part(coalesce(u.email, ''), '@', 1), ''),
+      'weaver'
+    ),
     coalesce(s.progress, '{}'::jsonb),
-    s.updated_at
-  from public.profiles p
-  left join public.player_saves s on s.user_id = p.id
-  where p.username is not null
-    and length(trim(p.username)) > 0
+    coalesce(s.updated_at, u.created_at)
+  from auth.users u
+  left join public.profiles p on p.id = u.id
+  left join public.player_saves s on s.user_id = u.id
+  where u.deleted_at is null
+  order by u.id
 $$;
 
 revoke all on function public.fetch_leaderboard() from public;
 grant execute on function public.fetch_leaderboard() to authenticated;
+
+notify pgrst, 'reload schema';

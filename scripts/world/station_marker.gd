@@ -14,13 +14,13 @@ func _ready() -> void:
 	add_to_group("world_chrome")
 	_plate = Label.new()
 	_plate.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_plate.add_theme_font_size_override("font_size", 13)
+	_plate.add_theme_font_size_override("font_size", 20)
 	_plate.add_theme_color_override("font_color", Palette.GOLD_SUN)
 	_plate.add_theme_color_override("font_outline_color", Palette.alpha(Palette.DREAM_ABYSS, 0.92))
 	_plate.add_theme_constant_override("outline_size", 8)
 	_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_plate.position = Vector2(-90.0, -118.0)
-	_plate.size = Vector2(180.0, 28.0)
+	_plate.position = Vector2(-140.0, -128.0)
+	_plate.size = Vector2(280.0, 36.0)
 	add_child(_plate)
 	set_lit(false)
 

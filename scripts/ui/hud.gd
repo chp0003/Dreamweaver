@@ -79,6 +79,7 @@ func _ready() -> void:
 func _dress_plates() -> void:
 	if quest_plate is PanelContainer:
 		(quest_plate as PanelContainer).add_theme_stylebox_override("panel", UiStyle.veil(0.46, 8))
+		quest_plate.clip_contents = false
 	if vital_plate is PanelContainer:
 		(vital_plate as PanelContainer).add_theme_stylebox_override("panel", UiStyle.veil(0.46, 12))
 	if essence_plate is PanelContainer:
@@ -174,7 +175,7 @@ func set_story_focus(enabled: bool) -> void:
 	if chapter_label != null and enabled:
 		chapter_label.add_theme_font_size_override("font_size", 12)
 	if objective_label != null and enabled:
-		objective_label.add_theme_font_size_override("font_size", 20)
+		objective_label.add_theme_font_size_override("font_size", 28)
 
 
 func set_chapter_focus(enabled: bool) -> void:
@@ -186,7 +187,7 @@ func set_chapter_focus(enabled: bool) -> void:
 		weave_plate.modulate = Color(1, 1, 1, 0.9) if enabled else Color.WHITE
 	bottom_dock.visible = true
 	if objective_label != null and enabled:
-		objective_label.add_theme_font_size_override("font_size", 22)
+		objective_label.add_theme_font_size_override("font_size", 28)
 
 
 func set_quest_steps(steps: Array, current: int) -> void:
@@ -198,11 +199,12 @@ func set_quest_steps(steps: Array, current: int) -> void:
 	if steps.is_empty():
 		box.visible = false
 		if objective_label != null:
-			objective_label.add_theme_font_size_override("font_size", 24)
+			objective_label.add_theme_font_size_override("font_size", 28)
+		_fit_quest_plate()
 		return
 	box.visible = true
 	if objective_label != null:
-		objective_label.add_theme_font_size_override("font_size", 22)
+		objective_label.add_theme_font_size_override("font_size", 28)
 	for i in range(steps.size()):
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 6)
@@ -222,7 +224,7 @@ func set_quest_steps(steps: Array, current: int) -> void:
 		var num := Label.new()
 		num.text = "%d" % (i + 1)
 		num.custom_minimum_size = Vector2(18, 0)
-		num.add_theme_font_size_override("font_size", 15)
+		num.add_theme_font_size_override("font_size", 20)
 		num.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var color := Palette.GOLD_SUN if i == current \
 			else (Palette.CREAM_STONE if i < current else Palette.alpha(Palette.DREAM_MIST, 0.58))
@@ -234,7 +236,7 @@ func set_quest_steps(steps: Array, current: int) -> void:
 		var body := Label.new()
 		body.text = str(steps[i])
 		body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		body.add_theme_font_size_override("font_size", 16 if i == current else 15)
+		body.add_theme_font_size_override("font_size", 22 if i == current else 20)
 		body.add_theme_color_override("font_color", color)
 		body.add_theme_color_override("font_outline_color", Palette.alpha(Palette.DREAM_ABYSS, 0.85))
 		body.add_theme_constant_override("outline_size", 4)
@@ -242,10 +244,34 @@ func set_quest_steps(steps: Array, current: int) -> void:
 		body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(body)
 		box.add_child(row)
+	_fit_quest_plate()
 
 
 func set_objective(text: String) -> void:
 	objective_label.text = text if not text.is_empty() else "Walk the ridge."
+	_fit_quest_plate()
+
+
+## The plate used to be a fixed height sized for three lines. Later lessons
+## (strand, roll, ward, and the longer house lists) drew past the bottom and vanished.
+func _fit_quest_plate() -> void:
+	if quest_plate == null or objective_label == null:
+		return
+	var width := 440.0
+	var font := objective_label.get_theme_font("font")
+	var font_size := objective_label.get_theme_font_size("font_size")
+	var objective_h := 28.0
+	if font != null and not objective_label.text.is_empty():
+		objective_h = font.get_multiline_string_size(
+			objective_label.text, HORIZONTAL_ALIGNMENT_LEFT, width, font_size
+		).y
+	objective_h = maxf(objective_h, 28.0)
+	var rows := 0
+	var box := get_node_or_null("%QuestSteps") as VBoxContainer
+	if box != null and box.visible:
+		rows = box.get_child_count()
+	var height := 56.0 + objective_h + float(rows) * 32.0
+	quest_plate.offset_bottom = quest_plate.offset_top + height
 
 
 ## Short centred toast. Skipped entirely while dialogue is open.
@@ -378,5 +404,8 @@ func _refresh_inventory() -> void:
 		if str(item_id) == "master_pattern":
 			continue
 		held.append(Houses.item_name(str(item_id)))
-	items_label.text = " · ".join(held) if not held.is_empty() else ""
+	if held.is_empty():
+		items_label.text = "I  ·  bag" if GameState.has_item("lewet_staff") or not GameState.journals.is_empty() else ""
+	else:
+		items_label.text = "I  ·  %s" % " · ".join(held)
 	items_label.visible = not items_label.text.is_empty()

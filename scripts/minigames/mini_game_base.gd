@@ -244,7 +244,7 @@ func _build_chrome() -> void:
 	_instruction_label.visible = not instructions.is_empty()
 	_instruction_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_instruction_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_instruction_label.add_theme_font_size_override("font_size", 15)
+	_instruction_label.add_theme_font_size_override("font_size", 22)
 	_instruction_label.add_theme_color_override("font_color", Color(0.87, 0.8, 0.64))
 	column.add_child(_instruction_label)
 
@@ -275,7 +275,7 @@ func _build_chrome() -> void:
 
 	_status_label = Label.new()
 	_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_status_label.add_theme_font_size_override("font_size", 15)
+	_status_label.add_theme_font_size_override("font_size", 20)
 	_status_label.add_theme_color_override("font_color", Color(0.95, 0.88, 0.66))
 	footer.add_child(_status_label)
 
@@ -335,7 +335,7 @@ func _build_result_layer() -> void:
 	_result_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_result_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_result_body.theme_type_variation = &"TaglineLabel"
-	_result_body.add_theme_font_size_override("font_size", 17)
+	_result_body.add_theme_font_size_override("font_size", 22)
 	column.add_child(_result_body)
 
 	_result_buttons = HBoxContainer.new()

@@ -4,7 +4,7 @@ extends Control
 
 const FONT_TITLE := preload("res://assets/fonts/Cinzel-Bold.ttf")
 const FONT_BODY := preload("res://assets/fonts/CrimsonPro-Regular.ttf")
-const KEY_SIZE := Vector2(36.0, 36.0)
+const KEY_SIZE := Vector2(46.0, 46.0)
 
 var _frame: WovenFrame
 var _eyebrow: Label
@@ -22,10 +22,11 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	theme = preload("res://assets/themes/dreamweaver.tres")
 	set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	offset_left = -210.0
-	offset_right = 210.0
-	offset_top = -228.0
-	offset_bottom = -28.0
+	offset_left = -260.0
+	offset_right = 260.0
+	offset_top = -300.0
+	offset_bottom = -16.0
+	clip_contents = false
 	modulate.a = 0.0
 	visible = true
 
@@ -49,7 +50,7 @@ func _ready() -> void:
 	_eyebrow = Label.new()
 	_eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_eyebrow.add_theme_font_override("font", FONT_TITLE)
-	_eyebrow.add_theme_font_size_override("font_size", 12)
+	_eyebrow.add_theme_font_size_override("font_size", 16)
 	_eyebrow.add_theme_color_override("font_color", Palette.GOLD_BRASS)
 	_eyebrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	UiStyle.outline_label(_eyebrow, 4)
@@ -58,7 +59,7 @@ func _ready() -> void:
 	_title = Label.new()
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title.add_theme_font_override("font", FONT_TITLE)
-	_title.add_theme_font_size_override("font_size", 22)
+	_title.add_theme_font_size_override("font_size", 30)
 	_title.add_theme_color_override("font_color", Palette.GOLD_SUN)
 	_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	UiStyle.glow_label(_title, Palette.DREAM_LANTERN, 8)
@@ -67,9 +68,9 @@ func _ready() -> void:
 	_body = Label.new()
 	_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_body.custom_minimum_size = Vector2(400.0, 0.0)
+	_body.custom_minimum_size = Vector2(460.0, 0.0)
 	_body.add_theme_font_override("font", FONT_BODY)
-	_body.add_theme_font_size_override("font_size", 17)
+	_body.add_theme_font_size_override("font_size", 24)
 	_body.add_theme_color_override("font_color", Palette.CREAM_WARP)
 	_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	UiStyle.outline_label(_body, 5)
@@ -105,6 +106,7 @@ func show_hint(title: String, body: String, keys: Array = [],
 	_body.visible = not body.is_empty()
 	_check.visible = false
 	_rebuild_keys(keys, layout)
+	_fit_to_content()
 	_kill_tween()
 	visible = true
 	_tween = create_tween()
@@ -114,6 +116,28 @@ func show_hint(title: String, body: String, keys: Array = [],
 
 func show_text(text: String) -> void:
 	show_hint("", text)
+
+
+## The card used to be a fixed height. WASD and the later key rows drew past
+## the bottom edge, so those lessons looked missing.
+func _fit_to_content() -> void:
+	var keys_h := 0.0
+	if _keys_host.visible:
+		keys_h = maxf(_keys_host.get_combined_minimum_size().y, 44.0)
+		if _key_nodes.has("W"):
+			keys_h = maxf(keys_h, 108.0)
+	var body_h := 0.0
+	if _body.visible and not _body.text.is_empty():
+		var font := _body.get_theme_font("font")
+		var font_size := _body.get_theme_font_size("font_size")
+		if font != null:
+			body_h = font.get_multiline_string_size(
+				_body.text, HORIZONTAL_ALIGNMENT_CENTER, 460.0, font_size
+			).y
+		body_h = maxf(body_h, 22.0)
+	var needed := 110.0 + body_h + keys_h
+	offset_bottom = -16.0
+	offset_top = offset_bottom - needed
 
 
 func light_key(glyph: String) -> void:
@@ -202,7 +226,7 @@ func _make_key(glyph: String) -> PanelContainer:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_override("font", FONT_TITLE)
-	label.add_theme_font_size_override("font_size", 13 if wide else 16)
+	label.add_theme_font_size_override("font_size", 16 if wide else 22)
 	label.add_theme_color_override("font_color", Palette.CREAM_WARP)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cap.add_child(label)

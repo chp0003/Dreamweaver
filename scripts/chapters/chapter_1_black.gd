@@ -250,7 +250,7 @@ func _scatter_strands() -> void:
 			"tint": Color(0.58, 0.54, 0.48),
 			"score_value": 40,
 			"highlight": true,
-			"pickup_radius": 32.0,
+			"pickup_radius": 64.0,
 		})
 		strand.collected.connect(_on_strand_collected)
 		_strands.append(strand)

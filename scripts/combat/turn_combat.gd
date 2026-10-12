@@ -478,7 +478,7 @@ func _build_screen() -> void:
 	col.add_child(_msg)
 
 	_prompt = Label.new()
-	_prompt.add_theme_font_size_override("font_size", 14)
+	_prompt.add_theme_font_size_override("font_size", 20)
 	_prompt.add_theme_color_override("font_color", Color(0.95, 0.84, 0.5, 0.95))
 	_prompt.add_theme_color_override("font_outline_color", Color(0.02, 0.015, 0.02, 0.85))
 	_prompt.add_theme_constant_override("outline_size", 5)

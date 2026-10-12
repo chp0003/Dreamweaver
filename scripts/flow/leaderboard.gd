@@ -22,6 +22,19 @@ func _ready() -> void:
 	Audio.set_ambience(0.22, 8.0)
 	back_button.pressed.connect(_on_back_pressed)
 	UiStyle.glow_label(title_label, Palette.DREAM_LANTERN, 12)
+	# Shrink, don't fill: a filled list is clamped to the pane and extra
+	# weavers get clipped with nothing to scroll.
+	row_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row_list.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var scroll := row_list.get_parent() as ScrollContainer
+	if scroll:
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+		scroll.mouse_filter = Control.MOUSE_FILTER_STOP
+		var frame := scroll.get_parent() as Control
+		if frame:
+			frame.mouse_filter = Control.MOUSE_FILTER_STOP
 	back_button.grab_focus()
 	await _load_rows()
 
@@ -36,14 +49,18 @@ func _load_rows() -> void:
 	var source := str(result.get("source", "local"))
 
 	if rows.is_empty():
-		status_label.text = "No weavers on this loom yet. Start a dream to take first place."
+		var err := str(result.get("error", "")).strip_edges()
+		if source == "cloud" or not err.is_empty():
+			status_label.text = "Signed-in weavers are in Supabase, but this board cannot read them yet. Open the SQL Editor, paste supabase/schema.sql, press Run, then come back."
+		else:
+			status_label.text = "No weavers on this loom yet. Start a dream to take first place."
 		you_label.text = ""
 		return
 
 	if source == "cloud":
-		status_label.text = "Ranked by progress across every signed-in weaver."
+		status_label.text = "%d weavers, ranked by progress." % rows.size()
 	else:
-		status_label.text = "Ranked by progress on this loom."
+		status_label.text = "%d weavers on this loom, ranked by progress." % rows.size()
 
 	_add_header()
 	var you_place := 0

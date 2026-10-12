@@ -43,6 +43,7 @@ func startup_sync() -> void:
 	if _startup_sync_done:
 		return
 	if is_cloud_mode() and has_session():
+		await Supabase._ensure_profile()
 		await _pull_progress_from_cloud()
 	_startup_sync_done = true
 
@@ -225,6 +226,7 @@ func fetch_leaderboard() -> Dictionary:
 	var you := current_username().strip_edges().to_lower()
 	var raw: Array = []
 	var source := "local"
+	var cloud_error := ""
 	if is_cloud_mode() and has_session():
 		var res: Dictionary = await Supabase.fetch_leaderboard()
 		if bool(res.get("ok", false)):
@@ -232,18 +234,30 @@ func fetch_leaderboard() -> Dictionary:
 			if typeof(data) == TYPE_ARRAY:
 				raw = _leaderboard_from_cloud(data as Array)
 				source = "cloud"
-	if raw.is_empty():
+			else:
+				cloud_error = "The cloud list came back in an unexpected shape."
+		else:
+			cloud_error = str(res.get("error", "Could not read the cloud list."))
+		# Local accounts.json is only this computer. Never substitute it for the village.
+		if source != "cloud":
+			return {"ok": false, "rows": [], "source": "cloud", "error": cloud_error}
+	elif raw.is_empty():
 		raw = _leaderboard_from_local()
 		source = "local"
-		if is_cloud_mode() and has_session():
-			_ensure_you_on_leaderboard(raw)
 
 	raw.sort_custom(_leaderboard_before)
+	var you_id := ""
+	if is_cloud_mode():
+		you_id = Supabase.user_id.strip_edges()
 	for i in raw.size():
 		var row: Dictionary = raw[i]
 		row["place_index"] = i + 1
-		row["is_you"] = str(row.get("username", "")).strip_edges().to_lower() == you \
-			and not you.is_empty()
+		var row_id := str(row.get("user_id", "")).strip_edges()
+		if not you_id.is_empty() and not row_id.is_empty():
+			row["is_you"] = row_id == you_id
+		else:
+			row["is_you"] = str(row.get("username", "")).strip_edges().to_lower() == you \
+				and not you.is_empty()
 		raw[i] = row
 	return {"ok": true, "rows": raw, "source": source, "error": ""}
 
@@ -407,10 +421,13 @@ func _leaderboard_from_cloud(data: Array) -> Array:
 	for entry in data:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
-		var name := str((entry as Dictionary).get("username", "")).strip_edges()
+		var dict := entry as Dictionary
+		var name := str(dict.get("username", "")).strip_edges()
 		if name.is_empty():
 			continue
-		out.append(_leaderboard_row(name, _as_progress_dict((entry as Dictionary).get("progress", {}))))
+		var row := _leaderboard_row(name, _as_progress_dict(dict.get("progress", {})))
+		row["user_id"] = str(dict.get("user_id", "")).strip_edges()
+		out.append(row)
 	return out
 
 
