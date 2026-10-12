@@ -18,9 +18,20 @@ const FLIP_SHEET := {
 }
 const HOVER_TINT := Color(1.18, 1.12, 0.92)
 const SELECT_TINT := Color(1.28, 1.18, 0.78)
+## Off = smooth motion. On = sprite snapped to whole world pixels (stutters).
+const SNAP_SPRITE_TO_PIXELS := false
+const WALK_START_RATIO := 0.25
+const WALK_STOP_RATIO := 0.10
 
 @export var walk_speed := 78.0
 @export var walk_fps := 2.0
+## Ground distance (screen px) one full walk cycle covers, at space scale 1.0.
+## About 0.8 x on-screen height (~77 px tall NPC -> ~62).
+@export var stride_length := 62.0
+@export var accel := 700.0
+@export var decel := 900.0
+## Scale walk_speed by the art scale so small/far NPCs don't slide.
+@export var scale_speed_with_art := true
 @export var arrive_distance := 12.0
 @export var pause_min := 0.8
 @export var pause_max := 2.2
@@ -64,6 +75,7 @@ var _selected := false
 var _resume_after_talk: State = State.IDLE
 var _repath_tries := 0
 var _talk_pulse := 0.0
+var _walking := false
 
 
 func _ready() -> void:
@@ -93,7 +105,7 @@ func _physics_process(delta: float) -> void:
 	if movement_locked:
 		velocity = Vector2.ZERO
 		move_and_slide()
-		_update_animation(Vector2.ZERO, false)
+		_update_animation(Vector2.ZERO)
 		_ground_sprite()
 		return
 	match state:
@@ -242,7 +254,7 @@ func _build_visuals() -> void:
 		_animated.sprite_frames = frames
 		_animated.centered = true
 		_animated.offset = _base_offset
-		_animated.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		_animated.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		_animated.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
 		_sprite = _animated
 		set_art_scale_factor(_space_scale)
@@ -309,10 +321,11 @@ func _build_interact() -> void:
 
 
 func _tick_idle(delta: float) -> void:
-	velocity = Vector2.ZERO
+	# Slide to a stop instead of freezing instantly.
+	velocity = velocity.move_toward(Vector2.ZERO, decel * delta)
 	move_and_slide()
 	_pause_left = maxf(0.0, _pause_left - delta)
-	_update_animation(Vector2.ZERO, false)
+	_update_animation(get_real_velocity())
 	_ground_sprite()
 	if _pause_left > 0.0:
 		return
@@ -333,11 +346,10 @@ func _tick_move(delta: float) -> void:
 	if wish.length_squared() < 0.01:
 		_arrive()
 		return
-	velocity = wish * walk_speed
+	velocity = velocity.move_toward(wish * _effective_speed(), accel * delta)
 	var before := global_position
 	move_and_slide()
-	var moved := global_position - before
-	var traveled := moved.length()
+	var traveled := (global_position - before).length()
 	if traveled < move_epsilon * delta:
 		_stuck += delta
 		if _stuck >= stuck_seconds:
@@ -347,10 +359,11 @@ func _tick_move(delta: float) -> void:
 				return
 			_arrive()
 			return
-		_update_animation(Vector2.ZERO, false)
 	else:
 		_stuck = 0.0
-		_update_animation(moved, true)
+	# get_real_velocity() is what actually happened after sliding on walls,
+	# so feet stop when the NPC is blocked.
+	_update_animation(get_real_velocity())
 	_ground_sprite()
 
 
@@ -358,7 +371,7 @@ func _tick_talk(_delta: float) -> void:
 	velocity = Vector2.ZERO
 	move_and_slide()
 	_face_world(_player_delta())
-	_update_animation(Vector2.ZERO, false)
+	_update_animation(Vector2.ZERO)
 	_ground_sprite()
 	if interact != null:
 		interact.set_prompt_visible(false)
@@ -368,11 +381,8 @@ func _arrive() -> void:
 	_has_destination = false
 	_stuck = 0.0
 	_repath_tries = 0
-	velocity = Vector2.ZERO
-	move_and_slide()
 	_set_state(State.IDLE)
 	_pause_left = randf_range(pause_min, pause_max)
-	_update_animation(Vector2.ZERO, false)
 	_ground_sprite()
 	arrived.emit()
 
@@ -438,15 +448,43 @@ func _pick_wander_point() -> void:
 	wander_to(raw)
 
 
-func _update_animation(move_vec: Vector2, moving: bool) -> void:
+func _effective_speed() -> float:
+	return walk_speed * (_space_scale if scale_speed_with_art else 1.0)
+
+
+func _stride_px() -> float:
+	return stride_length * _space_scale
+
+
+func _base_cycles(anim_name: String) -> float:
+	if _animated == null or _animated.sprite_frames == null:
+		return NpcFrames.WALK_CYCLES_PER_SEC
+	var f := _animated.sprite_frames
+	if not f.has_animation(anim_name):
+		return NpcFrames.WALK_CYCLES_PER_SEC
+	var n := f.get_frame_count(anim_name)
+	if n <= 0:
+		return NpcFrames.WALK_CYCLES_PER_SEC
+	return maxf(f.get_animation_speed(anim_name) / float(n), 0.1)
+
+
+func _update_animation(vel: Vector2) -> void:
+	var spd := vel.length()
+	var top := maxf(_effective_speed(), 1.0)
+	if _walking:
+		_walking = spd > top * WALK_STOP_RATIO
+	else:
+		_walking = spd > top * WALK_START_RATIO
 	if _animated == null:
-		if _sprite is Sprite2D and absf(move_vec.x) > 6.0:
-			(_sprite as Sprite2D).flip_h = move_vec.x < 0.0
+		if _sprite is Sprite2D and _walking and absf(vel.x) > 6.0:
+			(_sprite as Sprite2D).flip_h = vel.x < 0.0
 		return
-	if moving:
-		last_direction = _octant_name(move_vec)
-		_animated.speed_scale = clampf(move_vec.length() / maxf(walk_speed, 1.0), 0.85, 1.1)
-		_play_anim(_anim_name(walk_prefix, last_direction))
+	if _walking:
+		last_direction = _octant_name(vel)
+		var anim := _anim_name(walk_prefix, last_direction)
+		var cycles := spd / maxf(_stride_px(), 1.0)
+		_animated.speed_scale = clampf(cycles / _base_cycles(anim), 0.3, 1.6)
+		_play_anim(anim)
 	else:
 		_animated.speed_scale = 1.0
 		_play_anim(_anim_name(idle_prefix, last_direction))
@@ -467,7 +505,10 @@ func _anim_name(prefix: String, dir: String) -> String:
 func _ground_sprite() -> void:
 	if _sprite == null:
 		return
-	_sprite.position = global_position.round() - global_position
+	if SNAP_SPRITE_TO_PIXELS:
+		_sprite.position = global_position.round() - global_position
+	else:
+		_sprite.position = Vector2.ZERO
 	if _animated != null:
 		_animated.rotation_degrees = 0.0
 		_animated.offset = _base_offset

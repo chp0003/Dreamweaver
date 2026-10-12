@@ -20,9 +20,9 @@ const DIR8_PATH := "res://assets/images/characters/slang_8dir/"
 
 const FRAME_W := 256
 const FRAME_H := 192
-## Two full stride cycles per second at the default 190 px/s move speed.
+## 2.5 full stride cycles per second at the default 190 px/s move speed.
 ## FPS is `frame_count *` this, so 8-frame and 12-frame sheets keep the same gait.
-const WALK_CYCLES_PER_SEC := 2.0
+const WALK_CYCLES_PER_SEC := 2.5
 const ATTACK_FPS := 13.0
 
 const UNIQUE_DIRS := ["down", "down_right", "right", "up_right", "up"]
@@ -222,7 +222,12 @@ static func _build_armed() -> SpriteFrames:
 		var walk := _load_packed_strip_auto(DIR8_PATH + "walk_%s.png" % dir)
 		if walk.is_empty() or not _frames_differ(walk):
 			walk = _load_packed_strip(DIR8_PATH + "walk_%s.png" % dir, 4)
-		if walk.is_empty() or not _frames_differ(walk):
+		var real_walk := not walk.is_empty() and _frames_differ(walk)
+		if real_walk:
+			walk = _stabilize_strip(walk)
+		else:
+			# Tells you which direction is running the fake feet-shift walk.
+			push_warning("SlangFrames: walk_%s.png missing or static, using fake fallback walk" % dir)
 			if dir == "right" and not walk_fallback.is_empty():
 				walk = walk_fallback
 			else:
@@ -279,7 +284,7 @@ static func _slice_strip(img: Image, count: int) -> Array:
 	var out: Array = []
 	for i in range(count):
 		var cell := img.get_region(Rect2i(i * fw, 0, fw, img.get_height()))
-		out.append(ImageTexture.create_from_image(cell))
+		out.append(_make_tex(cell))
 	return out
 
 
@@ -291,6 +296,107 @@ static func _add_anim(frames: SpriteFrames, name: String, texs: Array, loop: boo
 	frames.set_animation_speed(name, fps)
 	for tex in texs:
 		frames.add_frame(name, tex as Texture2D)
+
+
+## Shift each walk frame so body centre and ground line match across the cycle.
+## Hand-made sheets often drift a few pixels per frame, which reads as wobble.
+const STABILIZE_STRIPS := true
+const STABILIZE_MAX_SHIFT_X := 14
+const STABILIZE_MAX_SHIFT_Y := 6
+
+
+## Mipmaps let the 0.479 on-screen downscale stay smooth.
+static func _make_tex(img: Image) -> ImageTexture:
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
+
+
+static func _torso_center_x(img: Image, b: Rect2) -> float:
+	var y0 := int(b.position.y + b.size.y * 0.25)
+	var y1 := int(b.position.y + b.size.y * 0.60)
+	var x0 := int(b.position.x)
+	var x1 := int(b.position.x + b.size.x)
+	var sum := 0.0
+	var n := 0
+	for y in range(y0, y1):
+		for x in range(x0, x1):
+			if img.get_pixel(x, y).a > 0.1:
+				sum += float(x)
+				n += 1
+	if n == 0:
+		return b.position.x + b.size.x * 0.5
+	return sum / float(n)
+
+
+static func _stabilize_strip(frames: Array) -> Array:
+	if not STABILIZE_STRIPS or frames.size() < 2:
+		return frames
+	var imgs: Array[Image] = []
+	var bottoms: Array[float] = []
+	var centers: Array[float] = []
+	for tex in frames:
+		var img := _texture_to_image(tex as Texture2D)
+		if img == null:
+			return frames
+		var b := _opaque_bounds(img)
+		if b.size.y < 1.0:
+			return frames
+		imgs.append(img)
+		bottoms.append(b.position.y + b.size.y)
+		centers.append(_torso_center_x(img, b))
+	var avg_bottom := 0.0
+	var avg_center := 0.0
+	for i in imgs.size():
+		avg_bottom += bottoms[i]
+		avg_center += centers[i]
+	avg_bottom /= float(imgs.size())
+	avg_center /= float(imgs.size())
+	var out: Array = []
+	for i in imgs.size():
+		var dx := clampi(int(round(avg_center - centers[i])),
+				-STABILIZE_MAX_SHIFT_X, STABILIZE_MAX_SHIFT_X)
+		var dy := clampi(int(round(avg_bottom - bottoms[i])),
+				-STABILIZE_MAX_SHIFT_Y, STABILIZE_MAX_SHIFT_Y)
+		out.append(_make_tex(_shifted_frame(imgs[i], dx, dy)))
+	return out
+
+
+## Fit every cell with ONE shared crop and ONE shared scale.
+## (The old per-frame crop resized each frame differently, so she pulsed and wobbled.)
+static func _fit_cells_uniform(cells: Array) -> Array:
+	var cleaned: Array[Image] = []
+	var bounds := Rect2()
+	var have := false
+	for cell in cells:
+		var c := _decontaminate(cell as Image)
+		cleaned.append(c)
+		var b := _opaque_bounds(c)
+		if b.size.y < 1.0:
+			continue
+		bounds = b if not have else bounds.merge(b)
+		have = true
+	if not have:
+		return []
+	var rx := int(bounds.position.x)
+	var ry := int(bounds.position.y)
+	var rw := maxi(1, int(bounds.size.x))
+	var rh := maxi(1, int(bounds.size.y))
+	var s := float(FRAME_H) / float(rh)
+	if float(rw) * s > float(FRAME_W):
+		s = float(FRAME_W) / float(rw)
+	var tw := maxi(1, int(round(float(rw) * s)))
+	var th := maxi(1, int(round(float(rh) * s)))
+	var ox := int((FRAME_W - tw) / 2.0)
+	var oy := FRAME_H - th
+	var fitted: Array = []
+	for c in cleaned:
+		var region := c.get_region(Rect2i(rx, ry, rw, rh))
+		region.resize(tw, th, Image.INTERPOLATE_LANCZOS)
+		var canvas := Image.create(FRAME_W, FRAME_H, false, Image.FORMAT_RGBA8)
+		canvas.fill(Color(0, 0, 0, 0))
+		canvas.blit_rect(region, Rect2i(0, 0, tw, th), Vector2i(ox, oy))
+		fitted.append(_make_tex(canvas))
+	return fitted
 
 
 ## Accept an external strip only if it keys clean and differs across frames.
@@ -308,11 +414,11 @@ static func _load_strip(path: String, count: int) -> Array:
 	var fw := int(img.get_width() / float(count))
 	if fw < 8:
 		return []
-	var out: Array = []
+	var cells: Array = []
 	for i in range(count):
-		var cell := img.get_region(Rect2i(i * fw, 0, fw, img.get_height()))
-		out.append(_to_frame_texture_from_image(cell))
-	if not _frames_differ(out):
+		cells.append(img.get_region(Rect2i(i * fw, 0, fw, img.get_height())))
+	var out := _fit_cells_uniform(cells)
+	if out.is_empty() or not _frames_differ(out):
 		return []
 	return out
 
@@ -406,7 +512,7 @@ static func _to_frame_texture(tex: Texture2D) -> Texture2D:
 
 
 static func _to_frame_texture_from_image(img: Image) -> ImageTexture:
-	return ImageTexture.create_from_image(_fit_to_canvas(img))
+	return _make_tex(_fit_to_canvas(img))
 
 
 ## Fit any art into FRAME_W×FRAME_H with feet on the bottom edge (shared pivot).

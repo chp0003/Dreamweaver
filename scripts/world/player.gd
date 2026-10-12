@@ -69,6 +69,13 @@ const BEAM_HALF_WIDTH := 38.0
 const BEAM_CHARGE := 0.48
 const BEAM_GOLD := Color(1.55, 1.22, 0.55, 0.96)
 const BEAM_BURST := "res://assets/images/vfx/weave_bolt_burst.png"
+## Set false to go back to the single down_right sheet for every facing.
+const USE_DIRECTIONAL_SHEETS := true
+## Walk starts above START, stops below STOP. The gap stops walk/idle flicker.
+const WALK_START_SPEED := 30.0
+const WALK_STOP_SPEED := 10.0
+## Movement multiplier while a staff swing animation plays (stops attack-sliding).
+const ATTACK_MOVE_MULT := 0.35
 
 @export var max_health := 100.0
 @export var has_staff := false:
@@ -129,6 +136,7 @@ var _base_sprite_offset := Vector2(0.0, -46.0)
 var _depth_scale := 1.0
 var _stride_speed := 190.0
 var _idle_time := 0.0
+var _walking := false
 
 
 func _ready() -> void:
@@ -193,21 +201,32 @@ func _physics_process(delta: float) -> void:
 		var move_speed := speed * (WARD_SLOW if _ward_left > 0.0 else 1.0)
 		if _beam_root > 0.0:
 			move_speed *= 0.2
+		elif _attacking:
+			move_speed *= ATTACK_MOVE_MULT
+		var target_vel := Vector2.ZERO
 		if input_vector != Vector2.ZERO:
-			var direction := input_vector.normalized()
-			facing = direction
-			velocity = direction * move_speed
+			facing = input_vector.normalized()
+			target_vel = facing * move_speed
 		elif chase_dir != Vector2.ZERO:
-			velocity = chase_dir.normalized() * move_speed
-		else:
-			velocity = Vector2.ZERO
+			target_vel = chase_dir.normalized() * move_speed
+		# Ease in and out instead of snapping. Uses the exported
+		# acceleration / friction that were previously unused.
+		var rate := acceleration if target_vel != Vector2.ZERO else friction
+		velocity = velocity.move_toward(target_vel, rate * delta)
 	if Input.is_action_pressed("attack"):
 		try_attack()
 
 	move_and_slide()
 	if collision_mask != PhysicsLayers.MASK_PLAYER_MOVES:
 		collision_mask = PhysicsLayers.MASK_PLAYER_MOVES
-	var moving := _dodge_left <= 0.0 and velocity.length() > 20.0
+	var spd := velocity.length()
+	if _dodge_left > 0.0:
+		_walking = false
+	elif _walking:
+		_walking = spd > WALK_STOP_SPEED
+	else:
+		_walking = spd > WALK_START_SPEED
+	var moving := _walking
 	var face_dir := anim_stick if anim_stick != Vector2.ZERO else (velocity if moving else Vector2.ZERO)
 	_update_animation(face_dir, moving)
 	_update_hurt_flash()
@@ -271,11 +290,15 @@ func _octant_name(dir: Vector2) -> String:
 
 
 func _play_facing(prefix: String) -> void:
-	# One three-quarter model for every facing. The directional sheets are
-	# different drawings — swapping them popped costume and size.
-	# West still mirrors the east sheet.
-	_animated.flip_h = FLIP_SHEET.has(last_direction)
-	_play_anim("%s_down_right" % prefix)
+	var mirrored := FLIP_SHEET.has(last_direction)
+	var sheet: String = FLIP_SHEET.get(last_direction, last_direction)
+	var anim_name := "%s_%s" % [prefix, sheet]
+	_animated.flip_h = mirrored
+	if USE_DIRECTIONAL_SHEETS and _animated.sprite_frames != null \
+			and _animated.sprite_frames.has_animation(anim_name):
+		_play_anim(anim_name)
+	else:
+		_play_anim("%s_down_right" % prefix)
 
 
 func _play_anim(anim_name: String) -> void:
@@ -330,14 +353,12 @@ func _update_idle_breathe(_delta: float, moving: bool) -> void:
 func _sync_walk_stride() -> void:
 	if _animated == null or _dead:
 		return
-	var anim := _animated.animation
-	if anim.begins_with("walk"):
-		var spd := velocity.length()
-		_animated.speed_scale = clampf(spd / maxf(speed, 1.0), 0.82, 1.06)
-		_animated.offset = _base_sprite_offset
-		return
 	_animated.offset = _base_sprite_offset
-	_animated.speed_scale = 1.0
+	if _animated.animation.begins_with("walk"):
+		var ratio := velocity.length() / maxf(speed, 1.0)
+		_animated.speed_scale = clampf(ratio, 0.45, 1.25)
+	else:
+		_animated.speed_scale = 1.0
 
 
 func _update_hurt_flash() -> void:
@@ -1276,7 +1297,9 @@ func _build_visuals() -> void:
 	_base_sprite_scale = Vector2(art_scale, art_scale)
 	_animated.offset = _base_sprite_offset
 	_animated.scale = _base_sprite_scale
-	_animated.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# Art is drawn at 192 px tall and shown at ~92 px (scale 0.479). NEAREST at a
+	# non-integer scale crawls and shimmers while moving; mipmapped linear doesn't.
+	_animated.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_apply_staff_visual()
 	_animated.play("idle_down_right")
 	_build_shadow()
