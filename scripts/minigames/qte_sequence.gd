@@ -19,8 +19,10 @@ const PROMPTS := [
 ]
 
 @export var prompt_count := 8
-@export var start_window := 0.92
-@export var end_window := 0.55
+@export var start_window := 1.7
+@export var end_window := 0.95
+const FIRST_WINDOW := 2.4
+const READY_BEATS := ["3", "2", "1", "GO"]
 
 const OverlayScript := preload("res://scripts/ui/tnalak_overlay.gd")
 
@@ -111,7 +113,35 @@ func _build_content(_parent: Control) -> void:
 func _reset_round() -> void:
 	_step = 0
 	_waiting = false
-	_next_prompt()
+	_window_left = 0.0
+	if _window_bar != null:
+		_window_bar.value = 1.0
+	if _glyph_label != null:
+		_glyph_label.text = ""
+	call_deferred("_ready_then_start")
+
+
+func _ready_then_start() -> void:
+	if not is_inside_tree():
+		return
+	_waiting = false
+	for i in range(_key_labels.size()):
+		_key_labels[i].modulate = Color(0.7, 0.62, 0.42)
+		_key_labels[i].scale = Vector2.ONE
+	for beat in READY_BEATS:
+		if not running or not is_inside_tree():
+			return
+		_step_label.text = "Get ready"
+		_glyph_label.text = beat
+		_glyph_label.modulate = Color(1.4, 1.2, 0.7)
+		_glyph_label.scale = Vector2(1.35, 1.35)
+		var tween := create_tween()
+		tween.tween_property(_glyph_label, "scale", Vector2.ONE, 0.18)
+		set_status("")
+		Audio.play_sfx(Audio.Sfx.BELL if beat != "GO" else Audio.Sfx.CHIME)
+		await get_tree().create_timer(0.72 if beat != "GO" else 0.55).timeout
+	if running and is_inside_tree():
+		_next_prompt()
 
 
 func _process(delta: float) -> void:
@@ -165,6 +195,16 @@ func _complete_stitch() -> void:
 		return
 	running = false
 	_waiting = false
+	if _overlay != null:
+		_overlay.visible = false
+	if _glyph_label != null:
+		_glyph_label.visible = false
+	if _step_label != null:
+		_step_label.visible = false
+	if _window_bar != null:
+		_window_bar.visible = false
+	for key in _key_labels:
+		key.visible = false
 	Audio.play_brass_shock()
 	final_stitch.emit()
 	GameState.add_score(reward_score)
@@ -177,6 +217,8 @@ func _next_prompt() -> void:
 	# Windows tighten as the finale builds.
 	var t := float(_step - 1) / maxf(1.0, float(prompt_count - 1))
 	_window = lerpf(start_window, end_window, clampf(t, 0.0, 1.0))
+	if _step == 1:
+		_window = maxf(_window, FIRST_WINDOW)
 	_window_left = _window
 
 	_glyph_label.text = str(PROMPTS[_required]["glyph"])

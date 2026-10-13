@@ -8,26 +8,33 @@ extends RefCounted
 
 const LORE_SCORE := 100
 
-## Four statues, one quiz each. Correct answers unlock the matching lore entry.
+## Four statues, one quiz each. Every answer is already in S'lang's bag
+## before she enters this house: the notes from Houses 1–3, and what she
+## did there. Correct answers unlock the matching lore entry.
 const STATUE_QUIZZES: Array[Dictionary] = [
 	{
 		"statue": "The Statue of the Dreamer",
-		"riddle": "I do not invent. I only remember what was shown to me while I slept. What am I?",
+		"riddle": "I do not make the pattern up. I only remember what I saw while I slept. What am I?",
 		"questions": [
 			{
-				"prompt": "Where do T'boli weavers traditionally receive their T'nalak patterns?",
+				"prompt": "What is a damgo?",
 				"options": [
-					"From dreams sent by Fun Kdungon, the weaving goddess",
-					"From patterns copied out of trade catalogues",
-					"From designs assigned by the village council",
-					"From patterns invented freely by each weaver",
+					"A dream that shows a weaver her pattern",
+					"A red root",
+					"A brass staff",
+					"A longhouse",
 				],
 				"answer": 0,
 				"lore": "damgo",
 			},
 			{
-				"prompt": "What is the T'boli word for the dream that carries a pattern?",
-				"options": ["Damgo", "Kleng", "Ablun", "Hulo"],
+				"prompt": "Who sends that dream?",
+				"options": [
+					"Fun Kdungon, the one who guides her",
+					"The Chief",
+					"The Queen",
+					"The Spindle",
+				],
 				"answer": 0,
 				"lore": "damgo",
 			},
@@ -35,26 +42,26 @@ const STATUE_QUIZZES: Array[Dictionary] = [
 	},
 	{
 		"statue": "The Statue of the Fibre",
-		"riddle": "I am torn from a trunk, combed thin, and knotted end to end before I am worthy. What am I?",
+		"riddle": "I come from a trunk. I am combed thin, then knotted end to end. What am I?",
 		"questions": [
 			{
-				"prompt": "T'nalak cloth is woven from the fibre of which plant?",
+				"prompt": "What did S'lang gather in the first house?",
 				"options": [
 					"Abaca, a relative of the banana",
 					"Cotton",
-					"Silk from cultivated moths",
-					"Pineapple leaf",
+					"Silk",
+					"Hulo root",
 				],
 				"answer": 0,
 				"lore": "abaca",
 			},
 			{
-				"prompt": "After stripping, what must a weaver do to the fine abaca fibres?",
+				"prompt": "Which strands did she keep?",
 				"options": [
-					"Knot them end to end into one continuous thread",
-					"Weave them while still wet from the trunk",
-					"Bleach them white in the sun",
-					"Cut them all to the same short length",
+					"Strands that bend and hold a knot",
+					"Strands that snap",
+					"Strands that crack",
+					"Strands that fray",
 				],
 				"answer": 0,
 				"lore": "abaca",
@@ -63,21 +70,26 @@ const STATUE_QUIZZES: Array[Dictionary] = [
 	},
 	{
 		"statue": "The Statue of the Dye",
-		"riddle": "I am beaten in a mortar so that I may give my colour away. What am I?",
+		"riddle": "I am beaten in a mortar until I give my colour away. What am I?",
 		"questions": [
 			{
-				"prompt": "Which root gives T'nalak its traditional red?",
-				"options": ["Loko (hulo) root", "Indigo leaf", "Turmeric", "Annatto seed"],
+				"prompt": "What root makes the red dye?",
+				"options": [
+					"Loko, also called hulo",
+					"Abaca",
+					"Gold",
+					"Mud",
+				],
 				"answer": 0,
 				"lore": "sacred_colors",
 			},
 			{
-				"prompt": "How is the black of T'nalak traditionally achieved?",
+				"prompt": "How did she get the red out of those roots?",
 				"options": [
-					"Steeping tied fibres in a bath of k'nalum leaves and soot-rich mud",
-					"Scorching the finished cloth over a fire",
-					"Rubbing charcoal directly into the woven surface",
-					"Leaving the cloth buried until it rots dark",
+					"She beat them in a mortar until the red came out",
+					"She left them in the sun",
+					"She washed them",
+					"She burned them",
 				],
 				"answer": 0,
 				"lore": "sacred_colors",
@@ -86,29 +98,29 @@ const STATUE_QUIZZES: Array[Dictionary] = [
 	},
 	{
 		"statue": "The Statue of the Master",
-		"riddle": "I wove until my hands were maps. My name outlived my loom. Who am I?",
+		"riddle": "I was dark until light from the window reached me. Then I asked you to remember a snake. What woke the torches before that?",
 		"questions": [
 			{
-				"prompt": "Lang Dulay, National Living Treasure, is remembered above all for what?",
+				"prompt": "What woke the dead torches?",
 				"options": [
-					"Preserving and teaching over a hundred T'nalak dream patterns",
-					"Inventing a mechanical loom for T'nalak",
-					"Introducing synthetic dyes to the T'boli",
-					"Exporting T'nalak as fashion fabric",
+					"Striking the air with the brass lewet",
+					"Crushing hulo in a mortar",
+					"Sorting abaca on the rack",
+					"Cutting the vines",
 				],
 				"answer": 0,
-				"lore": "lang_dulay",
+				"lore": "lewet_staff",
 			},
 			{
-				"prompt": "Which is a genuine T'nalak weaving taboo?",
+				"prompt": "What did the Golden Spindle ask her to remember?",
 				"options": [
-					"The cloth must never be cut carelessly, and the loom is not stepped over",
-					"Only men may sit at the loom",
-					"Patterns must be drawn on paper before weaving",
-					"Finished cloth must be washed in the river before use",
+					"The snake on the floor, in the same order",
+					"A pattern she invented herself",
+					"A pattern copied from a book",
+					"The Chief's map of the hall",
 				],
 				"answer": 0,
-				"lore": "taboo",
+				"lore": "kleng",
 			},
 		],
 	},
@@ -230,7 +242,7 @@ const JOURNALS: Array[Dictionary] = [
 	{
 		"house": 3,
 		"title": "Note — Golden Sun",
-		"text": "A T'boli weaver does not invent her pattern. Fun Kdungon sends it in a damgo, a dream, and the weaver's work is to remember what was shown while she slept. The T'boli word for that dream is damgo. Gold is not a dye. It is the sun and the brass. The lewet sings: press Q near a dead torch and the brass wakes it. Lang Dulay of Lake Sebu kept more than a hundred of these dream patterns and taught them to the weavers who came after her.",
+		"text": "A T'boli weaver does not invent her pattern. Fun Kdungon sends it in a damgo, a dream, and the weaver's work is to remember what was shown while she slept. The T'boli word for that dream is damgo. Gold is not a dye. It is the sun and the brass. The lewet is brass: strike the air with it and the old torches answer. The Golden Spindle asked her to remember the snake on the floor, in the same order.",
 	},
 	{
 		"house": 4,

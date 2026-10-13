@@ -214,8 +214,9 @@ func _run_chapter() -> void:
 	_ghost_trigger.set_enabled(false)
 
 	await say([
-		{"speaker": "Fun Kdungon", "text": "Hear them, then. One dreams and does not invent. One is torn from a trunk and made worthy. One is beaten so it may give its colour away. One wove until her hands were maps."},
-		{"speaker": "Fun Kdungon", "text": "Four stones. Four questionings. Answer wrongly three times in this House and you will begin it again — the ancestors do not repeat themselves kindly."},
+		{"speaker": "Fun Kdungon", "text": "Hear them, then. One dreams and does not invent. One is torn from a trunk and made worthy. One is beaten so it may give its colour away. One was dead gold until a snake of light crossed its floor."},
+		{"speaker": "Fun Kdungon", "text": "Four stones. Four questionings. They will ask only what you have already done, or written in your notes. Open the bag with [I] if a stone goes quiet."},
+		{"speaker": "Fun Kdungon", "text": "Answer wrongly three times in this House and you will begin it again — the ancestors do not repeat themselves kindly."},
 	])
 	var known_opening: Array = GameState.lore.duplicate()
 	GameState.unlock_lore("fun_kdungon")

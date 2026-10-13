@@ -93,11 +93,14 @@ const VFX_NOVA := "res://assets/images/vfx/weaver_nova_ring.png"
 @export var keep_range := 72.0
 @export var stagger_duration := 1.6
 @export var poise_to_stagger := 320.0
+## Last stitch starts here. Combat cannot chip him past this.
+const FINISHER_RATIO := 0.05
 
 var health := 100.0
 
 var _active := false
 var _dead := false
+var _finisher := false
 var _combat_paused := false
 var _phase := Phase.Approach
 var _skill := Skill.None
@@ -380,6 +383,14 @@ func take_damage(amount: float, _source: Node = null) -> bool:
 	var punished := factor > 1.0
 	var punish_recover := punished and _phase == Phase.Recover
 	health = maxf(0.0, health - amount * factor)
+	var floor_hp := max_health * FINISHER_RATIO
+	if health <= floor_hp:
+		health = floor_hp
+		health_changed.emit(health, max_health)
+		_sync_hp_bar()
+		_react_to_hit(punished)
+		_begin_finisher()
+		return true
 	health_changed.emit(health, max_health)
 	_sync_hp_bar()
 	_react_to_hit(punished)
@@ -531,6 +542,23 @@ func dissolve_into_light() -> void:
 	tween.set_parallel(true)
 	tween.tween_property(self, "modulate", Color(1.6, 1.5, 1.1, 0.0), 1.35)
 	tween.tween_property(self, "scale", Vector2(home.x * 1.7, home.y * 0.18), 1.35)
+
+
+func _begin_finisher() -> void:
+	if _finisher or _dead:
+		return
+	_finisher = true
+	_active = false
+	_combat_paused = true
+	_combo.clear()
+	_restore_time_scale()
+	remove_from_group("hittable")
+	_hide_tell()
+	_clear_adds()
+	_clear_stun_fx()
+	_clear_blind()
+	kneel()
+	defeated.emit()
 
 
 func _die() -> void:
@@ -1558,7 +1586,7 @@ func _ensure_feet() -> void:
 		shape_node = CollisionShape2D.new()
 		shape_node.name = "CollisionShape2D"
 		add_child(shape_node)
-	shape_node.shape = PhysicsLayers.feet_circle(16.0)
+	shape_node.shape = PhysicsLayers.feet_circle(28.0)
 	shape_node.position = Vector2(0.0, -2.0)
 	shape_node.disabled = false
 	collision_layer = PhysicsLayers.LAYER_ENEMIES
@@ -1567,6 +1595,28 @@ func _ensure_feet() -> void:
 	safe_margin = 0.08
 	slide_on_ceiling = true
 	floor_stop_on_slope = false
+	_ensure_player_blocker()
+
+
+func _ensure_player_blocker() -> void:
+	var blocker := get_node_or_null("PlayerBlocker") as StaticBody2D
+	if blocker == null:
+		blocker = StaticBody2D.new()
+		blocker.name = "PlayerBlocker"
+		add_child(blocker)
+	blocker.collision_layer = PhysicsLayers.LAYER_WORLD
+	blocker.collision_mask = 0
+	var shape_node := blocker.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if shape_node == null:
+		shape_node = CollisionShape2D.new()
+		shape_node.name = "CollisionShape2D"
+		blocker.add_child(shape_node)
+	var capsule := CapsuleShape2D.new()
+	capsule.radius = 46.0
+	capsule.height = 118.0
+	shape_node.shape = capsule
+	shape_node.position = Vector2(0.0, -52.0)
+	add_collision_exception_with(blocker)
 
 
 func _sync_hp_bar() -> void:

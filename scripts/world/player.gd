@@ -36,14 +36,14 @@ signal warded(perfect: bool)
 
 const ATTACK_COOLDOWN := 0.58
 const ATTACK_ANIM := 0.52
-const ATTACK_DAMAGE := 44.0
+const ATTACK_DAMAGE := 58.0
 const MELEE_REACH := 128.0
 const MELEE_ARC := 1.45
 const CLICK_PICK_RADIUS := 96.0
 
 const CHIME_COOLDOWN := 2.6
 const CHIME_RADIUS := 190.0
-const CHIME_DAMAGE := 24.0
+const CHIME_DAMAGE := 32.0
 const LIFE_THREAD_VINE_DAMAGE := 92.0
 const SHOCKWAVE_PATH := "res://assets/images/vfx/slang_shockwave.png"
 const SHOCKWAVE_FRAMES := 8
@@ -1096,6 +1096,49 @@ func force_chime_pulse() -> void:
 	Audio.play_sfx(Audio.Sfx.CHIME)
 	_play_shockwave()
 	chimed.emit(global_position, CHIME_RADIUS)
+
+
+func play_finisher_strike(target: Node2D = null) -> void:
+	if _dead or not has_staff:
+		return
+	if target != null and is_instance_valid(target):
+		_face_vector(target.global_position - global_position)
+	_attacking = true
+	_attack_anim_left = ATTACK_ANIM
+	_attack_timer = ATTACK_COOLDOWN
+	_play_cast_pose()
+	_play_cast_flash()
+	Fx.staff_trail(self, facing, 120.0)
+	Fx.punch(self, 0.08)
+	Audio.play_sfx(Audio.Sfx.HIT)
+	Audio.play_sfx(Audio.Sfx.BELL)
+	attacked.emit(global_position + facing * 48.0, facing)
+
+
+func run_finisher_approach(target: Node2D, stand_off := 78.0) -> void:
+	if _dead or target == null or not is_instance_valid(target):
+		return
+	input_enabled = false
+	_chasing = false
+	_set_locked_target(null)
+	velocity = Vector2.ZERO
+	var away := global_position - target.global_position
+	if away.length() < 20.0:
+		away = Vector2(0.0, 86.0)
+	var mark := target.global_position + away.normalized() * stand_off
+	_face_vector(mark - global_position)
+	if _animated != null:
+		_play_facing("walk")
+	if away.length() <= stand_off + 8.0:
+		_face_vector(target.global_position - global_position)
+		return
+	var dash := create_tween()
+	dash.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	dash.tween_property(self, "global_position", mark, 0.16)
+	await dash.finished
+	velocity = Vector2.ZERO
+	if is_instance_valid(target):
+		_face_vector(target.global_position - global_position)
 
 
 func chime_ready() -> bool:

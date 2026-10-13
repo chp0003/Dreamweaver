@@ -20,22 +20,22 @@ const STEPS: Array[String] = [
 	"Colour returns",
 ]
 
-## Growing packs so the floor stays readable. Wave 1 is 3, then 4, then 5, then 6.
-## Later waves start one size higher and close on bigger packs.
+## Three breach waves, then the Weaver. Packs get bigger and meaner.
 const WAVE_GROUPS: Array = [
-	[3, 4, 5, 6],
-	[4, 5, 6],
-	[6, 7],
+	[5, 6],
+	[6, 7, 7],
+	[6, 7, 7],
 ]
+const WAVE_LABELS: Array[String] = ["I", "II", "III"]
 
 const APPROACH_RADIUS := 220.0
 ## Flat heal after breach waves 1 and 2. Wave 3 still fills her before the duel.
-const WAVE_HEAL_PARTIAL := 30.0
+const WAVE_HEAL_PARTIAL := 14.0
 const BOSS_MUSIC := "res://assets/audio/music/boss_shadow_weaver.wav"
 const RHYTHM_TRACK := "res://scenes/minigames/RhythmTrack.tscn"
 const FINISHING_STITCH := "res://scenes/minigames/QteSequence.tscn"
 ## One clean rhythm note, before the stagger damage bonus.
-const WEAVE_NOTE_DAMAGE := 55.0
+const WEAVE_NOTE_DAMAGE := 72.0
 const LOOM_MAX := 100.0
 const LOOM_BLEACH_HIT := 16.0
 const WEAVE_WAIT := 12.0
@@ -55,6 +55,9 @@ var _ancestor: PlaceholderProp
 var _beacon: QuestBeacon
 var _loom_mark: StationMarker
 var _hint: TutorialPrompt
+var _e_prompt: Control
+var _e_key: Label
+var _e_pulse: Tween
 var _shadows_alive := 0
 var _shadows_total := 0
 var _wave_index := 0
@@ -70,6 +73,8 @@ var _weaving := false
 var _loom_pressed := false
 var _loom_hp := LOOM_MAX
 var _burst_live := false
+var _finisher_play := false
+var _finisher_done := false
 
 
 func uses_painted_plate() -> bool:
@@ -104,9 +109,18 @@ func _process(_delta: float) -> void:
 	_update_duel_camera()
 
 
+func _input(event: InputEvent) -> void:
+	if not _weaving or _loom_pressed or _duel_over or _phase != 2:
+		return
+	if event.is_echo() or not event.is_action_pressed("interact"):
+		return
+	get_viewport().set_input_as_handled()
+	_on_loom_used()
+
+
 func _build_world() -> void:
 	if host != null:
-		host.max_shadows_alive = 18
+		host.max_shadows_alive = 28
 	_mount_plate()
 	_build_hall()
 	_beacon = QuestBeacon.new()
@@ -274,6 +288,92 @@ func _ensure_hint() -> void:
 	layer.add_child(_hint)
 
 
+func _show_e_prompt() -> void:
+	_ensure_e_prompt()
+	_e_prompt.visible = true
+	_e_prompt.modulate.a = 1.0
+	if _e_pulse != null:
+		_e_pulse.kill()
+	_e_pulse = create_tween().set_loops()
+	_e_pulse.tween_property(_e_key, "scale", Vector2(1.12, 1.12), 0.42).set_trans(Tween.TRANS_SINE)
+	_e_pulse.tween_property(_e_key, "scale", Vector2(1.0, 1.0), 0.42).set_trans(Tween.TRANS_SINE)
+
+
+func _hide_e_prompt() -> void:
+	if _e_pulse != null:
+		_e_pulse.kill()
+		_e_pulse = null
+	if _e_prompt != null:
+		_e_prompt.visible = false
+
+
+func _ensure_e_prompt() -> void:
+	if _e_prompt != null:
+		return
+	var font := preload("res://assets/fonts/Cinzel-Bold.ttf")
+	_e_prompt = Control.new()
+	_e_prompt.name = "WeaveEPrompt"
+	_e_prompt.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_e_prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var layer: Node = ui_layer if ui_layer != null else self
+	layer.add_child(_e_prompt)
+
+	var stack := VBoxContainer.new()
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.set_anchors_preset(Control.PRESET_CENTER)
+	stack.offset_left = -140.0
+	stack.offset_right = 140.0
+	stack.offset_top = -160.0
+	stack.offset_bottom = 160.0
+	stack.add_theme_constant_override("separation", 10)
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_e_prompt.add_child(stack)
+
+	var press := Label.new()
+	press.text = "PRESS"
+	press.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	press.add_theme_font_override("font", font)
+	press.add_theme_font_size_override("font_size", 22)
+	press.add_theme_color_override("font_color", Palette.GOLD_BRASS)
+	press.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(press)
+
+	var plate := PanelContainer.new()
+	plate.custom_minimum_size = Vector2(120.0, 120.0)
+	plate.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(0.06, 0.05, 0.08, 0.92)
+	box.set_border_width_all(4)
+	box.border_color = Palette.GOLD_SUN
+	box.set_corner_radius_all(16)
+	box.shadow_color = Color(0.95, 0.82, 0.35, 0.55)
+	box.shadow_size = 18
+	plate.add_theme_stylebox_override("panel", box)
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(plate)
+
+	_e_key = Label.new()
+	_e_key.text = "E"
+	_e_key.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_e_key.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_e_key.add_theme_font_override("font", font)
+	_e_key.add_theme_font_size_override("font_size", 72)
+	_e_key.add_theme_color_override("font_color", Palette.GOLD_SUN)
+	_e_key.pivot_offset = Vector2(60.0, 60.0)
+	_e_key.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.add_child(_e_key)
+
+	var hint := Label.new()
+	hint.text = "He's open"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_override("font", font)
+	hint.add_theme_font_size_override("font_size", 20)
+	hint.add_theme_color_override("font_color", Palette.GOLD_SACRED)
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(hint)
+	_e_prompt.visible = false
+
+
 func _coach(title: String, body: String, keys: Array = []) -> void:
 	_ensure_hint()
 	_hint.show_hint(title, body, keys, 1, 1, "row", "WHAT TO DO")
@@ -343,32 +443,29 @@ func _phase_one_breach() -> bool:
 	Audio.set_ambience(0.55, 0.0)
 	if hud != null and hud.has_method("show_chime_meter"):
 		hud.call("show_chime_meter", true)
-	_coach(
-		"Kill the shadows",
-		"WASD moves. Space swings, Shift rolls, Q when they pile on.",
-		["SPACE", "SHIFT", "Q"]
-	)
 
 	for wave_index in range(WAVE_GROUPS.size()):
 		if is_finished():
 			return false
 		_wave_index = wave_index
 		var packs: Array = WAVE_GROUPS[wave_index]
+		banner("Wave %d  ·  %s" % [wave_index + 1, WAVE_LABELS[wave_index]], 2.0)
 		for pack_index in range(packs.size()):
 			if is_finished():
 				return false
 			_pack_index = pack_index
 			var pack_size := int(packs[pack_index])
 			if pack_index > 0:
-				counter("A larger pack rises  ·  Wave %d of %d" % [
+				counter("A larger pack rises  ·  Wave %d of %d  ·  %s" % [
 					wave_index + 1,
 					WAVE_GROUPS.size(),
+					WAVE_LABELS[wave_index],
 				])
 				await wait(0.4)
 			_spawn_pack(pack_size)
-			# Next pack overlaps the last survivor so the siege never fully idles.
-			# The last pack of a wave must die out before the next wave begins.
-			var remain_gate := 0 if pack_index == packs.size() - 1 else 1
+			var remain_gate := 0
+			if pack_index < packs.size() - 1:
+				remain_gate = 2 if wave_index < 2 else 3
 			await until(func() -> bool: return _shadows_alive <= remain_gate or is_finished())
 		if is_finished():
 			return false
@@ -376,7 +473,7 @@ func _phase_one_breach() -> bool:
 		if wave_index == WAVE_GROUPS.size() - 1:
 			_grant_light_beam()
 		if wave_index < WAVE_GROUPS.size() - 1:
-			counter("More shadows  ·  wave %d of %d" % [wave_index + 2, WAVE_GROUPS.size()])
+			counter("Wave %d  ·  %s" % [wave_index + 2, WAVE_LABELS[wave_index + 1]])
 			await wait(0.85)
 
 	_clear_coach()
@@ -388,13 +485,8 @@ func _phase_one_breach() -> bool:
 	Audio.play_sfx(Audio.Sfx.CHIME)
 	if hud != null and hud.has_method("set_mode"):
 		hud.call("set_mode", "1 ward    2 light beam", Color(0.98, 0.9, 0.55))
-	await say([
-		"The floor is clear. 1 wards. 2 fires the beam, then it rests. Walk to the loom.",
-	])
-	objective("Walk to the big loom at the back.")
-	_coach("Walk to the loom", "Gold mark. 1 wards. 2 fires the beam.", ["1", "2"])
+	objective("Walk to the loom.")
 	await until(func() -> bool: return _player_near_loom() or is_finished())
-	_clear_coach()
 	return not is_finished()
 
 
@@ -439,11 +531,6 @@ func _phase_two_duel() -> bool:
 		_boss.perfect_dodged.connect(_on_boss_perfect_dodged)
 
 	_enter_fight_stance()
-	_coach(
-		"Defend, then weave",
-		"A whistle means a bleach attack. Roll or ward. When he drops, press E at the loom.",
-		["SHIFT", "1", "E"]
-	)
 	_boss.begin_duel()
 
 	await until(func() -> bool: return (_duel_over and not _weaving) or is_finished())
@@ -454,6 +541,7 @@ func _phase_two_duel() -> bool:
 ## PHASE 3 - the Weaver kneels. The last stitch, then the Color Burst.
 func _phase_three_finish() -> void:
 	_phase = 3
+	_set_leave_enabled(true)
 	_set_steps(2)
 	_boss.end_duel()
 	if _boss_alive() or (_boss != null and is_instance_valid(_boss)):
@@ -469,23 +557,31 @@ func _phase_three_finish() -> void:
 	if player != null and is_instance_valid(player) and not player.is_dead():
 		player.heal_full()
 	Audio.set_combat_drums(0.25, 104.0)
-	if is_instance_valid(_loom):
-		focus_camera_on(_loom.global_position + Vector2(0.0, -30.0), Vector2(1.42, 1.42))
+	if player != null and is_instance_valid(player) and _boss != null and is_instance_valid(_boss):
+		focus_camera_on(
+			player.global_position.lerp(_boss.global_position, 0.45) + Vector2(0.0, -36.0),
+			Vector2(1.38, 1.38)
+		)
 	await say([
 		{"speaker": "S'lang", "text": "I remember you. That is enough."},
 	])
-	objective("The last stitch. Press each letter before the bar empties.")
+	objective("The last stitch.")
 	if hud != null and hud.has_method("set_mode"):
-		hud.call("set_mode", "FINISH  —  W A S D", Color(0.98, 0.9, 0.55))
+		hud.call("set_mode", "W A S D", Color(0.98, 0.9, 0.55))
 	var stitched := false
 	while not stitched and not is_finished():
-		stitched = await run_mini_game(FINISHING_STITCH, {}, _wire_finish)
+		stitched = await run_mini_game(FINISHING_STITCH, {
+			"start_window": 1.7,
+			"end_window": 0.95,
+		}, _wire_finish)
 		if not stitched and not is_finished():
 			_burst_live = false
-			await say(["The thread slips. Begin the stitch again."])
+			await say(["The thread slips."])
 	if hud != null and hud.has_method("set_mode"):
 		hud.call("set_mode", "")
 	objective("")
+	if not _finisher_done:
+		await _play_finisher()
 	await _color_burst()
 	await _closing_cutscene()
 
@@ -506,6 +602,7 @@ func _spawn_pack(count: int) -> void:
 	var slots := Chapter5Plate.SPAWN_UVS.size()
 	var start := _spawn_cursor
 	shake_camera(4.0 + float(count) * 0.35)
+	var stats := _wave_stats()
 	for i in range(count):
 		var pool_index := (start + i) % slots
 		var origin := _plate.spawn_point(pool_index) if _plate != null else Vector2.ZERO
@@ -515,10 +612,10 @@ func _spawn_pack(count: int) -> void:
 		var style := _next_combat_style()
 		var minion := place_minion(origin, {
 			"combat_style": style,
-			"max_health": 38.0 if style == "caster" else 42.0,
-			"speed": 84.0 if style == "caster" else (128.0 if style == "dasher" else 118.0),
-			"touch_damage": 9.0 if style == "caster" else 11.0,
-			"spawn_delay": 0.22 + float(i) * 0.10,
+			"max_health": float(stats["caster_hp"]) if style == "caster" else float(stats["hp"]),
+			"speed": float(stats["caster_speed"]) if style == "caster" else (float(stats["dash_speed"]) if style == "dasher" else float(stats["speed"])),
+			"touch_damage": float(stats["caster_damage"]) if style == "caster" else float(stats["damage"]),
+			"spawn_delay": 0.18 + float(i) * 0.08,
 		})
 		if minion == null:
 			_shadows_total = maxi(0, _shadows_total - 1)
@@ -530,14 +627,30 @@ func _spawn_pack(count: int) -> void:
 	_refresh_shadow_counter()
 
 
-## Four melee, then one ranged — 80 / 20, spread through the siege.
+func _wave_stats() -> Dictionary:
+	match _wave_index:
+		0:
+			return {hp = 52.0, caster_hp = 44.0, speed = 128.0, dash_speed = 156.0, caster_speed = 96.0, damage = 13.0, caster_damage = 11.0}
+		1:
+			return {hp = 72.0, caster_hp = 60.0, speed = 148.0, dash_speed = 184.0, caster_speed = 112.0, damage = 17.0, caster_damage = 14.0}
+		_:
+			return {hp = 76.0, caster_hp = 62.0, speed = 152.0, dash_speed = 188.0, caster_speed = 114.0, damage = 18.0, caster_damage = 14.5}
+
+
 func _next_combat_style() -> String:
-	var slot := _style_cursor % 5
-	_style_cursor += 1
-	if slot == 4:
-		return "caster"
-	var melee: Array[String] = ["chaser", "dasher", "stalker"]
-	return melee[slot % melee.size()]
+	match _wave_index:
+		0:
+			var early := _style_cursor % 3
+			_style_cursor += 1
+			return ["chaser", "dasher", "chaser"][early]
+		1:
+			var mid := _style_cursor % 4
+			_style_cursor += 1
+			return ["chaser", "dasher", "stalker", "caster"][mid]
+		_:
+			var late := _style_cursor % 5
+			_style_cursor += 1
+			return ["dasher", "stalker", "chaser", "caster", "dasher"][late]
 
 
 func _on_minion_died(_minion: ShadowMinion) -> void:
@@ -568,10 +681,12 @@ func _heal_after_wave() -> void:
 
 
 func _refresh_shadow_counter() -> void:
-	counter("Shadows Remaining: %d   ·   Wave %d of %d" % [
+	var grade := WAVE_LABELS[_wave_index] if _wave_index < WAVE_LABELS.size() else ""
+	counter("Shadows Remaining: %d   ·   Wave %d of %d  ·  %s" % [
 		_shadows_total,
 		_wave_index + 1,
 		WAVE_GROUPS.size(),
+		grade,
 	])
 
 
@@ -719,21 +834,32 @@ func _play_boss_music() -> bool:
 
 
 func _enter_fight_stance() -> void:
+	_set_leave_enabled(false)
 	if _loom_trigger != null:
 		_loom_trigger.set_enabled(false)
 	_point_loom(false)
-	objective("Defend. Roll the red tells. Ward with [1].")
+	objective("Defeat the Weaver.")
 	if hud != null and hud.has_method("set_mode"):
-		hud.call("set_mode", "DEFEND  —  Shift roll   1 ward", Color(0.94, 0.72, 0.48))
-	counter("Defend mode. A whistle warns you.")
+		hud.call("set_mode", "", Color(0.94, 0.72, 0.48))
+	counter("")
 	if _plate != null:
 		_plate.set_loom_energy(0.55)
+
+
+func _set_leave_enabled(enabled: bool) -> void:
+	if not is_inside_tree():
+		return
+	for node in get_tree().root.find_children("*", "Interactable", true, false):
+		var prompt := str(node.get("prompt"))
+		if prompt.begins_with("Leave"):
+			node.call("set_enabled", enabled)
 
 
 func _on_loom_used() -> void:
 	if _phase != 2 or not _weaving:
 		return
 	_loom_pressed = true
+	_hide_e_prompt()
 	if _loom_trigger != null:
 		_loom_trigger.set_enabled(false)
 
@@ -746,15 +872,13 @@ func _open_weave() -> void:
 	if _boss != null and is_instance_valid(_boss):
 		_boss.set_combat_paused(true)
 	if _loom_trigger != null:
-		_loom_trigger.set_enabled(true)
-	_point_loom(true, "[E]")
-	objective("He's stunned. Press [E] at the Sacred Loom.")
+		_loom_trigger.set_enabled(false)
+	_point_loom(false)
+	objective("Press [E].")
 	if hud != null and hud.has_method("set_mode"):
-		hud.call("set_mode", "WEAVE  —  press E at the loom", Color(0.95, 0.84, 0.45))
-	counter("Weave mode. The loom takes the rhythm.")
-	if not _weave_taught:
-		_weave_taught = true
-		_coach("Weave", "Walk to the loom and press E. Match the notes with W A S D.", ["E"])
+		hud.call("set_mode", "PRESS  E", Color(0.95, 0.84, 0.45))
+	counter("")
+	_show_e_prompt()
 	if _plate != null:
 		_plate.set_loom_energy(1.4)
 	if _loom_aura != null:
@@ -765,6 +889,7 @@ func _open_weave() -> void:
 	while waited < WEAVE_WAIT and not _loom_pressed and not _duel_over and not is_finished():
 		await wait(0.1)
 		waited += 0.1
+	_hide_e_prompt()
 	if _loom_trigger != null:
 		_loom_trigger.set_enabled(false)
 	_point_loom(false)
@@ -793,6 +918,7 @@ func _close_weave() -> void:
 	var was_weaving := _weaving
 	_weaving = false
 	_loom_pressed = false
+	_hide_e_prompt()
 	if _loom_trigger != null:
 		_loom_trigger.set_enabled(false)
 	_point_loom(false)
@@ -856,41 +982,17 @@ func _on_player_attack_hit(_hit: Node2D) -> void:
 
 func _on_telegraph_started(_window: float) -> void:
 	Audio.play_wind_whistle()
-	if not _block_taught:
-		_block_taught = true
-		_clear_coach()
-	var move_name := _boss.current_move() if _boss != null else "claw"
-	match move_name:
-		"lunge":
-			counter("LUNGE — roll aside")
-		"slam":
-			counter("SLAM — get out of the circle")
-		"volley":
-			counter("VOLLEY — dodge the bolts")
-		"dash":
-			counter("DASH — it will reappear")
-		"nova":
-			counter("NOVA — roll through the ring")
-		"summon":
-			counter("SUMMON — kill the shadows")
-		"blind":
-			counter("BLIND — the hall goes dark")
-		_:
-			counter("CLAW — roll aside")
+	_clear_coach()
+	counter("")
 
 
 func _on_telegraph_resolved(parried: bool) -> void:
 	if parried:
-		counter("Interrupted.")
 		_clear_coach()
 		shake_camera(6.0)
 		return
 	shake_camera(10.0 if _boss != null and _boss.is_heavy_attack() else 6.0)
 	_damage_loom(LOOM_BLEACH_HIT if _boss != null and _boss.is_heavy_attack() else LOOM_BLEACH_HIT * 0.5)
-	if _boss != null and _boss.is_heavy_attack():
-		counter("The bleach lands. The loom frays.")
-	else:
-		counter("Keep defending")
 
 
 func _on_boss_staggered(_duration: float) -> void:
@@ -903,18 +1005,8 @@ func _on_boss_stage_changed(stage: int, _line: String) -> void:
 		return
 	shake_camera(16.0)
 	banner(STAGE_LINES.get(stage, "The Weaver rages."), 2.4)
-	_show_stage_counter_after_shift(stage)
 	if _plate != null:
 		_plate.set_loom_energy(0.35 if stage >= 3 else 0.45)
-
-
-func _show_stage_counter_after_shift(stage: int) -> void:
-	await get_tree().create_timer(ShadowWeaverBoss.SHIFT_DURATION).timeout
-	if _duel_over or _phase != 2 or not is_inside_tree():
-		return
-	if _boss != null and is_instance_valid(_boss) and _boss.is_telegraphing():
-		return
-	counter("PHASE %d  —  he is faster now" % stage)
 
 
 func _on_boss_perfect_dodged() -> void:
@@ -922,11 +1014,7 @@ func _on_boss_perfect_dodged() -> void:
 		return
 	shake_camera(5.0)
 	var guarded := player != null and player.is_warding()
-	counter(("PERFECT GUARD" if guarded else "PERFECT DODGE") + "  —  the loom holds")
 	_repair_loom(8.0)
-	if not _perfect_taught:
-		_perfect_taught = true
-		_coach("Perfect timing", "A perfect roll or ward opens him. Swing.", ["SPACE"])
 
 
 func _on_boss_recovered() -> void:
@@ -961,6 +1049,12 @@ func _update_duel_camera() -> void:
 
 func _on_boss_defeated() -> void:
 	_duel_over = true
+	_loom_pressed = true
+	if _weaving and ui_layer != null:
+		for child in ui_layer.get_children():
+			if child.has_signal("finished"):
+				child.finished.emit(true)
+				break
 
 
 # --------------------------------------------------------------------------
@@ -969,7 +1063,44 @@ func _on_boss_defeated() -> void:
 
 func _wire_finish(game: Node) -> void:
 	if game.has_signal("final_stitch"):
-		game.final_stitch.connect(_launch_color_burst)
+		game.final_stitch.connect(_play_finisher)
+
+
+func _play_finisher() -> void:
+	if _finisher_play:
+		await until(func() -> bool: return _finisher_done or is_finished())
+		return
+	_finisher_play = true
+	Engine.time_scale = 1.0
+	set_player_input(false)
+	if player == null or not is_instance_valid(player) or _boss == null or not is_instance_valid(_boss):
+		_finisher_done = true
+		return
+	focus_camera_on(
+		player.global_position.lerp(_boss.global_position, 0.5) + Vector2(0.0, -36.0),
+		Vector2(1.68, 1.68)
+	)
+	if player.global_position.distance_to(_boss.global_position) > 90.0:
+		await player.run_finisher_approach(_boss)
+	if not is_instance_valid(player) or not is_instance_valid(_boss):
+		_finisher_done = true
+		return
+	player.play_finisher_strike(_boss)
+	shake_camera(12.0)
+	Fx.hit_flash(_boss, Palette.GOLD_SUN)
+	Fx.light_burst(_boss, Palette.GOLD_SUN)
+	Fx.punch(_boss, 0.12)
+	await wait(0.22)
+	if is_instance_valid(player):
+		player.force_chime_pulse()
+	if is_instance_valid(_boss):
+		Fx.fiber_burst(_boss, Palette.GOLD_SUN)
+		Fx.light_burst(_boss, Palette.GOLD_SACRED)
+		if _boss.has_method("dissolve_into_light"):
+			_boss.dissolve_into_light()
+	shake_camera(16.0)
+	await wait(0.18)
+	_finisher_done = true
 
 
 ## The last correct key throws the burst out from the loom.
@@ -1002,7 +1133,7 @@ func _color_burst() -> void:
 	_launch_color_burst()
 	shake_camera(10.0)
 
-	if is_instance_valid(_boss):
+	if is_instance_valid(_boss) and _boss.modulate.a > 0.45:
 		if _boss.has_method("dissolve_into_light"):
 			Fx.fiber_burst(_boss, Palette.GOLD_SUN)
 			_boss.dissolve_into_light()

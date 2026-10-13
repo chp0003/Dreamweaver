@@ -5,12 +5,24 @@ extends CanvasLayer
 
 const FONT_TITLE := preload("res://assets/fonts/Cinzel-Bold.ttf")
 const FONT_BODY := preload("res://assets/fonts/CrimsonPro-Regular.ttf")
+const GEAR_ICONS := {
+	"lewet_staff": preload("res://assets/images/props/lewet_staff.png"),
+	"tnalak_cloth": preload("res://assets/images/props/tnalak_cloth.png"),
+	"master_pattern": preload("res://assets/images/props/master_pattern_cloth.png"),
+}
+const DYE_ICONS := {
+	"black": preload("res://assets/images/hub_crossroads/icon_dot_black.png"),
+	"red": preload("res://assets/images/hub_crossroads/icon_dot_red.png"),
+	"gold": preload("res://assets/images/hub_crossroads/icon_dot_gold.png"),
+}
 const COLS := 6
 const MIN_SLOTS := 24
 
 var _open := false
 var _dim: ColorRect
 var _grid: GridContainer
+var _portrait_frame: PanelContainer
+var _portrait: TextureRect
 var _kind: Label
 var _title: Label
 var _body: Label
@@ -21,22 +33,30 @@ var _tabs: Dictionary = {}
 var _entries: Array[Dictionary] = []
 var _filter := "all"
 var _selected_id := ""
+var _note_icon: Texture2D
 
 
 func _ready() -> void:
 	layer = 125
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	add_to_group("inventory_overlay")
-	set_process_unhandled_input(true)
+	set_process_input(true)
+	_note_icon = _make_note_icon()
 	_build()
 	_dim.visible = false
+	set_process(false)
 
 
 func is_open() -> bool:
 	return _open
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _process(_delta: float) -> void:
+	if _open and _blocked():
+		close()
+
+
+func _input(event: InputEvent) -> void:
 	if not _is_bag_key(event):
 		return
 	if _open:
@@ -67,6 +87,7 @@ func open() -> void:
 	_dim.visible = true
 	_dim.modulate.a = 1.0
 	get_tree().paused = true
+	set_process(true)
 	_fill()
 
 
@@ -75,6 +96,7 @@ func close() -> void:
 		return
 	_open = false
 	_dim.visible = false
+	set_process(false)
 	if not _pause_menu_open():
 		get_tree().paused = false
 
@@ -82,8 +104,7 @@ func close() -> void:
 func _blocked() -> bool:
 	if _pause_menu_open():
 		return true
-	var view := get_tree().get_first_node_in_group("dialogue_view")
-	return view != null and view.has_method("is_busy") and bool(view.call("is_busy"))
+	return get_tree().get_first_node_in_group("player") == null
 
 
 func _pause_menu_open() -> bool:
@@ -237,19 +258,48 @@ func _build_detail() -> Control:
 	column.add_theme_constant_override("separation", 10)
 	card.add_child(column)
 
+	var heading := HBoxContainer.new()
+	heading.add_theme_constant_override("separation", 12)
+	column.add_child(heading)
+
+	_portrait_frame = PanelContainer.new()
+	_portrait_frame.custom_minimum_size = Vector2(64.0, 118.0)
+	var portrait_box := StyleBoxFlat.new()
+	portrait_box.bg_color = Color(0.04, 0.04, 0.07, 1.0)
+	portrait_box.set_border_width_all(1)
+	portrait_box.border_color = Palette.alpha(Palette.GOLD_BRASS, 0.8)
+	portrait_box.set_corner_radius_all(8)
+	portrait_box.content_margin_left = 6
+	portrait_box.content_margin_right = 6
+	portrait_box.content_margin_top = 6
+	portrait_box.content_margin_bottom = 6
+	_portrait_frame.add_theme_stylebox_override("panel", portrait_box)
+	heading.add_child(_portrait_frame)
+
+	_portrait = TextureRect.new()
+	_portrait.custom_minimum_size = Vector2(52.0, 106.0)
+	_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_portrait_frame.add_child(_portrait)
+
+	var names := VBoxContainer.new()
+	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	names.add_theme_constant_override("separation", 4)
+	heading.add_child(names)
+
 	_kind = Label.new()
 	_kind.add_theme_font_override("font", FONT_TITLE)
 	_kind.add_theme_font_size_override("font_size", 13)
 	_kind.add_theme_color_override("font_color", Palette.GOLD_BRASS)
 	_kind.add_theme_constant_override("letter_spacing", 2)
-	column.add_child(_kind)
+	names.add_child(_kind)
 
 	_title = Label.new()
 	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_title.add_theme_font_override("font", FONT_TITLE)
 	_title.add_theme_font_size_override("font_size", 28)
 	_title.add_theme_color_override("font_color", Palette.GOLD_SACRED)
-	column.add_child(_title)
+	names.add_child(_title)
 
 	var rule := ColorRect.new()
 	rule.custom_minimum_size = Vector2(0.0, 1.0)
@@ -295,6 +345,7 @@ func _collect() -> Array[Dictionary]:
 			"title": Houses.item_name(id),
 			"text": text,
 			"glyph": _glyph_for_item(id),
+			"icon": GEAR_ICONS.get(id),
 			"tint": Palette.GOLD_BRASS,
 		})
 	for essence_id in ["black", "red", "gold"]:
@@ -307,6 +358,7 @@ func _collect() -> Array[Dictionary]:
 			"title": Houses.essence_name(essence_id),
 			"text": "A colour restored from one of the Houses. It stays with her.",
 			"glyph": "dye",
+			"icon": DYE_ICONS.get(essence_id),
 			"tint": Houses.essence_color(essence_id),
 		})
 	var house_ids: Array = GameState.journals.duplicate()
@@ -322,6 +374,7 @@ func _collect() -> Array[Dictionary]:
 			"title": str(note.get("title", "Note")),
 			"text": str(note.get("text", "")),
 			"glyph": "note",
+			"icon": _note_icon,
 			"tint": Palette.CREAM_PAPER,
 		})
 	for lore_id in GameState.lore:
@@ -335,6 +388,7 @@ func _collect() -> Array[Dictionary]:
 			"title": str(entry.get("title", lore_id)),
 			"text": str(entry.get("text", "")),
 			"glyph": "note",
+			"icon": _note_icon,
 			"tint": Palette.CREAM_STONE,
 		})
 	return entries
@@ -435,12 +489,48 @@ func _show_entry(entry: Dictionary) -> void:
 	_kind.text = str(entry.get("kind_label", ""))
 	_title.text = str(entry.get("title", ""))
 	_body.text = str(entry.get("text", ""))
+	_set_portrait(entry.get("icon") as Texture2D)
 
 
 func _show_empty(message: String) -> void:
 	_kind.text = "SATCHEL"
 	_title.text = "Empty"
 	_body.text = message
+	_set_portrait(null)
+
+
+func _set_portrait(texture: Texture2D) -> void:
+	_portrait.texture = texture
+	_portrait_frame.visible = texture != null
+
+
+func _make_note_icon() -> Texture2D:
+	var image := Image.create(96, 128, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	var paper := Color(0.965, 0.925, 0.835, 1.0)
+	var page := Rect2i(16, 12, 64, 102)
+	image.fill_rect(Rect2i(page.position.x + 5, page.position.y + 6, page.size.x, page.size.y), Color(0.04, 0.03, 0.02, 0.4))
+	image.fill_rect(page, paper)
+	image.fill_rect(Rect2i(page.position.x, page.position.y, 8, page.size.y), Color(0.4, 0.26, 0.15, 1.0))
+	image.fill_rect(Rect2i(page.position.x + page.size.x - 4, page.position.y, 4, page.size.y), Color(0.78, 0.7, 0.56, 1.0))
+	for stitch in 6:
+		image.fill_rect(Rect2i(page.position.x + 2, page.position.y + 12 + stitch * 14, 3, 6), Color(0.93, 0.86, 0.72, 1.0))
+	var ink := Color(0.28, 0.18, 0.11, 0.88)
+	for line in 5:
+		var width := 34 if line == 4 else 40
+		image.fill_rect(Rect2i(page.position.x + 16, page.position.y + 24 + line * 14, width, 2), ink)
+	image.fill_rect(Rect2i(page.position.x + 28, page.position.y, 5, 24), Color(0.62, 0.16, 0.13, 1.0))
+	var fold := 18
+	var x0 := page.position.x + page.size.x - fold
+	var y0 := page.position.y
+	for yy in fold:
+		for xx in fold:
+			if xx + yy >= fold:
+				continue
+			var shade := xx + yy >= fold - 7
+			var color := Color(0.8, 0.72, 0.58, 1.0) if shade else Color(0, 0, 0, 0)
+			image.set_pixel(x0 + xx, y0 + yy, color)
+	return ImageTexture.create_from_image(image)
 
 
 func _comma(value: int) -> String:
@@ -458,12 +548,14 @@ func _comma(value: int) -> String:
 class BagSlot extends Button:
 	var glyph := ""
 	var tint := Palette.GOLD_BRASS
+	var art: Texture2D
 	var chosen := false
 	var filled := false
 
 	func _init() -> void:
-		custom_minimum_size = Vector2(76.0, 76.0)
+		custom_minimum_size = Vector2(82.0, 82.0)
 		focus_mode = Control.FOCUS_NONE
+		texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		var empty := StyleBoxEmpty.new()
 		for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 			add_theme_stylebox_override(state, empty)
@@ -471,6 +563,7 @@ class BagSlot extends Button:
 	func setup(entry: Dictionary) -> void:
 		filled = not entry.is_empty()
 		glyph = str(entry.get("glyph", ""))
+		art = entry.get("icon") as Texture2D
 		tint = entry.get("tint", Palette.GOLD_BRASS) as Color
 		disabled = not filled
 		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if filled else Control.CURSOR_ARROW
@@ -491,8 +584,22 @@ class BagSlot extends Button:
 			border = Palette.GOLD_SUN
 			width = 2.5
 		draw_rect(rect, border, false, width)
-		if filled:
+		if not filled:
+			return
+		if art != null:
+			_draw_icon(rect)
+		else:
 			_draw_glyph(rect.get_center())
+
+	func _draw_icon(slot: Rect2) -> void:
+		var tex_size := art.get_size()
+		if tex_size.x <= 0.0 or tex_size.y <= 0.0:
+			return
+		var box := Rect2(slot.position + Vector2(7.0, 6.0), slot.size - Vector2(14.0, 12.0))
+		var scale := minf(box.size.x / tex_size.x, box.size.y / tex_size.y)
+		var draw_size := tex_size * scale
+		var pos := box.position + (box.size - draw_size) * 0.5
+		draw_texture_rect(art, Rect2(pos, draw_size), false)
 
 	func _draw_glyph(centre: Vector2) -> void:
 		match glyph:

@@ -21,7 +21,7 @@ var _locked := false
 func _configure() -> void:
 	mini_game_title = "Ancestral Wisdom"
 	mini_game_subtitle = quiz_speaker
-	instructions = "Answer what the ancestors ask. Wrong answers cost you; %d wrong inside one House and the work must be retaken." % GameState.MAX_QUIZ_MISTAKES
+	instructions = ""
 	time_limit = 0.0
 	max_attempts = 1
 	reward_score = 300

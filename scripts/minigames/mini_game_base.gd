@@ -142,6 +142,9 @@ func succeed(message := "") -> void:
 	_clock_on = false
 	GameState.add_score(reward_score)
 	Audio.play_sfx(Audio.Sfx.SUCCESS)
+	if compact:
+		finished.emit(true)
+		return
 	_show_result(true, message)
 
 
@@ -151,6 +154,9 @@ func fail(message := "") -> void:
 	running = false
 	_clock_on = false
 	Audio.play_sfx(Audio.Sfx.FAIL)
+	if compact:
+		finished.emit(false)
+		return
 	_show_result(false, message)
 
 
