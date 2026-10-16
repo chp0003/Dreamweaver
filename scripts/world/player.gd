@@ -65,8 +65,11 @@ const WARD_SHEET_FRAMES := 8
 const BEAM_COOLDOWN := 10.0
 const BEAM_DAMAGE := 230.0
 const BEAM_LENGTH := 560.0
-const BEAM_HALF_WIDTH := 38.0
+## Soft corridor — easier to clip a target without pixel-perfect facing.
+const BEAM_HALF_WIDTH := 56.0
 const BEAM_CHARGE := 0.48
+## Soft lock: anything roughly ahead inside the beam length gets pulled in.
+const BEAM_ASSIST_DOT := 0.22
 const BEAM_GOLD := Color(1.55, 1.22, 0.55, 0.96)
 const BEAM_BURST := "res://assets/images/vfx/weave_bolt_burst.png"
 ## Set false to go back to the single down_right sheet for every facing.
@@ -119,6 +122,7 @@ var _ward_frames: SpriteFrames
 var _beam_timer := 0.0
 var _beam_root := 0.0
 var _beam_charge: Node2D
+var _beam_aim_line: Line2D
 ## Locked target. Clicking one out of range makes her chase until she can swing.
 var _locked_target: Node2D
 var _chasing := false
@@ -201,11 +205,16 @@ func _physics_process(delta: float) -> void:
 		var move_speed := speed * (WARD_SLOW if _ward_left > 0.0 else 1.0)
 		if _beam_root > 0.0:
 			move_speed *= 0.2
+			# Keep re-aiming through the charge so stick + soft-lock matter.
+			var beam_aim := _resolve_beam_aim()
+			facing = beam_aim
+			_refresh_beam_aim_preview(beam_aim)
 		elif _attacking:
 			move_speed *= ATTACK_MOVE_MULT
 		var target_vel := Vector2.ZERO
 		if input_vector != Vector2.ZERO:
-			facing = input_vector.normalized()
+			if _beam_root <= 0.0:
+				facing = input_vector.normalized()
 			target_vel = facing * move_speed
 		elif chase_dir != Vector2.ZERO:
 			target_vel = chase_dir.normalized() * move_speed
@@ -320,8 +329,34 @@ func _play_anim(anim_name: String) -> void:
 func apply_depth_scale(ratio: float) -> void:
 	_depth_scale = ratio
 	if _animated != null:
-		_animated.scale = _base_sprite_scale * _depth_scale
+		_animated.scale = _sprite_home_scale()
 	match_stride_to(ratio)
+
+
+## Punch the sprite, not the body. Punching `self` stacked with house depth
+## scale and left her looking tiny after a swing.
+func _sprite_home_scale() -> Vector2:
+	return _base_sprite_scale * _depth_scale
+
+
+func _body_punch(amount: float) -> void:
+	if _animated == null or not is_inside_tree():
+		return
+	var home := _sprite_home_scale()
+	var running: Variant = _animated.get_meta(&"punch_tween", null)
+	if running is Tween and (running as Tween).is_valid():
+		(running as Tween).kill()
+	_animated.set_meta(&"punch_home", home)
+	_animated.scale = home
+	var tween := _animated.create_tween()
+	_animated.set_meta(&"punch_tween", tween)
+	tween.tween_property(_animated, "scale", home * Vector2(1.0 + amount, 1.0 - amount), 0.05)
+	tween.tween_property(_animated, "scale", home, 0.12)\
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tween.tween_callback(func() -> void:
+		if is_instance_valid(_animated):
+			_animated.scale = _sprite_home_scale()
+			_animated.remove_meta(&"punch_tween"))
 
 
 ## 190 px/s matches her feet at the house sprite size. A smaller ridge sprite
@@ -429,7 +464,7 @@ func try_dodge() -> bool:
 	_attacking = false
 	velocity = _dodge_dir * _dodge_speed()
 	Audio.play_sfx(Audio.Sfx.HIT)
-	Fx.punch(self, 0.08)
+	_body_punch(0.06)
 	if _animated != null:
 		_animated.modulate = Color(1.35, 1.4, 1.6)
 	dodged.emit()
@@ -473,11 +508,7 @@ func try_beam() -> bool:
 		return false
 	if _beam_timer > 0.0 or _dodge_left > 0.0 or _beam_root > 0.0:
 		return false
-	var stick := _steering()
-	if stick != Vector2.ZERO:
-		_face_vector(stick)
-	elif _chasing and _is_valid_hit(_locked_target):
-		_face_vector(_locked_target.global_position - global_position)
+	_face_vector(_resolve_beam_aim())
 	_beam_timer = BEAM_COOLDOWN
 	_beam_root = BEAM_CHARGE
 	_attacking = true
@@ -485,12 +516,13 @@ func try_beam() -> bool:
 	velocity *= 0.15
 	_play_cast_pose()
 	_charge_beam_fx()
+	_refresh_beam_aim_preview(facing)
 	Audio.play_sfx(Audio.Sfx.BELL)
 	Audio.play_house_cue(&"skill")
-	var aim := facing
+	# Aim is resolved again on release — steering during charge counts.
 	var release := create_tween()
 	release.tween_interval(BEAM_CHARGE)
-	release.tween_callback(_release_beam.bind(aim))
+	release.tween_callback(_release_beam)
 	return true
 
 
@@ -533,22 +565,21 @@ func _clear_beam_charge() -> void:
 	if _beam_charge != null and is_instance_valid(_beam_charge):
 		_beam_charge.queue_free()
 	_beam_charge = null
+	_clear_beam_aim_preview()
 
 
-func _release_beam(aim: Vector2) -> void:
+func _release_beam() -> void:
 	if _dead or not is_inside_tree():
 		return
 	_clear_beam_charge()
-	if aim.length() < 0.01:
-		aim = facing if facing != Vector2.ZERO else Vector2(0, 1)
-	aim = aim.normalized()
+	var aim := _resolve_beam_aim()
 	facing = aim
 	_play_cast_pose()
 	_spawn_beam_visual(aim)
 	_play_shockwave()
 	Audio.play_sfx(Audio.Sfx.CHIME)
 	Audio.play_sfx(Audio.Sfx.HIT)
-	Fx.punch(self, 0.14)
+	_body_punch(0.1)
 	var origin := global_position + Vector2(0.0, -46.0)
 	for target in _targets_in_beam(aim):
 		var along := ((target.global_position + Vector2(0.0, -36.0)) - origin).dot(aim)
@@ -556,6 +587,76 @@ func _release_beam(aim: Vector2) -> void:
 		var strike := create_tween()
 		strike.tween_interval(delay)
 		strike.tween_callback(_beam_strike.bind(target))
+
+
+## Stick / lock / soft magnet toward anything roughly ahead in beam range.
+func _resolve_beam_aim() -> Vector2:
+	var stick := _steering()
+	var base := stick if stick != Vector2.ZERO else facing
+	if base.length() < 0.01:
+		base = Vector2(0.0, 1.0)
+	base = base.normalized()
+	if _is_valid_hit(_locked_target):
+		var to_lock: Vector2 = _locked_target.global_position - global_position
+		if to_lock.length() > 8.0 and base.dot(to_lock.normalized()) >= BEAM_ASSIST_DOT:
+			return to_lock.normalized()
+	var assist := _nearest_in_beam_cone(base)
+	if assist != null:
+		var to_assist := assist.global_position - global_position
+		if to_assist.length() > 8.0:
+			return to_assist.normalized()
+	return base
+
+
+func _nearest_in_beam_cone(aim: Vector2) -> Node2D:
+	if aim.length() < 0.01:
+		return null
+	var aim_n := aim.normalized()
+	var best: Node2D = null
+	var best_score := -999.0
+	for node in get_tree().get_nodes_in_group("hittable"):
+		if not _is_valid_hit(node):
+			continue
+		var target := node as Node2D
+		var to_target := target.global_position - global_position
+		var dist := to_target.length()
+		if dist < 12.0 or dist > BEAM_LENGTH:
+			continue
+		var ahead := aim_n.dot(to_target / dist)
+		if ahead < BEAM_ASSIST_DOT:
+			continue
+		# Prefer near-centre line, then closer foes.
+		var score := ahead * 2.0 - dist / BEAM_LENGTH
+		if score > best_score:
+			best_score = score
+			best = target
+	return best
+
+
+func _refresh_beam_aim_preview(aim: Vector2) -> void:
+	if aim.length() < 0.01:
+		return
+	if _beam_aim_line == null or not is_instance_valid(_beam_aim_line):
+		_beam_aim_line = Line2D.new()
+		_beam_aim_line.name = "BeamAimPreview"
+		_beam_aim_line.width = 6.0
+		_beam_aim_line.default_color = Color(1.0, 0.88, 0.45, 0.42)
+		_beam_aim_line.z_index = 16
+		_beam_aim_line.joint_mode = Line2D.LINE_JOINT_ROUND
+		_beam_aim_line.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		_beam_aim_line.end_cap_mode = Line2D.LINE_CAP_ROUND
+		add_child(_beam_aim_line)
+	_beam_aim_line.clear_points()
+	var tip := aim.normalized() * (BEAM_LENGTH * 0.92)
+	_beam_aim_line.add_point(Vector2(0.0, -48.0))
+	_beam_aim_line.add_point(tip + Vector2(0.0, -48.0))
+	_beam_aim_line.visible = true
+
+
+func _clear_beam_aim_preview() -> void:
+	if _beam_aim_line != null and is_instance_valid(_beam_aim_line):
+		_beam_aim_line.queue_free()
+	_beam_aim_line = null
 
 
 func _beam_strike(target: Node2D) -> void:
@@ -692,7 +793,7 @@ func _block_with_ward(amount: float) -> void:
 	if not perfect:
 		_ward_hp = maxf(0.0, _ward_hp - amount)
 	Audio.play_fx("slang_ward_block", 0.0 if perfect else -3.0, 0.05)
-	Fx.punch(self, 0.06)
+	_body_punch(0.05)
 	Fx.ring_pulse(self, WARD_COLOR, 110.0 if perfect else 70.0)
 	if _ward_fx != null and is_instance_valid(_ward_fx):
 		_ward_fx.modulate = Color(2.2, 1.9, 1.3, 1.0)
@@ -941,7 +1042,7 @@ func _swing_staff(target: Variant) -> bool:
 	_play_cast_pose()
 	_play_cast_flash()
 	Fx.staff_trail(self, facing, 84.0)
-	Fx.punch(self, 0.05)
+	_body_punch(0.04)
 	var swing_point := global_position + facing * 48.0
 	attacked.emit(swing_point, facing)
 	_staff_melee()
@@ -1047,7 +1148,7 @@ func try_chime() -> bool:
 	_chime_timer = CHIME_COOLDOWN
 	Audio.play_sfx(Audio.Sfx.CHIME)
 	_play_shockwave()
-	Fx.punch(self, 0.05)
+	_body_punch(0.04)
 
 	for target in _targets_in_range(global_position, CHIME_RADIUS):
 		if target.has_method("stun"):
@@ -1109,7 +1210,7 @@ func play_finisher_strike(target: Node2D = null) -> void:
 	_play_cast_pose()
 	_play_cast_flash()
 	Fx.staff_trail(self, facing, 120.0)
-	Fx.punch(self, 0.08)
+	_body_punch(0.06)
 	Audio.play_sfx(Audio.Sfx.HIT)
 	Audio.play_sfx(Audio.Sfx.BELL)
 	attacked.emit(global_position + facing * 48.0, facing)
@@ -1186,7 +1287,7 @@ func take_damage(amount: float, _source: Node = null) -> void:
 	_invulnerable = INVULNERABLE_TIME
 	_hurt_flash = 0.25
 	Audio.play_sfx(Audio.Sfx.THUD)
-	Fx.punch(self, 0.14)
+	_body_punch(0.1)
 	Fx.hit_flash(self, Palette.RED_EMBER)
 	health_changed.emit(health, max_health)
 	if health <= 0.0:

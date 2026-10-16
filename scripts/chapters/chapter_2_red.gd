@@ -294,6 +294,8 @@ func _on_root_collected(pickup: Collectible) -> void:
 	_pickups.erase(pickup)
 	_roots += 1
 	_set_steps(2, _roots)
+	if _roots >= ROOT_TOTAL and not _root_guards_cleared():
+		objective("The roots are yours. Clear the shadows before you leave the aisle.")
 
 
 func apply_restored_color() -> void:
@@ -365,11 +367,16 @@ func _run_chapter() -> void:
 		_beacon.clear()
 	objective("Find 5 red roots in the hall. Press [R] to pick them up. Shadows rise when you get close — press [Space] to swing.")
 	_arm_root_ambushes()
-	await until(func() -> bool: return _roots >= ROOT_TOTAL)
+	# Roots can be taken while fighting, but the aisle is not clear until every
+	# ambush shadow is down. Clearing them early used to despawn the fight.
+	await until(func() -> bool: return _roots >= ROOT_TOTAL and _root_guards_cleared())
 	_disarm_root_ambushes()
 	if _beacon != null:
 		_beacon.clear()
-	_clear_minions()
+	_minions.clear()
+	_root_ambushed.clear()
+	if host != null:
+		host.max_shadows_alive = 4
 
 	await say([
 		{"speaker": "S'lang", "text": "Five roots. Beaten in a mortar until they give the colour away."},
@@ -485,6 +492,19 @@ func _spawn_root_guards(at: Vector2) -> void:
 			continue
 		_minions.append(minion)
 		spawned += 1
+
+
+func _prune_minions() -> void:
+	var live: Array[ShadowMinion] = []
+	for minion in _minions:
+		if minion != null and is_instance_valid(minion) and not minion.is_defeated():
+			live.append(minion)
+	_minions = live
+
+
+func _root_guards_cleared() -> bool:
+	_prune_minions()
+	return _minions.is_empty()
 
 
 func _clear_minions() -> void:

@@ -123,6 +123,7 @@ var _leaving_house := false
 var _trail: BreadcrumbTrail
 var _villagers: Dictionary = {}
 var _villager_chat := false
+var _object_chat := false
 ## She stays for the chapter 1 farewell, then leaves for chapter 4 on the way out.
 var _fun_holding_farewell := false
 var _house_sparks: Dictionary = {}
@@ -357,7 +358,7 @@ func _dress_mid_zone() -> void:
 		if not _park_slot_free(cell, 3.5, 0):
 			continue
 		var flower := i % 2 == 0
-		spawn_prop("GARDEN BED" if flower else "ABACA PATCH", cell, {
+		var patch := spawn_prop("GARDEN BED" if flower else "ABACA PATCH", cell, {
 			"texture_path": "res://assets/images/props/red_flowers.png" if flower \
 					else "res://assets/images/props/abaca_plant.png",
 			"prop_size": Vector2(56.0, 42.0) if flower else Vector2(40.0, 80.0),
@@ -368,6 +369,12 @@ func _dress_mid_zone() -> void:
 			"sway_degrees": 1.6 if not flower else 0.0,
 			"cast_shadow": not flower,
 		})
+		# A few patches answer when S'lang draws near — same [E] popup as a pickup.
+		if not flower and i % 4 == 1:
+			_attach_object_talk(patch, "Speak with the Abaca", [
+				{"speaker": "Abaca", "text": "Strip me. Comb me. Knot me end to end."},
+				{"speaker": "S'lang", "text": "Patience. The cloth begins here."},
+			], 48.0, Vector2(0.0, -56.0))
 
 	var benches: Array[Vector2] = [
 		Vector2(-2.0, 5.0), Vector2(5.0, 2.0), Vector2(2.0, -5.0), Vector2(-5.0, -2.0),
@@ -467,7 +474,7 @@ func _dress_living_ridge() -> void:
 	# Progress is readable on the green itself: more colour, more life, more light.
 	if restored >= 1:
 		for i in range(3):
-			spawn_prop("ABACA PLANT", Vector2(-3.5, 6.0 + float(i) * 1.4), {
+			var abaca := spawn_prop("ABACA PLANT", Vector2(-3.5, 6.0 + float(i) * 1.4), {
 				"texture_path": "res://assets/images/props/abaca_plant.png",
 				"prop_size": Vector2(36.0, 78.0),
 				"body_color": Palette.BLACK_BARK,
@@ -475,6 +482,11 @@ func _dress_living_ridge() -> void:
 				"show_label": false,
 				"sway_degrees": 2.4,
 			})
+			if i == 1:
+				_attach_object_talk(abaca, "Speak with the Abaca", [
+					{"speaker": "Abaca", "text": "I am the banana's cousin. My trunk is the warp if you are patient."},
+					{"speaker": "S'lang", "text": "I remember. Bend and hold a knot, or you are set aside."},
+				], 52.0, Vector2(0.0, -64.0))
 	if restored >= 2:
 		for i in range(3):
 			spawn_prop("RED FLOWERS", Vector2(6.0 + float(i) * 1.4, -3.2), {
@@ -485,6 +497,19 @@ func _dress_living_ridge() -> void:
 				"show_label": false,
 				"cast_shadow": false,
 			})
+		var root := spawn_prop("HULO ROOTS", Vector2(7.2, -2.0), {
+			"texture_path": "res://assets/images/props/hulo_root.png",
+			"prop_size": Vector2(44.0, 36.0),
+			"body_color": Palette.RED_DEEP,
+			"accent_color": Palette.RED_EMBER,
+			"show_label": false,
+			"nearest_filter": true,
+			"cast_shadow": false,
+		})
+		_attach_object_talk(root, "Speak with the Roots", [
+			{"speaker": "Hulo Root", "text": "Pound me in the mortar. I keep the red until the pestle asks."},
+			{"speaker": "S'lang", "text": "Loko. The colour of courage."},
+		], 50.0, Vector2(0.0, -48.0))
 	if restored >= 3:
 		for i in range(2):
 			var shaft := spawn_prop("LIGHT SHAFT", Vector2(-3.2 + float(i) * 6.4, -3.2 + float(i) * 6.4), {
@@ -736,8 +761,12 @@ func _sync_house_sparkles() -> void:
 
 
 func _run_chapter() -> void:
-	if GameState.current_chapter >= 1:
-		await _enter_house(GameState.current_chapter, true)
+	# Menu "Test Chapter" sets replay_house_id (not saved). Prefer that over a
+	# stale current_chapter so the jump always lands inside the chosen House.
+	var jump_to := GameState.replay_house_id if GameState.replay_house_id >= 1 \
+		else GameState.current_chapter
+	if jump_to >= 1:
+		await _enter_house(jump_to, true)
 		return
 
 	if GameState.game_completed:
@@ -796,6 +825,14 @@ func _enter_house(house_id: int, _from_retry: bool) -> void:
 	_active_house_id = house_id
 	GameState.set_current_chapter(house_id)
 	Audio.set_house(house_id)
+	# Seal before the exit Area2D turns on. Completed Houses keep auto_use open,
+	# and spawn can sit inside that pad (Ch2 especially) — Test Chapter was
+	# bouncing straight back to the plaza totem on the same frame.
+	var starting_quest := GameState.wants_replay(house_id) \
+		or not GameState.is_house_completed(house_id)
+	var gate: HouseExit = _house_exits.get(house_id) as HouseExit
+	if gate != null:
+		gate.set_open(not starting_quest, true)
 	if quest.uses_painted_plate():
 		_spawn_position = quest.player_spawn_world()
 	else:
@@ -807,20 +844,16 @@ func _enter_house(house_id: int, _from_retry: bool) -> void:
 	_refresh_villagers()
 	_sync_fun_guide()
 	_set_house_darkness(quest, true)
-	var gate: HouseExit = _house_exits.get(house_id) as HouseExit
 	if gate != null:
 		gate.set_plate_visible(true)
 	if hud != null and hud.has_method("set_chapter"):
 		hud.call("set_chapter", Houses.name_for(house_id))
 	if hud != null and hud.has_method("show_quest_plate"):
 		hud.call("show_quest_plate", true)
-	var exit: Interactable = _exit_triggers.get(house_id) as Interactable
-	if exit != null:
-		exit.set_enabled(GameState.is_house_completed(house_id))
 	set_player_input(true)
 	if not GameState.is_house_completed(house_id):
 		GameState.note_house_entered(house_id, GameState.consume_fresh_attempt())
-	if GameState.wants_replay(house_id) or not GameState.is_house_completed(house_id):
+	if starting_quest:
 		quest.start_quest()
 	else:
 		quest.apply_restored_color()
@@ -976,7 +1009,7 @@ func _spawn_villager(spec: Dictionary) -> VillageWalker:
 
 
 func _on_villager_chatted(walker: VillageWalker) -> void:
-	if _villager_chat or not is_instance_valid(walker):
+	if _villager_chat or _object_chat or not is_instance_valid(walker):
 		return
 	if dialogue != null and dialogue.visible:
 		return
@@ -986,6 +1019,36 @@ func _on_villager_chatted(walker: VillageWalker) -> void:
 	if is_instance_valid(walker):
 		walker.hold_chat(false)
 	_villager_chat = false
+
+
+## Same near-popup as a pickup: walk in, see [E], press it, talk.
+func _attach_object_talk(
+		host: Node2D,
+		prompt: String,
+		lines: Array,
+		radius := 52.0,
+		offset := Vector2(0.0, -56.0)
+) -> void:
+	if host == null or not is_instance_valid(host) or lines.is_empty():
+		return
+	var trigger := Interactable.new()
+	trigger.name = "ObjectTalk"
+	trigger.prompt = prompt
+	trigger.radius = radius
+	trigger.prompt_offset = Vector2(0.0, -104.0)
+	trigger.position = offset
+	host.add_child(trigger)
+	trigger.interacted.connect(_on_object_talk.bind(lines))
+
+
+func _on_object_talk(lines: Array) -> void:
+	if _object_chat or _villager_chat:
+		return
+	if dialogue != null and dialogue.visible:
+		return
+	_object_chat = true
+	await say(lines)
+	_object_chat = false
 
 
 func _player_house_space() -> int:

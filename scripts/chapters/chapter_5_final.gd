@@ -39,6 +39,9 @@ const WEAVE_NOTE_DAMAGE := 72.0
 const LOOM_MAX := 100.0
 const LOOM_BLEACH_HIT := 16.0
 const WEAVE_WAIT := 12.0
+## Weave is a rare punish, not the main fight. Stagger still opens a melee window.
+const WEAVE_STAGGERS_NEEDED := 3
+const WEAVE_COOLDOWN := 26.0
 const STAGE_LINES := {
 	2: "ENOUGH! You will drown in the dark!",
 	3: "No! I will not fade! I will not be forgotten!",
@@ -75,6 +78,8 @@ var _loom_hp := LOOM_MAX
 var _burst_live := false
 var _finisher_play := false
 var _finisher_done := false
+var _staggers_since_weave := 0
+var _weave_cd := 0.0
 
 
 func uses_painted_plate() -> bool:
@@ -103,9 +108,11 @@ func painted_player_scale() -> float:
 	return 2.6
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _plate != null and player != null and is_instance_valid(player):
 		_plate.set_player_world(player.global_position)
+	if _phase == 2 and not _weaving:
+		_weave_cd = maxf(0.0, _weave_cd - delta)
 	_update_duel_camera()
 
 
@@ -221,7 +228,8 @@ func _build_hall() -> void:
 	_ancestor.visible = false
 
 	_boss = ShadowWeaverBoss.new()
-	_boss.max_health = 1500.0
+	_boss.max_health = 4000.0
+	_boss.poise_to_stagger = 640.0
 	if world != null:
 		world.add_child(_boss)
 	else:
@@ -560,7 +568,7 @@ func _phase_three_finish() -> void:
 	if player != null and is_instance_valid(player) and _boss != null and is_instance_valid(_boss):
 		focus_camera_on(
 			player.global_position.lerp(_boss.global_position, 0.45) + Vector2(0.0, -36.0),
-			Vector2(1.38, 1.38)
+			Vector2(1.08, 1.08)
 		)
 	await say([
 		{"speaker": "S'lang", "text": "I remember you. That is enough."},
@@ -666,7 +674,17 @@ func _grant_light_beam() -> void:
 		return
 	player.unlock_light_beam()
 	Audio.play_sfx(Audio.Sfx.SUCCESS)
-	banner("Light beam", 2.2)
+	Audio.play_sfx(Audio.Sfx.CHIME)
+	shake_camera(6.0)
+	Fx.light_burst(player, Palette.GOLD_SUN)
+	Fx.hit_flash(player, Palette.GOLD_SUN)
+	banner("NEW SKILL  ·  LIGHT BEAM", 3.2)
+	if hud != null:
+		if hud.has_method("set_mode"):
+			hud.call("set_mode", "PRESS  2  ·  LIGHT BEAM", Color(1.0, 0.92, 0.45))
+		if hud.has_method("pulse_beam_unlock"):
+			hud.call("pulse_beam_unlock")
+	_coach("Light Beam unlocked", "Press [2]. A beam of remembered sunlight — hold your facing, then fire.", ["2"])
 
 
 func _heal_after_wave() -> void:
@@ -923,9 +941,10 @@ func _close_weave() -> void:
 		_loom_trigger.set_enabled(false)
 	_point_loom(false)
 	if _boss_alive():
-		_boss.set_combat_paused(false)
 		if was_weaving:
-			_boss.end_stagger_early()
+			_boss.resume_after_weave()
+		else:
+			_boss.set_combat_paused(false)
 	if not _duel_over and not is_finished():
 		_enter_fight_stance()
 
@@ -997,6 +1016,14 @@ func _on_telegraph_resolved(parried: bool) -> void:
 
 func _on_boss_staggered(_duration: float) -> void:
 	shake_camera(8.0)
+	_staggers_since_weave += 1
+	# Most staggers are a melee punish. The loom only opens rarely.
+	if _weaving or _weave_cd > 0.0 or _staggers_since_weave < WEAVE_STAGGERS_NEEDED:
+		if not _weaving and not _duel_over:
+			objective("He's open — strike!")
+		return
+	_staggers_since_weave = 0
+	_weave_cd = WEAVE_COOLDOWN
 	_open_weave()
 
 
@@ -1078,7 +1105,7 @@ func _play_finisher() -> void:
 		return
 	focus_camera_on(
 		player.global_position.lerp(_boss.global_position, 0.5) + Vector2(0.0, -36.0),
-		Vector2(1.68, 1.68)
+		Vector2(1.12, 1.12)
 	)
 	if player.global_position.distance_to(_boss.global_position) > 90.0:
 		await player.run_finisher_approach(_boss)

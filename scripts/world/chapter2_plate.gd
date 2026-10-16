@@ -8,7 +8,9 @@ const TEXTURE_PATH := "res://assets/images/environments/house_red/red_courage_ha
 const SHADER_PATH := "res://shaders/house_red_plate.gdshader"
 const NATIVE := Vector2(1536.0, 1152.0)
 
-const SPAWN_UV := Vector2(0.50, 0.88)
+## Keep spawn clear of the exit pad (110px radius + path box) so a replay
+## cannot auto-leave the House the frame she appears.
+const SPAWN_UV := Vector2(0.50, 0.74)
 const EXIT_UV := Vector2(0.50, 0.90)
 const MORTAR_UV := Vector2(0.50, 0.32)
 const MORTAR_REACH_UV := Vector2(0.50, 0.42)

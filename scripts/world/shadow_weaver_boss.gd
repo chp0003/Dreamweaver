@@ -39,6 +39,10 @@ const HITSTOP_STAGGER := 0.07
 const HITSTOP_SCALE := 0.05
 const STAGE_THRESHOLDS: Array[float] = [0.66, 0.33]
 const SHIFT_DURATION := 2.6
+## A stage change that lands during the loom weave waits until the track ends,
+## then snarls and comes back swinging. The full bellow is too long once the
+## player is already done pressing keys.
+const WEAVE_COMEBACK := 0.62
 const TAUNT_GAP := 9.0
 const LAUGH_GAP := 7.0
 const LAUGH_CHANCE_SPELL := 0.45
@@ -88,7 +92,7 @@ const VFX_SLAM := "res://assets/images/vfx/weaver_slam_ring.png"
 const VFX_BOLT := "res://assets/images/vfx/weaver_shadow_bolt.png"
 const VFX_NOVA := "res://assets/images/vfx/weaver_nova_ring.png"
 
-@export var max_health := 1500.0
+@export var max_health := 4000.0
 @export var chase_speed := 182.0
 @export var keep_range := 72.0
 @export var stagger_duration := 1.6
@@ -151,6 +155,8 @@ var _charge_fx: Node2D
 var _stun_fx: Node2D
 var _stage := 1
 var _shift_left := 0.0
+## Stage crossed while the loom has the fight paused. Played when the weave ends.
+var _shift_queued := 0
 var _combo: Array[Skill] = []
 var _dash_retreat := false
 var _dash_aimed := false
@@ -185,12 +191,18 @@ func _physics_process(delta: float) -> void:
 		_cds[key] = maxf(0.0, float(_cds[key]) - delta)
 	velocity = Vector2.ZERO
 	if not _active or _dead or _combat_paused:
+		# The loom holds his attacks. He still writhes, so the stun is not a statue.
+		if _combat_paused and _active and not _dead and _phase == Phase.Stagger:
+			var writhe := sin(Time.get_ticks_msec() * 0.012)
+			_apply_body_pose(-0.045 + writhe * 0.04, writhe * 8.0)
 		move_and_slide()
 		return
 	match _phase:
 		Phase.Shift:
 			_shift_left -= delta
 			_face_player()
+			var rage := sin(Time.get_ticks_msec() * 0.016)
+			_apply_body_pose(0.03 + rage * 0.035, rage * 6.0)
 			if _shift_left <= 0.0:
 				_end_shift()
 		Phase.Stagger:
@@ -244,6 +256,7 @@ func begin_duel() -> void:
 	_timer = 0.28
 	_poise = 0.0
 	_stage = 1
+	_shift_queued = 0
 	_combo.clear()
 	_last_skill = Skill.None
 	_since_used.clear()
@@ -315,6 +328,26 @@ func is_telegraphing() -> bool:
 ## Holds the duel still while S'lang is at the loom. Stagger time does not run out.
 func set_combat_paused(paused: bool) -> void:
 	_combat_paused = paused
+
+
+## The weave is over. Shake the stun off and attack. A stage change that
+## landed on the track plays as a short snarl, then he is already swinging.
+func resume_after_weave() -> void:
+	if _dead or _finisher:
+		_combat_paused = true
+		_shift_queued = 0
+		if not _dead:
+			kneel()
+		return
+	_combat_paused = false
+	var queued := _shift_queued
+	_shift_queued = 0
+	if queued > _stage:
+		_begin_shift(queued, WEAVE_COMEBACK)
+		return
+	if _phase == Phase.Stagger:
+		_end_stagger()
+	_try_start_skill()
 
 
 func current_move() -> String:
@@ -435,7 +468,9 @@ func _react_to_hit(punished: bool) -> void:
 		return
 	_flash(Color(1.9, 1.5, 1.5))
 	Audio.play_fx("shadow_hit", 0.0)
-	Fx.punch(self, 0.08)
+	Fx.punch(self, 0.16 if _phase == Phase.Stagger else 0.08)
+	if _phase == Phase.Stagger:
+		_play_visual("stagger", true)
 	if _hurt_voice_cd <= 0.0 and health > 0.0:
 		_hurt_voice_cd = HURT_VOICE_GAP
 		Audio.play_fx("weaver_hurt", -3.0, 0.08)
@@ -450,7 +485,15 @@ func _check_stage_shift() -> bool:
 	for i in range(STAGE_THRESHOLDS.size()):
 		if health_ratio() <= STAGE_THRESHOLDS[i]:
 			next_stage = maxi(next_stage, i + 2)
-	if next_stage == _stage:
+	if next_stage == _stage and _shift_queued <= _stage:
+		return false
+	next_stage = maxi(next_stage, _shift_queued)
+	if next_stage <= _stage:
+		return false
+	# Notes are still landing. Banking the roar here used to freeze him on the
+	# last frame for the rest of the track, then again once it ended.
+	if _combat_paused:
+		_shift_queued = next_stage
 		return false
 	_begin_shift(next_stage)
 	return true
@@ -458,10 +501,11 @@ func _check_stage_shift() -> bool:
 
 ## Between stages he stops, bellows and blows the player back. He cannot be
 ## hurt until it ends, then comes back faster with longer combos.
-func _begin_shift(next_stage: int) -> void:
+func _begin_shift(next_stage: int, duration: float = -1.0) -> void:
 	_stage = next_stage
+	_shift_queued = 0
 	_phase = Phase.Shift
-	_shift_left = SHIFT_DURATION
+	_shift_left = SHIFT_DURATION if duration < 0.0 else duration
 	_skill = Skill.None
 	_combo.clear()
 	_lunge_vel = Vector2.ZERO
@@ -497,7 +541,8 @@ func _end_shift() -> void:
 	_shift_left = 0.0
 	if _stage >= 3:
 		_spawn_adds()
-	_enter_approach(0.1)
+	_enter_approach(0.05)
+	_try_start_skill()
 
 
 func stagger(duration: float = -1.0) -> void:
@@ -550,6 +595,7 @@ func _begin_finisher() -> void:
 	_finisher = true
 	_active = false
 	_combat_paused = true
+	_shift_queued = 0
 	_combo.clear()
 	_restore_time_scale()
 	remove_from_group("hittable")

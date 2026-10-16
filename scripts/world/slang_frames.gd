@@ -24,6 +24,7 @@ const FRAME_H := 192
 ## FPS is `frame_count *` this, so 8-frame and 12-frame sheets keep the same gait.
 const WALK_CYCLES_PER_SEC := 2.5
 const ATTACK_FPS := 13.0
+const DEBUG_ATTACK_SCALE := false
 
 const UNIQUE_DIRS := ["down", "down_right", "right", "up_right", "up"]
 
@@ -44,11 +45,11 @@ static func load_bare() -> SpriteFrames:
 	var armed := load_or_build()
 	var frames := SpriteFrames.new()
 	for anim in armed.get_animation_names():
-		var drop_staff := str(anim).ends_with("_down_right")
+		# Every facing sheet paints the Lewet in. Tutorial starts without it, so
+		# strip the pole from idle, walk and attack — not only down_right.
 		var texs: Array = []
 		for i in armed.get_frame_count(anim):
-			var tex := armed.get_frame_texture(anim, i)
-			texs.append(_cut_staff(tex) if drop_staff else tex)
+			texs.append(_cut_staff(armed.get_frame_texture(anim, i)))
 		_add_anim(
 			frames,
 			anim,
@@ -60,7 +61,7 @@ static func load_bare() -> SpriteFrames:
 	return frames
 
 
-## The staff is painted into the down-right sheets. A straight cut at the staff
+## The staff is painted into every facing sheet. A straight cut at the staff
 ## column also deletes the fist, which overlaps that x range. Follow the staff
 ## as its own thin run and leave the hand on the arm.
 static func _cut_staff(tex: Texture2D) -> Texture2D:
@@ -211,7 +212,8 @@ static func _build_armed() -> SpriteFrames:
 		walk_fallback = _load_strip(WALK_CYCLE_PATH, 8)
 	if walk_fallback.is_empty() or not _footprint_matches_idle(idle_fallback, walk_fallback[0] as Texture2D):
 		walk_fallback = _walk_cycle_from_idle(base)
-	var attack := _load_strip(ATTACK_CYCLE_PATH, 8)
+	# Attack fallback: slice + place unscaled. _normalize_attack_to_idle owns scale.
+	var attack := _load_strip(ATTACK_CYCLE_PATH, 8, false)
 	if attack.is_empty() or not _footprint_matches_idle(idle_fallback, attack[0] as Texture2D):
 		attack = _attack_cycle_from_idle(base)
 
@@ -237,10 +239,166 @@ static func _build_armed() -> SpriteFrames:
 		var dir_attack := _load_packed_strip_auto(DIR8_PATH + "attack_%s.png" % dir)
 		if dir_attack.is_empty() or not _frames_differ(dir_attack):
 			dir_attack = attack
+		dir_attack = _normalize_attack_to_idle(dir_attack, idle, dir)
 		_add_anim(frames, "idle_" + dir, [idle], true, 1.0)
 		_add_anim(frames, "walk_" + dir, walk, true, float(walk.size()) * WALK_CYCLES_PER_SEC)
 		_add_anim(frames, "attack_" + dir, dir_attack, false, ATTACK_FPS)
 	return frames
+
+
+## Pin every attack frame to idle stature. Body measured without staff; each
+## cell scales around the feet; staff may crop at the canvas edge.
+static func _normalize_attack_to_idle(frames: Array, idle: Texture2D, dir := "") -> Array:
+	var idle_img := _texture_to_image(idle)
+	if idle_img == null or frames.is_empty():
+		return frames
+	var idle_cell := _as_attack_cell(idle_img)
+	var idle_body := _body_bounds_no_staff(idle_cell)
+	if idle_body.size.y < 8.0:
+		return frames
+	var idle_h := idle_body.size.y
+	var idle_bottom := idle_body.position.y + idle_body.size.y
+	var idle_cx := _torso_center_no_staff(idle_cell)
+
+	var cells: Array[Image] = []
+	var raw_scales: Array[float] = []
+	var raw_heights: Array[float] = []
+	for tex in frames:
+		var img := _texture_to_image(tex as Texture2D)
+		if img == null:
+			return frames
+		var cell := _as_attack_cell(img)
+		var body := _body_bounds_no_staff(cell)
+		if body.size.y < 8.0:
+			return frames
+		cells.append(cell)
+		raw_heights.append(body.size.y)
+		raw_scales.append(idle_h / body.size.y)
+
+	var sorted := raw_scales.duplicate()
+	sorted.sort()
+	var s_med: float = sorted[int(sorted.size() / 2)]
+	var lo := s_med * 0.97
+	var hi := s_med * 1.03
+
+	var out: Array = []
+	if DEBUG_ATTACK_SCALE:
+		print("SlangFrames attack[%s] idle_body_h=%.1f s_med=%.3f" % [dir, idle_h, s_med])
+	for i in cells.size():
+		var s: float = clampf(raw_scales[i], lo, hi)
+		if s < 0.5 or s > 1.8:
+			push_warning("SlangFrames: attack scale clamp dir=%s scale=%.3f" % [dir, s])
+			s = clampf(s, 0.5, 1.8)
+		var cell: Image = cells[i]
+		var tw := maxi(1, int(round(float(FRAME_W) * s)))
+		var th := maxi(1, int(round(float(FRAME_H) * s)))
+		var scaled := Image.new()
+		scaled.copy_from(cell)
+		scaled.resize(tw, th, Image.INTERPOLATE_LANCZOS)
+		var scaled_body := _body_bounds_no_staff(scaled)
+		var scaled_cx := _torso_center_no_staff(scaled)
+		var scaled_bottom := scaled_body.position.y + scaled_body.size.y
+		var ox := int(round(idle_cx - scaled_cx))
+		var oy := int(round(idle_bottom - scaled_bottom))
+		var canvas := Image.create(FRAME_W, FRAME_H, false, Image.FORMAT_RGBA8)
+		canvas.fill(Color(0, 0, 0, 0))
+		_blit_clipped(canvas, scaled, Vector2i(ox, oy))
+		if DEBUG_ATTACK_SCALE:
+			var final_body := _body_bounds_no_staff(canvas)
+			print("  frame[%d] raw_h=%.1f s=%.3f final_h=%.1f bottom=%.1f (idle_bottom=%.1f)" % [
+				i, raw_heights[i], s, final_body.size.y,
+				final_body.position.y + final_body.size.y, idle_bottom])
+		out.append(_make_tex(canvas))
+	return out
+
+
+## Opaque body after staff erase. Falls back to torso column if erase ate the figure.
+static func _body_bounds_no_staff(img: Image) -> Rect2:
+	if img == null:
+		return Rect2()
+	var original := _opaque_bounds(img)
+	if original.size.y < 1.0:
+		return Rect2()
+	var copy := Image.new()
+	copy.copy_from(img)
+	_erase_staff(copy)
+	var erased := _opaque_bounds(copy)
+	if erased.size.y < original.size.y * 0.60:
+		return _body_column_bounds(img)
+	return erased
+
+
+static func _torso_center_no_staff(img: Image) -> float:
+	var original := _opaque_bounds(img)
+	var copy := Image.new()
+	copy.copy_from(img)
+	_erase_staff(copy)
+	var erased := _opaque_bounds(copy)
+	if erased.size.y < original.size.y * 0.60:
+		var col := _body_column_bounds(img)
+		return _torso_center_x(img, col)
+	return _torso_center_x(copy, erased)
+
+
+## Guarantee a FRAME_W×FRAME_H cell (1:1 blit, feet on bottom) before scaling.
+static func _as_attack_cell(img: Image) -> Image:
+	if img.get_width() == FRAME_W and img.get_height() == FRAME_H:
+		return img
+	var canvas := Image.create(FRAME_W, FRAME_H, false, Image.FORMAT_RGBA8)
+	canvas.fill(Color(0, 0, 0, 0))
+	var ox := int((FRAME_W - img.get_width()) / 2.0)
+	var oy := FRAME_H - img.get_height()
+	_blit_clipped(canvas, img, Vector2i(ox, oy))
+	return canvas
+
+
+static func _blit_clipped(dst: Image, src: Image, dest: Vector2i) -> void:
+	var sx := 0
+	var sy := 0
+	var dx := dest.x
+	var dy := dest.y
+	var w := src.get_width()
+	var h := src.get_height()
+	if dx < 0:
+		sx = -dx
+		w += dx
+		dx = 0
+	if dy < 0:
+		sy = -dy
+		h += dy
+		dy = 0
+	if dx + w > dst.get_width():
+		w = dst.get_width() - dx
+	if dy + h > dst.get_height():
+		h = dst.get_height() - dy
+	if w < 1 or h < 1:
+		return
+	dst.blit_rect(src, Rect2i(sx, sy, w, h), Vector2i(dx, dy))
+
+
+## Torso band only — ignores staff tips that inflate full opaque bounds mid-swing.
+static func _body_column_bounds(img: Image) -> Rect2:
+	if img == null:
+		return Rect2()
+	var w := img.get_width()
+	var h := img.get_height()
+	var x0 := int(w * 0.30)
+	var x1 := int(w * 0.70)
+	var min_x := w
+	var min_y := h
+	var max_x := -1
+	var max_y := -1
+	for y in range(h):
+		for x in range(x0, x1):
+			if img.get_pixel(x, y).a < 0.1:
+				continue
+			min_x = mini(min_x, x)
+			min_y = mini(min_y, y)
+			max_x = maxi(max_x, x)
+			max_y = maxi(max_y, y)
+	if max_x < min_x:
+		return Rect2()
+	return Rect2(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
 
 
 static func _load_idle_dir(dir: String) -> Texture2D:
@@ -399,10 +557,10 @@ static func _fit_cells_uniform(cells: Array) -> Array:
 	return fitted
 
 
-## Accept an external strip only if it keys clean and differs across frames.
-## Size is forced to FRAME_W×FRAME_H with the same feet-bottom fit as idle.
 ## Slice a horizontal strip into `count` frames. Keys obvious mattes.
-static func _load_strip(path: String, count: int) -> Array:
+## Walk strips use uniform_fit (fill FRAME_H). Attack strips place 1:1 and
+## leave stature to _normalize_attack_to_idle so staff arcs never double-scale.
+static func _load_strip(path: String, count: int, uniform_fit := true) -> Array:
 	var sheet := _load_texture(path)
 	if sheet == null:
 		return []
@@ -417,9 +575,30 @@ static func _load_strip(path: String, count: int) -> Array:
 	var cells: Array = []
 	for i in range(count):
 		cells.append(img.get_region(Rect2i(i * fw, 0, fw, img.get_height())))
-	var out := _fit_cells_uniform(cells)
+	var out: Array
+	if uniform_fit:
+		out = _fit_cells_uniform(cells)
+	else:
+		out = _place_attack_cells_unscaled(cells)
 	if out.is_empty() or not _frames_differ(out):
 		return []
+	return out
+
+
+## Decontaminate and stamp each cell 1:1 onto FRAME_W×FRAME_H (feet on bottom).
+## No resize — staff that spills past the canvas is cropped, not shrunk.
+static func _place_attack_cells_unscaled(cells: Array) -> Array:
+	var out: Array = []
+	for cell in cells:
+		var cleaned := _decontaminate(cell as Image)
+		var canvas := Image.create(FRAME_W, FRAME_H, false, Image.FORMAT_RGBA8)
+		canvas.fill(Color(0, 0, 0, 0))
+		var cw := cleaned.get_width()
+		var ch := cleaned.get_height()
+		var ox := int((FRAME_W - cw) / 2.0)
+		var oy := FRAME_H - ch
+		_blit_clipped(canvas, cleaned, Vector2i(ox, oy))
+		out.append(_make_tex(canvas))
 	return out
 
 

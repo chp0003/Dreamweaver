@@ -16,8 +16,8 @@ const SPECIAL_RANGE := 210.0
 const CASTER_SIGHT := 920.0
 ## Close enough to shoot. Matches the outer edge of their strafe band.
 const CASTER_FIRE_RANGE := 460.0
-## Heal on a normal kill, as a fraction of S'lang's max health. Boss adds pay nothing.
-const KILL_HEAL_RATIO := 0.04
+## Flat heal on a normal kill. Boss adds pay nothing.
+const KILL_HEAL := 20.0
 ## Chaser tell before the swing. The hit is checked again when this ends.
 const CHASER_WINDUP := 0.16
 ## Bolts steer only this long after launch, then fly straight.
@@ -666,7 +666,7 @@ func _grant_kill_heal() -> void:
 	if not (killer is Slang) or not killer.has_method("heal"):
 		return
 	var slang := killer as Slang
-	var gained := slang.heal(slang.max_health * KILL_HEAL_RATIO)
+	var gained := slang.heal(KILL_HEAL)
 	if gained <= 0.0:
 		return
 	Fx.hit_flash(slang, Palette.GOLD_SUN)

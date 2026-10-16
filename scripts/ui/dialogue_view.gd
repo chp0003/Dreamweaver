@@ -19,12 +19,17 @@ signal choice_made(index: int)
 
 const CHARS_PER_SECOND := 48.0
 
+const SLANG_NAME := "S'lang"
+const ACTIVE_PORTRAIT := Color.WHITE
+const LISTEN_PORTRAIT := Color(0.58, 0.56, 0.62, 0.72)
+
 @onready var panel: Control = %Panel
 @onready var speaker_label: Label = %SpeakerLabel
 @onready var text_label: Label = %TextLabel
 @onready var continue_hint: Label = %ContinueHint
 @onready var choice_box: VBoxContainer = %ChoiceBox
 @onready var portrait: TextureRect = %Portrait
+@onready var portrait_right: TextureRect = %PortraitRight
 @onready var dock: Control = $Root/Dock
 
 var _typing: Tween
@@ -34,6 +39,8 @@ var _choosing := false
 var _line_length := 0
 var _presented := false
 var _hint_tween: Tween
+## Last named person S'lang is talking with in this conversation.
+var _partner := ""
 static var _bust_cache: Dictionary = {}
 
 
@@ -44,12 +51,19 @@ func _ready() -> void:
 	add_to_group("dialogue_view")
 	if panel is WovenFrame:
 		(panel as WovenFrame).set_quiet(true)
-	if portrait != null:
-		var well := portrait.get_parent() as PanelContainer
-		if well != null:
-			well.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-			well.clip_contents = true
-			well.visible = false
+	_prep_portrait_well(portrait)
+	_prep_portrait_well(portrait_right)
+
+
+func _prep_portrait_well(face: TextureRect) -> void:
+	if face == null:
+		return
+	var well := face.get_parent() as PanelContainer
+	if well == null:
+		return
+	well.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	well.clip_contents = true
+	well.visible = false
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -69,6 +83,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func play(lines: Array) -> void:
 	visible = true
 	choice_box.visible = false
+	_partner = ""
 	_present()
 	for line in lines:
 		var speaker := ""
@@ -85,6 +100,7 @@ func play(lines: Array) -> void:
 		await _show_line(speaker, body)
 		if not voice.is_empty():
 			Audio.stop_voice()
+	_partner = ""
 	visible = false
 	_presented = false
 	finished.emit()
@@ -92,6 +108,7 @@ func play(lines: Array) -> void:
 
 func ask(prompt: String, options: Array, speaker := "") -> int:
 	visible = true
+	_partner = ""
 	_present()
 	await _show_line(speaker, prompt, false)
 
@@ -99,6 +116,7 @@ func ask(prompt: String, options: Array, speaker := "") -> int:
 	_choosing = true
 	var pick: int = await choice_made
 	choice_box.visible = false
+	_partner = ""
 	visible = false
 	_presented = false
 	return pick
@@ -107,8 +125,10 @@ func ask(prompt: String, options: Array, speaker := "") -> int:
 func say_line(speaker: String, body: String) -> void:
 	visible = true
 	choice_box.visible = false
+	_partner = ""
 	_present()
 	await _show_line(speaker, body)
+	_partner = ""
 	visible = false
 	_presented = false
 
@@ -121,7 +141,8 @@ func _show_line(speaker: String, body: String, wait_for_input := true) -> void:
 	speaker_label.text = speaker.to_upper() if not speaker.is_empty() else "NARRATOR"
 	speaker_label.visible = true
 	_style_speaker(speaker)
-	_set_portrait(speaker)
+	_remember_partner(speaker)
+	_set_portraits(speaker)
 	text_label.text = body
 	_line_length = body.length()
 	text_label.visible_characters = 0
@@ -255,38 +276,80 @@ func _style_speaker(speaker: String) -> void:
 		color = Palette.DREAM_MIST
 	elif "s'lang" in key or "slang" in key:
 		color = Palette.GOLD_BRASS
+	elif "abaca" in key or "fibre" in key or "fiber" in key:
+		color = Palette.CREAM_STONE
+	elif "hulo" in key or "root" in key or "loko" in key:
+		color = Color(0.82, 0.34, 0.22)
 	speaker_label.add_theme_color_override("font_color", Palette.alpha(color, 0.95))
 
 
-func _set_portrait(speaker: String) -> void:
-	if portrait == null:
+func _remember_partner(speaker: String) -> void:
+	if speaker.is_empty() or _is_slang(speaker):
+		return
+	_partner = speaker
+
+
+## S'lang stays on the left. Whoever she is talking with stays on the right.
+## The active speaker lights up; the listener softens.
+func _set_portraits(speaker: String) -> void:
+	# Narration has no faces. Character lines keep S'lang left, partner right.
+	if speaker.is_empty():
+		_apply_face(portrait, "", false)
+		_apply_face(portrait_right, "", false)
+		return
+	var slang_talking := _is_slang(speaker)
+	var partner := _partner if slang_talking else speaker
+	# Ancestor statues are already in the room — no dialogue bust.
+	if _is_statue_speaker(partner):
+		partner = ""
+	_apply_face(portrait, SLANG_NAME, slang_talking)
+	_apply_face(portrait_right, partner, not slang_talking and not partner.is_empty())
+
+
+func _apply_face(face: TextureRect, speaker: String, speaking: bool) -> void:
+	if face == null:
+		return
+	var well := face.get_parent() as CanvasItem
+	if speaker.is_empty():
+		face.texture = null
+		face.visible = false
+		if well != null and well != panel:
+			well.visible = false
 		return
 	var path := _portrait_path(speaker)
 	var tex := _bust_texture(path, speaker)
-	portrait.texture = tex
-	portrait.visible = tex != null
-	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var well := portrait.get_parent() as CanvasItem
+	face.texture = tex
+	face.visible = tex != null
+	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	face.custom_minimum_size = Vector2(108, 148)
 	if well != null and well != panel:
 		well.visible = tex != null
-	if tex != null:
-		var key := speaker.to_lower()
-		portrait.custom_minimum_size = Vector2(108, 148)
-		if "spirit" in key:
-			portrait.modulate = Color(0.92, 0.95, 1.05, 0.92)
-		elif "shadow" in key:
-			portrait.modulate = Color(0.96, 0.9, 1.0)
-		else:
-			portrait.modulate = Color.WHITE
+	if tex == null:
+		return
+	var tint := ACTIVE_PORTRAIT if speaking else LISTEN_PORTRAIT
+	var key := speaker.to_lower()
+	if "spirit" in key:
+		tint = Color(0.92, 0.95, 1.05, tint.a)
+	elif "shadow" in key:
+		tint = Color(0.96, 0.9, 1.0, tint.a)
+	face.modulate = tint
+
+
+func _is_slang(speaker: String) -> bool:
+	var key := speaker.to_lower()
+	return "s'lang" in key or key == "slang"
 
 
 func _portrait_path(speaker: String) -> String:
 	var key := speaker.to_lower()
 	if key.is_empty():
 		return ""
-	if "s'lang" in key or key == "slang":
+	if _is_slang(speaker):
 		return "res://assets/images/characters/slang.png"
+	# Stones keep their faces in the hall. No dialogue icon.
+	if _is_statue_speaker(speaker):
+		return ""
 	if "fun kdungon" in key:
 		return "res://assets/images/characters/fun_kdungon.png"
 	if "chief" in key:
@@ -295,11 +358,20 @@ func _portrait_path(speaker: String) -> String:
 		return "res://assets/images/characters/harvest_queen.png"
 	if "spirit" in key:
 		return "res://assets/images/characters/spirit_of_the_fiber.png"
-	if "master" in key:
+	if "lang dulay" in key or key == "master weaver" or "master weaver" in key:
 		return "res://assets/images/characters/master_weaver_ghost_portrait.png"
-	if "shadow" in key or "weaver" in key:
+	if "shadow" in key or ("weaver" in key and "master" not in key):
 		return "res://assets/images/enemies/shadow_weaver_idle.png"
-	return "res://assets/images/characters/slang.png"
+	if "abaca" in key:
+		return "res://assets/images/props/abaca_plant.png"
+	if "hulo" in key or "root" in key or "loko" in key:
+		return "res://assets/images/props/hulo_root.png"
+	return ""
+
+
+func _is_statue_speaker(speaker: String) -> bool:
+	var key := speaker.to_lower()
+	return "statue" in key or "ancestors" in key
 
 
 const _WELL_ASPECT := 108.0 / 148.0
@@ -335,7 +407,9 @@ func _bust_texture(path: String, speaker: String) -> Texture2D:
 func _uses_studio_plate(path: String, speaker: String) -> bool:
 	var key := (path + " " + speaker).to_lower()
 	return "characters/" in key or "kdungon" in key or "chief" in key \
-		or "harvest" in key or "queen" in key
+		or "harvest" in key or "queen" in key \
+		or "abaca" in key or "hulo" in key or "props/" in key \
+		or "statue" in key
 
 
 func _first_strip_frame(image: Image, frames: int) -> Image:

@@ -35,6 +35,7 @@ extends CanvasLayer
 
 var _player: Slang
 var _banner_tween: Tween
+var _beam_pulse: Tween
 var _story_focus := false
 var _dialogue_busy := false
 
@@ -320,6 +321,33 @@ func set_mode(text: String, color := Palette.GOLD_SACRED) -> void:
 	mode_label.text = text
 	mode_label.add_theme_color_override("font_color", color)
 	mode_label.visible = not text.is_empty()
+
+
+## Flash the beam cooldown bar so a new unlock is obvious on the vitals plate.
+func pulse_beam_unlock() -> void:
+	if beam_bar == null:
+		return
+	beam_bar.visible = true
+	beam_bar.value = 100.0
+	if _beam_pulse != null and _beam_pulse.is_valid():
+		_beam_pulse.kill()
+	beam_bar.modulate = Color(1.55, 1.35, 0.55)
+	beam_bar.scale = Vector2(1.0, 1.0)
+	_beam_pulse = create_tween()
+	_beam_pulse.set_loops(4)
+	_beam_pulse.tween_property(beam_bar, "modulate", Color(1.9, 1.7, 0.7), 0.18)
+	_beam_pulse.tween_property(beam_bar, "modulate", Color(1.15, 1.05, 0.55), 0.18)
+	_beam_pulse.chain().tween_callback(func() -> void:
+		if beam_bar != null:
+			beam_bar.modulate = Color.WHITE)
+	_refresh_inventory()
+	if items_label != null:
+		items_label.add_theme_color_override("font_color", Palette.GOLD_SUN)
+		var glow := create_tween()
+		glow.tween_interval(2.8)
+		glow.tween_callback(func() -> void:
+			if items_label != null:
+				items_label.remove_theme_color_override("font_color"))
 
 
 func show_loom_integrity(visible_now: bool) -> void:
