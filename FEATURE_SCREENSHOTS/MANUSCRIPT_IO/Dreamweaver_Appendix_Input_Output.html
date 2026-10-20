@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>APPENDIX — Sample Screenshots of Dreamweaver</title>
+<style>
+  @page { margin: 1in; }
+  body {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 12pt;
+    line-height: 1.5;
+    color: #000;
+    max-width: 7in;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 14pt;
+    margin-bottom: 0;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 12pt;
+    font-weight: bold;
+    margin-top: 4px;
+    margin-bottom: 18px;
+  }
+  .intro { margin-bottom: 24px; text-align: justify; }
+  h2 {
+    font-size: 12pt;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+  p { margin: 0 0 10px 0; text-align: justify; }
+  .label { font-weight: bold; }
+  figure {
+    margin: 14px 0 8px 0;
+    text-align: center;
+  }
+  figure img {
+    max-width: 100%;
+    width: 6.2in;
+    height: auto;
+    border: 1px solid #333;
+  }
+  figcaption {
+    font-style: italic;
+    font-size: 11pt;
+    margin-top: 8px;
+    text-align: center;
+  }
+  .note {
+    margin-top: 36px;
+    font-size: 10pt;
+    color: #333;
+  }
+</style>
+</head>
+<body>
+
+<h1>APPENDIX</h1>
+<p class="subtitle">Sample Screenshots of Dreamweaver: The Legend of Fun Kdungon</p>
+
+<p class="intro">
+This appendix presents sample player inputs and their corresponding screen outputs for
+<strong>Dreamweaver: The Legend of Fun Kdungon</strong>. Each item shows the player action
+(Input), the resulting game screen (Output), and a captured screenshot from the build.
+</p>
+
+<!-- 1 -->
+<h2>1. Game Login</h2>
+<p><span class="label">Input:</span> The player opens the installed Dreamweaver application. Action: Enters a registered email or username and password, then selects Login.</p>
+<p><span class="label">Output:</span> The Login screen displays the Dreamweaver title art with fields for account credentials and options to sign in or create a new account.</p>
+<figure>
+  <img src="01_Login.png" alt="Login screen" />
+  <figcaption>Sample login screen output</figcaption>
+</figure>
+
+<!-- 2 -->
+<h2>2. Create Account</h2>
+<p><span class="label">Input:</span> A new player opens the Register screen. Action: Enters account details and confirms registration.</p>
+<p><span class="label">Output:</span> The registration form is submitted. Successful registration allows the player to sign in and continue to the Gateway (Main Menu). Validation messages guide the player if required fields are incomplete.</p>
+<figure>
+  <img src="02_Register.png" alt="Register screen" />
+  <figcaption>Sample input screen for account registration</figcaption>
+</figure>
+
+<!-- 3 -->
+<h2>3. Main Menu (The Gateway)</h2>
+<p><span class="label">Input:</span> The player completes sign-in with a valid account. Action: Lands on the Gateway after authentication.</p>
+<p><span class="label">Output:</span> The Main Menu displays New Game, Load Game, Lore Codex, Settings, and Exit. From here the player begins a new playthrough or continues a saved run.</p>
+<figure>
+  <img src="03_MainMenu.png" alt="Main Menu" />
+  <figcaption>Sample Main Menu output after sign-in</figcaption>
+</figure>
+
+<!-- 4 -->
+<h2>4. Story Prologue</h2>
+<p><span class="label">Input:</span> The player selects New Game from the Gateway. Action: Advances through the prologue panels.</p>
+<p><span class="label">Output:</span> The Story Intro presents the prologue narrative (“The Road Beyond”) with a progress track and a Skip option. Selecting Begin the journey continues into the tutorial.</p>
+<figure>
+  <img src="04_StoryIntro.png" alt="Story prologue" />
+  <figcaption>Sample story prologue output</figcaption>
+</figure>
+
+<!-- 5 -->
+<h2>5. Tutorial — S’lang’s Awakening</h2>
+<p><span class="label">Input:</span> The player finishes the prologue and enters the tutorial scene. Action: Moves S’lang and advances narrator dialogue with E.</p>
+<p><span class="label">Output:</span> The tutorial room appears in a bleached grayscale state. The HUD shows lives and health, the objective reads “Wake in the bleached room,” and the dialogue box types narrator text with an E · continue prompt.</p>
+<figure>
+  <img src="05_Tutorial.png" alt="Tutorial" />
+  <figcaption>Sample tutorial dialogue and objective output</figcaption>
+</figure>
+
+<!-- 6 -->
+<h2>6. Hub World — Crossroads of the Five Houses</h2>
+<p><span class="label">Input:</span> The player completes the tutorial and receives the Lewet Staff. Action: Walks the boardwalk toward a House door and presses E to enter.</p>
+<p><span class="label">Output:</span> The hub shows five labeled Houses (Black Foundation, Red Courage, Golden Sun, Dream Ancestors, Sacred Loom). The objective panel, health bars, essence slots, and interaction prompt are visible while the world remains desaturated.</p>
+<figure>
+  <img src="06_HubBleached.png" alt="Hub bleached" />
+  <figcaption>Sample hub world output (color not yet restored)</figcaption>
+</figure>
+
+<!-- 7 -->
+<h2>7. Chapter 1 — House of the Black Foundation</h2>
+<p><span class="label">Input:</span> The player enters Black Foundation from the hub. Action: Explores the cold hall to find the Spirit of the Fiber.</p>
+<p><span class="label">Output:</span> The chapter interior loads with the House objective, HUD, and Lewet Staff essence indicators. Interactive props (loom, baskets, spirit) appear in the isometric room.</p>
+<figure>
+  <img src="07_Chapter1.png" alt="Chapter 1" />
+  <figcaption>Sample Chapter 1 house interior output</figcaption>
+</figure>
+
+<!-- 8 -->
+<h2>8. Dialogue System</h2>
+<p><span class="label">Input:</span> The player approaches an NPC or story trigger inside a chapter or tutorial. Action: Presses E to continue each line.</p>
+<p><span class="label">Output:</span> The woven dialogue panel appears with speaker label (e.g., NARRATOR), typewriter text, and an E · continue hint. Portrait wells light for active speakers when character dialogue is used.</p>
+<figure>
+  <img src="08_Dialogue.png" alt="Dialogue" />
+  <figcaption>Sample dialogue system output</figcaption>
+</figure>
+
+<!-- 9 -->
+<h2>9. Combat — Shadow Weaver Boss Attack</h2>
+<p><span class="label">Input:</span> The player reaches the Sacred Loom duel / boss encounter. Action: Dodges and answers the Shadow Weaver’s slam with staff strikes and chime (Space / Q).</p>
+<p><span class="label">Output:</span> The Shadow Weaver performs a slam ability with a purple radial burst and rising shadow VFX, indicating an area attack during the real-time boss fight.</p>
+<figure>
+  <img src="09_CombatBoss.png" alt="Boss slam" />
+  <figcaption>Sample boss slam combat output</figcaption>
+</figure>
+
+<!-- 10 -->
+<h2>10. Combat — Shadow Minions</h2>
+<p><span class="label">Input:</span> The player engages shadow enemies on the ridge or during Chapter 5 waves. Action: Attacks with the Lewet Staff and uses the sonic chime.</p>
+<p><span class="label">Output:</span> Shadow minions spawn and hunt S’lang using combat styles (chaser, stalker, dasher, caster). Defeated shadows award score and a small heal.</p>
+<figure>
+  <img src="10_CombatMinions.png" alt="Shadow minions" />
+  <figcaption>Sample shadow minion combat output</figcaption>
+</figure>
+
+<!-- 11 -->
+<h2>11. Color Restoration — World Restored</h2>
+<p><span class="label">Input:</span> The player restores the Houses and defeats the Shadow Weaver. Action: Triggers the Color Burst at the end of Chapter 5.</p>
+<p><span class="label">Output:</span> The grayscale veil clears. The Crossroads returns to full colour, House labels show restored status, and the banner announces the world is whole again.</p>
+<figure>
+  <img src="11_HubRestored.png" alt="Hub restored" />
+  <figcaption>Sample color restoration output after Color Burst</figcaption>
+</figure>
+
+<!-- 12 -->
+<h2>12. Ending</h2>
+<p><span class="label">Input:</span> The player completes the final Sacred Loom sequence. Action: Watches the closing sequence and ending screen.</p>
+<p><span class="label">Output:</span> The Ending scene displays the final rank, score summary, and credits/return options after the world is restored.</p>
+<figure>
+  <img src="12_Ending.png" alt="Ending" />
+  <figcaption>Sample ending screen output</figcaption>
+</figure>
+
+<p class="note">
+Tip for manuscript: Open this file in Microsoft Word → File → Save As → Word Document (.docx), then copy the sections you need into your thesis appendix.
+</p>
+
+</body>
+</html>
