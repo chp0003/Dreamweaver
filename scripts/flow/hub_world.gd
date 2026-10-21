@@ -127,6 +127,7 @@ var _object_chat := false
 ## She stays for the chapter 1 farewell, then leaves for chapter 4 on the way out.
 var _fun_holding_farewell := false
 var _house_sparks: Dictionary = {}
+var _house_queue: Array = []
 
 
 func _build_world() -> void:
@@ -154,7 +155,7 @@ func _build_world() -> void:
 	(world if world != null else self).add_child(_trail)
 	for house in Houses.LIST:
 		_build_door(house)
-		_mount_house(house)
+		_house_queue.append(house)
 	_place_scenery_house()
 
 	_restore_completed_colors()
@@ -162,8 +163,7 @@ func _build_world() -> void:
 	if get_viewport() != null and not get_viewport().size_changed.is_connected(_on_view_resized):
 		get_viewport().size_changed.connect(_on_view_resized)
 	ColorRestoration.remove_zone("lewet_staff")
-	_refresh_villagers()
-	_sync_fun_guide()
+	_mount_queued_house.call_deferred()
 
 
 func _mount_plate() -> void:
@@ -213,11 +213,45 @@ func _mount_house(house: Dictionary) -> void:
 		for i in range(world_from, world.get_child_count()):
 			tracked.append(world.get_child(i))
 	_house_nodes[house_id] = tracked
-	if quest.uses_painted_plate():
-		var hall := quest.plate_world_rect()
-		if hall.size.x >= 32.0:
-			NpcNav.bake_region(world, "NpcNav_house%d" % house_id, hall)
 	_set_house_nodes_visible(house_id, false)
+
+
+func _mount_queued_house() -> void:
+	if not is_inside_tree():
+		return
+	if _house_queue.is_empty():
+		_refresh_villagers()
+		_sync_fun_guide()
+		return
+	var house: Dictionary = _house_queue.pop_front()
+	_mount_house(house)
+	_mount_queued_house.call_deferred()
+
+
+func _ensure_house(house_id: int) -> HouseQuest:
+	var ready: HouseQuest = _quests.get(house_id) as HouseQuest
+	if ready != null:
+		_ensure_house_nav(house_id)
+		return ready
+	for i in range(_house_queue.size()):
+		var house: Dictionary = _house_queue[i]
+		if int(house.get("id", 0)) != house_id:
+			continue
+		_house_queue.remove_at(i)
+		_mount_house(house)
+		_ensure_house_nav(house_id)
+		return _quests.get(house_id) as HouseQuest
+	return null
+
+
+func _ensure_house_nav(house_id: int) -> void:
+	var quest: HouseQuest = _quests.get(house_id) as HouseQuest
+	if quest == null or world == null or not quest.uses_painted_plate():
+		return
+	var hall := quest.plate_world_rect()
+	if hall.size.x < 32.0:
+		return
+	NpcNav.bake_region(world, "NpcNav_house%d" % house_id, hall)
 
 
 func _place_house_exit(house_id: int, origin: Vector2, accent: Color) -> void:
@@ -594,7 +628,7 @@ func _build_door(house: Dictionary) -> void:
 			"position": porch,
 			"radius": HOUSE_DOOR_RADIUS * (1.25 if house_id == 4 else 1.0),
 			"hub_door_priority": true,
-			"prompt_offset": Vector2(0.0, -120.0),
+			"prompt_offset": Vector2(0.0, -76.0),
 		})
 	trigger.add_to_group("hub_door")
 	trigger.interacted.connect(_on_door_used.bind(house_id))
@@ -656,7 +690,6 @@ func _attach_name_label(prop: PlaceholderProp, title_text: String, tag_text: Str
 	plate.alignment = BoxContainer.ALIGNMENT_CENTER
 	plate.custom_minimum_size = Vector2(240.0, 0.0)
 	plate.size = Vector2(240.0, 56.0)
-	# This prop sits on the painted door. The name stays there for every house.
 	plate.position = Vector2(-120.0, -16.0)
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.z_index = 30
@@ -819,7 +852,7 @@ func _on_door_used(house_id: int) -> void:
 
 
 func _enter_house(house_id: int, _from_retry: bool) -> void:
-	var quest: HouseQuest = _quests.get(house_id) as HouseQuest
+	var quest: HouseQuest = _ensure_house(house_id)
 	if quest == null or player == null:
 		return
 	_active_house_id = house_id
@@ -886,9 +919,9 @@ func _leave_house(house_id: int) -> void:
 	var door: Dictionary = _doors.get(house_id, {}) as Dictionary
 	var trigger: Variant = door.get("trigger")
 	if is_instance_valid(trigger) and trigger is Node2D:
-		player.global_position = (trigger as Node2D).global_position + Vector2(18.0, 28.0)
+		player.global_position = (trigger as Node2D).global_position + Vector2(0.0, 18.0)
 	else:
-		player.global_position = _hub_world_pos(Houses.get_house(house_id)) + Vector2(18.0, 28.0)
+		player.global_position = _porch_world(Houses.get_house(house_id)) + Vector2(0.0, 18.0)
 	player.velocity = Vector2.ZERO
 	_spawn_position = _plaza_world()
 	_show_ridge()
@@ -978,6 +1011,7 @@ func _villager_should_walk(spec: Dictionary) -> bool:
 
 func _spawn_villager(spec: Dictionary) -> VillageWalker:
 	var house_id := int(spec["house"])
+	_ensure_house_nav(house_id)
 	var label := str(spec["label"])
 	var stand_in := _find_resident(house_id, label)
 	var plate := _interior_plate(house_id)

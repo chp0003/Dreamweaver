@@ -59,12 +59,15 @@ func _physics_process(delta: float) -> void:
 	if _fading > 0.0:
 		movement_locked = true
 		_tick_fade(delta)
+		# The space flips while they are invisible. Apply that size before the
+		# fade-in, or they wear the other room's scale for the whole fade.
+		_apply_space_scale()
 		_apply_presence()
 		return
 	movement_locked = false
 	_offer_next_leg()
 	super._physics_process(delta)
-	set_art_scale_factor(interior_scale if _inside else 1.0)
+	_apply_space_scale()
 	_apply_presence()
 
 
@@ -178,6 +181,7 @@ func _tick_fade(delta: float) -> void:
 		return
 	if _fade_out:
 		_inside = bool(get_meta("enter_house", false))
+		_apply_space_scale()
 		_rebuild_route()
 		_index = 0
 		global_position = _inside_pos(exit_uv) if _inside else _outside_pos(door_uv)
@@ -189,6 +193,10 @@ func _tick_fade(delta: float) -> void:
 	if _sprite != null:
 		_sprite.modulate.a = 1.0
 	idle_for(0.4)
+
+
+func _apply_space_scale() -> void:
+	set_art_scale_factor(interior_scale if _inside else 1.0)
 
 
 func _rebuild_route() -> void:
@@ -230,24 +238,20 @@ func _player_here() -> bool:
 func _apply_presence() -> void:
 	var here := _player_here()
 	visible = here
-	var tint := Color.WHITE
 	if stand_in != null and is_instance_valid(stand_in):
 		var spr := stand_in.get_sprite()
 		if spr != null:
 			spr.visible = false
-			tint = spr.modulate
 		if here and _inside:
 			stand_in.visible = true
 			stand_in.global_position = global_position
 		elif _inside == false or not here:
 			stand_in.visible = false
-	if tint.a < 0.2:
-		tint.a = 1.0
 	if _sprite != null and _fading <= 0.0:
 		if _hovered or _selected:
 			_refresh_tint()
 		else:
-			_sprite.modulate = tint
+			_sprite.modulate = Color.WHITE
 	var quest_talk := false
 	if talk_trigger != null and is_instance_valid(talk_trigger):
 		quest_talk = here and talk_trigger.enabled

@@ -28,6 +28,7 @@ var _prompt_badge: Control
 
 
 func _ready() -> void:
+	add_to_group("interactable")
 	collision_layer = 0
 	collision_mask = 1
 	monitoring = true
@@ -35,16 +36,17 @@ func _ready() -> void:
 	body_exited.connect(_on_body_exited)
 	_ensure_shape()
 	_build_prompt()
-	if hub_door_priority:
-		set_process(true)
-	else:
-		set_process(false)
+	set_process(true)
 
 
 func _process(_delta: float) -> void:
-	if hub_door_priority:
-		_refresh_hub_door_prompts()
-	_follow_prompt()
+	if _prompt_badge == null:
+		return
+	var show := _can_interact()
+	if _prompt_badge.visible != show:
+		_prompt_badge.visible = show
+	if show:
+		_follow_prompt()
 
 
 func _ensure_shape() -> void:
@@ -120,7 +122,6 @@ func set_prompt(text: String) -> void:
 func set_prompt_visible(value: bool) -> void:
 	if _prompt_badge != null:
 		_prompt_badge.visible = value
-		set_process(value or hub_door_priority)
 		if value:
 			_follow_prompt()
 	elif _prompt_label != null:
@@ -134,10 +135,35 @@ func is_player_inside() -> bool:
 func _follow_prompt() -> void:
 	if _prompt_badge == null or not _prompt_badge.visible:
 		return
-	# top_level Control: pin in screen space above the interactable so camera
-	# zoom never stretches the badge into a UI bug while walking.
-	var screen := get_global_transform_with_canvas() * prompt_offset
-	_prompt_badge.global_position = screen - Vector2(_prompt_badge.size.x * 0.5, _prompt_badge.size.y)
+	var player := _player_node()
+	if player == null:
+		return
+	if _prompt_badge.get_parent() != player:
+		_prompt_badge.reparent(player)
+	var size := _prompt_badge.size
+	var stack := _visible_prompt_index()
+	# Body origin is her feet. The sprite is 92px tall, so this rests on her hair.
+	_prompt_badge.position = Vector2(-size.x * 0.5, -90.0 - size.y - 16.0 * float(stack))
+
+
+func _player_node() -> Node2D:
+	for node in get_tree().get_nodes_in_group("player"):
+		if node is Node2D:
+			return node as Node2D
+	return null
+
+
+func _visible_prompt_index() -> int:
+	var index := 0
+	for node in get_tree().get_nodes_in_group("interactable"):
+		var other := node as Interactable
+		if other == null:
+			continue
+		if other == self:
+			return index
+		if other._prompt_badge != null and other._prompt_badge.visible:
+			index += 1
+	return index
 
 
 func _center_badge() -> void:
@@ -182,13 +208,21 @@ func _on_body_exited(body: Node2D) -> void:
 			set_prompt_visible(false)
 
 
+func _exit_tree() -> void:
+	if _prompt_label != null and is_instance_valid(_prompt_label):
+		_prompt_label.queue_free()
+	_prompt_label = null
+	_prompt_badge = null
+
+
 func _build_prompt() -> void:
 	_prompt_label = PromptScene.new()
 	_prompt_label.text = "E  ·  %s" % prompt
 	_prompt_label.visible = false
-	_prompt_label.top_level = true
-
 	add_child(_prompt_label)
+	# Dialogue chrome turns every world_chrome node on when a line ends.
+	# That was lighting every mirror and spindle in the room.
+	_prompt_label.remove_from_group("world_chrome")
 	_prompt_badge = _prompt_label
 	_prompt_label.resized.connect(_center_badge)
 	_center_badge()

@@ -32,7 +32,7 @@ static func bake_region(world: Node2D, region_name: String, world_rect: Rect2) -
 		poly.set("parsed_geometry_type", 1)
 		poly.set("parsed_collision_mask", PhysicsLayers.LAYER_WORLD)
 		poly.set("baking_rect", inset)
-		poly.set("agent_radius", 16.0)
+		poly.set("agent_radius", PhysicsLayers.NPC_AGENT_RADIUS)
 	poly.add_outline(walkable)
 
 	var source := NavigationMeshSourceGeometryData2D.new()
@@ -112,7 +112,7 @@ static func _shape_outline(shape_node: CollisionShape2D) -> PackedVector2Array:
 		var pts := PackedVector2Array()
 		for i in 10:
 			var angle := TAU * float(i) / 10.0
-			pts.append(xf * Vector2(cos(angle), sin(angle)) * radius)
+			pts.append(xf * (Vector2(cos(angle), sin(angle)) * radius))
 		return pts
 	if shape is RectangleShape2D:
 		var half := (shape as RectangleShape2D).size * 0.5

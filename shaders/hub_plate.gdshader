@@ -15,6 +15,9 @@ uniform float motion : hint_range(0.0, 2.0) = 1.0;
 // The two painted falls on the north-west cliff: xy = top-left UV, zw = bottom-right UV.
 uniform vec4 fall_a = vec4(0.095, 0.13, 0.145, 0.30);
 uniform vec4 fall_b = vec4(0.175, 0.07, 0.225, 0.30);
+// Plaza braziers, left then right of the totem. Tight on the flame, not the bowl.
+uniform vec4 fire_a = vec4(0.440, 0.456, 0.468, 0.522);
+uniform vec4 fire_b = vec4(0.528, 0.444, 0.564, 0.522);
 
 float hash(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
@@ -55,6 +58,36 @@ float fall_mask(vec2 uv, vec4 rect) {
 // 0 at the lip, 1 at the plunge pool.
 float fall_depth(vec2 uv, vec4 rect) {
 	return clamp((uv.y - rect.y) / max(rect.w - rect.y, 0.001), 0.0, 1.0);
+}
+
+// 1 across the painted flame, 0 on the bowl and the totem.
+float fire_mask(vec2 uv, vec4 rect) {
+	vec2 pad = vec2(0.002, 0.003);
+	vec2 lo = smoothstep(rect.xy - pad, rect.xy + pad * 0.25, uv);
+	vec2 hi = 1.0 - smoothstep(rect.zw - pad * 0.25, rect.zw + pad, uv);
+	return lo.x * lo.y * hi.x * hi.y;
+}
+
+// 0 at the bowl, 1 at the tongue tip.
+float fire_tip(vec2 uv, vec4 rect) {
+	return clamp((rect.w - uv.y) / max(rect.w - rect.y, 0.001), 0.0, 1.0);
+}
+
+// Tongues travel from the bowl toward the tip. The bowl itself does not rock.
+float fire_wave(float tip, float phase, float ft) {
+	float main = sin(tip * 10.0 - ft * 6.0 + phase);
+	float small = sin(tip * 17.0 - ft * 9.0 + phase * 1.4);
+	return main * 0.72 + small * 0.28;
+}
+
+vec2 fire_sample(vec2 uv, vec4 rect, float tip, float phase, float ft, vec2 px) {
+	float body = smoothstep(0.16, 0.95, tip);
+	float wave = fire_wave(tip, phase, ft);
+	float lean = sin(ft * 1.25 + phase);
+	vec2 sample = uv;
+	sample.x += (lean * 1.5 + wave * 2.4) * body * px.x;
+	sample.y += body * (2.4 + wave * 3.2) * px.y;
+	return clamp(sample, rect.xy, rect.zw);
 }
 
 vec3 grade_restored(vec3 c, vec2 uv) {
@@ -102,7 +135,14 @@ void fragment() {
 	float fall_scroll = value_noise(vec2(UV.x * 260.0, UV.y * 18.0 - t * 5.5));
 	vec2 fall_offset = vec2((fall_scroll - 0.5) * 1.5, (fall_scroll - 0.5) * 5.0) * px * falls;
 
-	vec2 uv = clamp(UV + leaf_offset + water_offset + fall_offset, vec2(0.0), vec2(1.0));
+	float fa = fire_mask(UV, fire_a);
+	float fb = fire_mask(UV, fire_b);
+	float fire = max(fa, fb);
+	vec2 fire_uv = UV;
+	fire_uv = mix(fire_uv, fire_sample(UV, fire_a, fire_tip(UV, fire_a), 0.0, t, px), fa);
+	fire_uv = mix(fire_uv, fire_sample(UV, fire_b, fire_tip(UV, fire_b), 1.8, t, px), fb);
+	vec2 drifted = UV + leaf_offset + water_offset + fall_offset;
+	vec2 uv = clamp(mix(drifted, fire_uv, fire), vec2(0.0), vec2(1.0));
 	vec3 live_src = texture(TEXTURE, uv).rgb;
 	vec3 dead = texture(cursed_tex, uv).rgb;
 
@@ -119,6 +159,14 @@ void fragment() {
 
 	live_src += vec3(0.80, 0.92, 1.0) * (water_light + fall_light);
 	dead += vec3(0.46, 0.52, 0.70) * (water_light * 0.55 + fall_light * 0.7);
+
+	float warmth = smoothstep(0.22, 0.55, live_src.r - live_src.b);
+	float tip = fa >= fb ? fire_tip(UV, fire_a) : fire_tip(UV, fire_b);
+	float wave = fa * fire_wave(fire_tip(UV, fire_a), 0.0, t) + fb * fire_wave(fire_tip(UV, fire_b), 1.8, t);
+	float core = smoothstep(0.08, 0.40, tip) * (1.0 - smoothstep(0.70, 1.0, tip));
+	live_src += vec3(0.18, 0.07, 0.0) * fire * warmth * core * (0.45 + 0.55 * wave);
+	float spent = smoothstep(0.62, 1.0, tip) * clamp(0.55 - wave, 0.0, 1.0);
+	live_src = mix(live_src, live_src * 0.78, fire * warmth * spent);
 
 	vec3 live = grade_restored(live_src, UV);
 	float restored = 0.0;

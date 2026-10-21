@@ -1,8 +1,7 @@
 extends Control
 ## Village leaderboard from the Gateway.
 ##
-## Weavers are ranked by how far they have restored the dream: world complete,
-## Houses finished, current chapter, then score. Usernames are always shown.
+## Weavers are ranked by score. The highest score is #1. Usernames are always shown.
 
 @onready var status_label: Label = %StatusLabel
 @onready var row_list: VBoxContainer = %RowList
@@ -58,9 +57,9 @@ func _load_rows() -> void:
 		return
 
 	if source == "cloud":
-		status_label.text = "%d weavers, ranked by progress." % rows.size()
+		status_label.text = "%d weavers, ranked by score." % rows.size()
 	else:
-		status_label.text = "%d weavers on this loom, ranked by progress." % rows.size()
+		status_label.text = "%d weavers on this loom, ranked by score." % rows.size()
 
 	_add_header()
 	var you_place := 0

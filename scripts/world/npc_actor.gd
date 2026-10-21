@@ -1,9 +1,13 @@
 class_name NpcActor
 extends CharacterBody2D
-## Reusable 2D NPC. Movement sets velocity; animation only reads it.
+## Reusable 2D NPC. Movement sets velocity; animation only reads the slide.
 ##
 ## AnimatedSprite2D is used (not AnimationPlayer) because these are looping
 ## 8-dir cycles with no per-frame hitboxes. Swap `sheet_id` or `sprite_frames`.
+## Walk frames are driven by DISTANCE TRAVELLED, not by time: one stride of
+## real movement = one full cycle of the strip. Feet cannot skate because the
+## animation can never run faster or slower than the body. A blocked NPC drops
+## to idle even if the state is still WANDERING.
 
 signal talked
 signal arrived
@@ -20,14 +24,20 @@ const HOVER_TINT := Color(1.18, 1.12, 0.92)
 const SELECT_TINT := Color(1.28, 1.18, 0.78)
 ## Off = smooth motion. On = sprite snapped to whole world pixels (stutters).
 const SNAP_SPRITE_TO_PIXELS := false
-const WALK_START_RATIO := 0.25
-const WALK_STOP_RATIO := 0.10
+## Below the stop speed the sheet is idle, so a creep does not play a stride.
+const WALK_START_SPEED := 30.0
+const WALK_STOP_SPEED := 10.0
+## Directions with no drawn walk strip waddle instead: hop, rock, squash.
+const WADDLE_HOP := 9.0
+const WADDLE_ROCK_DEG := 4.5
+## Stay on the current octant until the heading is clearly in the next one.
+const FACE_DEAD_ZONE := PI * 0.20
+## Painted sole row on the 192 px canvas. Center of that canvas is y = 96.
+const SOLE_ROW := 180.0
 
+@export var use_avoidance := false
 @export var walk_speed := 78.0
-@export var walk_fps := 2.0
-## Ground distance (screen px) one full walk cycle covers, at space scale 1.0.
-## About 0.8 x on-screen height (~77 px tall NPC -> ~62).
-@export var stride_length := 62.0
+@export var debug_ground := false
 @export var accel := 700.0
 @export var decel := 900.0
 ## Scale walk_speed by the art scale so small/far NPCs don't slide.
@@ -41,7 +51,7 @@ const WALK_STOP_RATIO := 0.10
 @export var interact_radius := 74.0
 @export var talk_stop_range := 56.0
 @export var interact_prompt := "Speak"
-@export var prompt_offset := Vector2(0.0, -112.0)
+@export var prompt_offset := Vector2(0.0, -76.0)
 @export var sheet_id := ""
 @export var sprite_frames: SpriteFrames
 @export var idle_prefix := "idle_"
@@ -76,6 +86,12 @@ var _resume_after_talk: State = State.IDLE
 var _repath_tries := 0
 var _talk_pulse := 0.0
 var _walking := false
+var _avoidance_waiting := false
+var _avoidance_velocity := Vector2.ZERO
+var _avoidance_failed := false
+var _check_stuck := false
+## 0..1 progress through one full walk cycle. Advanced by distance, not time.
+var _stride_phase := 0.0
 
 
 func _ready() -> void:
@@ -83,6 +99,7 @@ func _ready() -> void:
 	y_sort_enabled = true
 	add_to_group("talkable_npc")
 	_ensure_body()
+	PhysicsLayers.configure_npc(self)
 	_build_visuals()
 	_build_agent()
 	_build_click()
@@ -94,7 +111,12 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_talk_pulse += delta * 3.1
-	_sync_collision()
+	# Avoidance answers later in the frame. If it never did, steer without it.
+	_avoidance_failed = false
+	if _avoidance_waiting:
+		_avoidance_waiting = false
+		_avoidance_failed = true
+		velocity = _avoidance_velocity
 	if _wants_talk_pose():
 		if state != State.TALKING:
 			_enter_talk()
@@ -103,27 +125,13 @@ func _physics_process(delta: float) -> void:
 	if state == State.TALKING:
 		_exit_talk()
 	if movement_locked:
-		velocity = Vector2.ZERO
-		move_and_slide()
-		_update_animation(Vector2.ZERO)
-		_ground_sprite()
+		_request_motion(Vector2.ZERO, delta, false)
 		return
 	match state:
 		State.WANDERING, State.MOVING_TO_TARGET:
 			_tick_move(delta)
 		_:
 			_tick_idle(delta)
-
-
-func _sync_collision() -> void:
-	collision_layer = PhysicsLayers.LAYER_ENEMIES
-	collision_mask = PhysicsLayers.MASK_PLAYER_MOVES
-	var feet := get_node_or_null("CollisionShape2D") as CollisionShape2D
-	if feet != null:
-		feet.disabled = false
-		if feet.shape == null:
-			feet.shape = PhysicsLayers.feet_circle(14.0)
-			feet.position = Vector2(0.0, -2.0)
 
 
 func walk_to(world_pos: Vector2) -> void:
@@ -185,6 +193,9 @@ func can_be_clicked_at(world_point: Vector2) -> bool:
 func set_art_scale_factor(factor: float) -> void:
 	_space_scale = maxf(factor, 0.05)
 	_apply_base_scale()
+	_place_feet()
+	if _agent != null:
+		_agent.max_speed = _effective_speed() * 1.3
 
 
 func use_still(texture_path: String, label: String) -> void:
@@ -222,10 +233,6 @@ func current_destination() -> Vector2:
 
 
 func _ensure_body() -> void:
-	collision_layer = PhysicsLayers.LAYER_ENEMIES
-	collision_mask = PhysicsLayers.MASK_PLAYER_MOVES
-	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
-	safe_margin = 0.12
 	slide_on_ceiling = true
 	floor_stop_on_slope = false
 	z_as_relative = true
@@ -235,8 +242,8 @@ func _ensure_body() -> void:
 		shape_node.name = "CollisionShape2D"
 		add_child(shape_node)
 	shape_node.shape = PhysicsLayers.feet_circle(14.0)
-	shape_node.position = Vector2(0.0, -2.0)
 	shape_node.disabled = false
+	_place_feet()
 
 
 func _build_visuals() -> void:
@@ -270,18 +277,21 @@ func _build_agent() -> void:
 		_agent = NavigationAgent2D.new()
 		_agent.name = "NavigationAgent2D"
 		add_child(_agent)
-	_agent.path_desired_distance = 12.0
-	_agent.target_desired_distance = arrive_distance
-	_agent.radius = 16.0
-	_agent.avoidance_enabled = false
+	_agent.path_desired_distance = 6.0
+	_agent.target_desired_distance = 8.0
+	_agent.radius = PhysicsLayers.NPC_AGENT_RADIUS
+	_agent.avoidance_enabled = use_avoidance
+	_agent.max_speed = _effective_speed() * 1.3
 	_agent.debug_enabled = false
+	if not _agent.velocity_computed.is_connected(_on_velocity_computed):
+		_agent.velocity_computed.connect(_on_velocity_computed)
 
 
 func _boot_nav() -> void:
 	await get_tree().physics_frame
 	NpcNav.ensure_near(self)
 	_nav_ready = true
-	if _has_destination:
+	if _has_destination and _agent != null:
 		_agent.target_position = _destination
 
 
@@ -321,12 +331,10 @@ func _build_interact() -> void:
 
 
 func _tick_idle(delta: float) -> void:
-	# Slide to a stop instead of freezing instantly.
-	velocity = velocity.move_toward(Vector2.ZERO, decel * delta)
-	move_and_slide()
+	# Ease to a stop. Never snap velocity to zero.
+	var target := velocity.move_toward(Vector2.ZERO, decel * delta)
+	_request_motion(target, delta, false)
 	_pause_left = maxf(0.0, _pause_left - delta)
-	_update_animation(get_real_velocity())
-	_ground_sprite()
 	if _pause_left > 0.0:
 		return
 	if _has_destination:
@@ -342,13 +350,60 @@ func _tick_move(delta: float) -> void:
 	if global_position.distance_to(_destination) <= arrive_distance:
 		_arrive()
 		return
+	# A straight line into a wall reads as a slide. Wait until the map exists.
+	if not _map_synced():
+		var coast := velocity.move_toward(Vector2.ZERO, decel * delta)
+		_request_motion(coast, delta, false)
+		return
 	var wish := _steer()
 	if wish.length_squared() < 0.01:
 		_arrive()
 		return
-	velocity = velocity.move_toward(wish * _effective_speed(), accel * delta)
+	var target := velocity.move_toward(wish * _effective_speed(), accel * delta)
+	_request_motion(target, delta, true)
+
+
+func _tick_talk(delta: float) -> void:
+	_face_world(_player_delta())
+	_request_motion(Vector2.ZERO, delta, false)
+	if interact != null:
+		interact.set_prompt_visible(false)
+
+
+## One slide per frame. Avoidance reports a safe velocity later in the same frame.
+func _request_motion(target_vel: Vector2, delta: float, check_stuck: bool) -> void:
+	_check_stuck = check_stuck
+	var defer_slide := _agent != null and _agent.avoidance_enabled and not _avoidance_failed \
+			and _map_synced() and target_vel.length_squared() > 1.0
+	if defer_slide:
+		_avoidance_velocity = target_vel
+		_avoidance_waiting = true
+		_agent.velocity = target_vel
+		return
+	_avoidance_waiting = false
+	velocity = target_vel
+	_commit_motion(delta)
+
+
+func _on_velocity_computed(safe_velocity: Vector2) -> void:
+	if not _avoidance_waiting:
+		return
+	_avoidance_waiting = false
+	velocity = safe_velocity
+	_commit_motion(get_physics_process_delta_time())
+
+
+func _commit_motion(delta: float) -> void:
 	var before := global_position
 	move_and_slide()
+	if _check_stuck:
+		_note_stuck(before, delta)
+	# Walk vs idle follows the slide, not the wish direction or the state.
+	_update_animation(delta)
+	_ground_sprite()
+
+
+func _note_stuck(before: Vector2, delta: float) -> void:
 	var traveled := (global_position - before).length()
 	if traveled < move_epsilon * delta:
 		_stuck += delta
@@ -359,22 +414,16 @@ func _tick_move(delta: float) -> void:
 				return
 			_arrive()
 			return
-	else:
-		_stuck = 0.0
-	# get_real_velocity() is what actually happened after sliding on walls,
-	# so feet stop when the NPC is blocked.
-	_update_animation(get_real_velocity())
-	_ground_sprite()
+	_stuck = 0.0
 
 
-func _tick_talk(_delta: float) -> void:
-	velocity = Vector2.ZERO
-	move_and_slide()
-	_face_world(_player_delta())
-	_update_animation(Vector2.ZERO)
-	_ground_sprite()
-	if interact != null:
-		interact.set_prompt_visible(false)
+func _map_synced() -> bool:
+	if _agent == null:
+		return false
+	var map := _agent.get_navigation_map()
+	if map == RID():
+		return false
+	return NavigationServer2D.map_get_iteration_id(map) != 0
 
 
 func _arrive() -> void:
@@ -391,13 +440,13 @@ func _steer() -> Vector2:
 	var to_goal := _destination - global_position
 	if to_goal.length() <= arrive_distance:
 		return Vector2.ZERO
-	if _nav_ready and _agent != null:
-		_agent.target_position = _destination
-		if not _agent.is_navigation_finished():
-			var next := _agent.get_next_path_position()
-			if next.distance_to(global_position) > 2.0:
-				return global_position.direction_to(next)
-	return to_goal.normalized()
+	# Target is set in _set_destination / _repath / _boot_nav, not every frame.
+	if _agent == null or not _map_synced() or _agent.is_navigation_finished():
+		return to_goal.normalized()
+	var next := _agent.get_next_path_position()
+	if next.distance_to(global_position) <= 2.0:
+		return to_goal.normalized()
+	return global_position.direction_to(next)
 
 
 func _repath() -> bool:
@@ -432,7 +481,6 @@ func _set_destination(world_pos: Vector2, next: State) -> void:
 		_agent.target_position = goal
 	if state != State.TALKING and not movement_locked:
 		_set_state(next)
-	_face_world(goal - global_position)
 
 
 func _pick_wander_point() -> void:
@@ -452,43 +500,124 @@ func _effective_speed() -> float:
 	return walk_speed * (_space_scale if scale_speed_with_art else 1.0)
 
 
-func _stride_px() -> float:
-	return stride_length * _space_scale
+## Painted sole, in this node's local pixels. The sprite offset is left alone so
+## y-sort stays on the node origin; the shadow and the feet circle move down to here.
+func _sole_local_y() -> float:
+	return (_base_offset.y + (SOLE_ROW - 96.0)) * art_scale * _space_scale
 
 
-func _base_cycles(anim_name: String) -> float:
-	if _animated == null or _animated.sprite_frames == null:
-		return NpcFrames.WALK_CYCLES_PER_SEC
-	var f := _animated.sprite_frames
-	if not f.has_animation(anim_name):
-		return NpcFrames.WALK_CYCLES_PER_SEC
-	var n := f.get_frame_count(anim_name)
-	if n <= 0:
-		return NpcFrames.WALK_CYCLES_PER_SEC
-	return maxf(f.get_animation_speed(anim_name) / float(n), 0.1)
+func _place_feet() -> void:
+	var feet := get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if feet == null:
+		return
+	var radius := 14.0
+	if feet.shape is CircleShape2D:
+		radius = (feet.shape as CircleShape2D).radius
+	feet.position = Vector2(0.0, _sole_local_y() - radius)
 
 
-func _update_animation(vel: Vector2) -> void:
+func _update_animation(delta: float) -> void:
+	var vel := get_real_velocity()
 	var spd := vel.length()
-	var top := maxf(_effective_speed(), 1.0)
-	if _walking:
-		_walking = spd > top * WALK_STOP_RATIO
-	else:
-		_walking = spd > top * WALK_START_RATIO
+	_walking = (spd > WALK_STOP_SPEED) if _walking else (spd > WALK_START_SPEED)
 	if _animated == null:
 		if _sprite is Sprite2D and _walking and absf(vel.x) > 6.0:
 			(_sprite as Sprite2D).flip_h = vel.x < 0.0
 		return
+	var hop := 0.0
+	var rock := 0.0
+	var squash := 0.0
 	if _walking:
-		last_direction = _octant_name(vel)
-		var anim := _anim_name(walk_prefix, last_direction)
-		var cycles := spd / maxf(_stride_px(), 1.0)
-		_animated.speed_scale = clampf(cycles / _base_cycles(anim), 0.3, 1.6)
-		_play_anim(anim)
+		_face_world(vel)
+		var walk_anim := _anim_name(walk_prefix, last_direction)
+		if _has_real_walk(walk_anim):
+			_drive_walk(walk_anim, spd * delta)
+		else:
+			var stride := NpcFrames.STRIDE_SRC_PX * art_scale * _space_scale
+			_stride_phase = fposmod(_stride_phase + spd * delta / maxf(stride, 1.0), 1.0)
+			_hold_pose(_anim_name(idle_prefix, last_direction))
+			rock = sin(_stride_phase * TAU)
+			hop = absf(rock)
+			squash = 1.0 - hop
 	else:
-		_animated.speed_scale = 1.0
+		_stride_phase = 0.0
 		_play_anim(_anim_name(idle_prefix, last_direction))
+	var base := Vector2(art_scale, art_scale) * _space_scale
 	_animated.flip_h = FLIP_SHEET.has(last_direction)
+	_animated.offset = _base_offset + Vector2(0.0, -WADDLE_HOP * hop)
+	_animated.rotation = deg_to_rad(WADDLE_ROCK_DEG) * rock
+	_animated.scale = Vector2(base.x * (1.0 + 0.03 * squash), base.y * (1.0 - 0.04 * squash))
+	if not _walking:
+		_animated.speed_scale = 1.0
+
+
+## True when this direction has a drawn walk strip (listed in NpcFrames.STRIDE_OVERRIDE).
+## Custom SpriteFrames without the flag count as real, so they keep working.
+func _has_real_walk(anim_name: String) -> bool:
+	var frames := _animated.sprite_frames
+	if frames == null or not frames.has_animation(anim_name):
+		return false
+	var dir := anim_name.trim_prefix(walk_prefix)
+	if dir == "side":
+		dir = "right"
+	if not frames.has_meta("real_" + dir):
+		return true
+	return bool(frames.get_meta("real_" + dir))
+
+
+func _hold_pose(anim_name: String) -> void:
+	var frames := _animated.sprite_frames
+	if frames == null:
+		return
+	if not frames.has_animation(anim_name):
+		anim_name = idle_prefix + "down"
+		if not frames.has_animation(anim_name):
+			return
+	if _animated.animation != anim_name:
+		_animated.animation = anim_name
+	if _animated.is_playing():
+		_animated.pause()
+	if _animated.frame != 0:
+		_animated.frame = 0
+
+
+## Pick the walk frame from how far the body actually moved this physics step.
+func _drive_walk(anim_name: String, moved: float) -> void:
+	var frames := _animated.sprite_frames
+	if frames == null:
+		return
+	if not frames.has_animation(anim_name):
+		anim_name = walk_prefix + "down"
+		if not frames.has_animation(anim_name):
+			return
+	var count := frames.get_frame_count(anim_name)
+	if count <= 0:
+		return
+	var stride := maxf(_stride_world(anim_name), 1.0)
+	_stride_phase = fposmod(_stride_phase + moved / stride, 1.0)
+	if _animated.animation != anim_name:
+		_animated.animation = anim_name
+	if _animated.is_playing():
+		_animated.pause()
+	_animated.speed_scale = 1.0
+	var idx := clampi(int(_stride_phase * float(count)), 0, count - 1)
+	if _animated.frame != idx:
+		_animated.frame = idx
+
+
+func _stride_world(anim_name: String) -> float:
+	var dir := anim_name.trim_prefix(walk_prefix)
+	if dir == "side":
+		dir = "right"
+	var fit := 1.0
+	var stride_src := NpcFrames.STRIDE_SRC_PX
+	var frames := _animated.sprite_frames
+	if frames != null:
+		if frames.has_meta("fit_" + dir):
+			fit = float(frames.get_meta("fit_" + dir))
+		if frames.has_meta("stride_" + dir):
+			stride_src = float(frames.get_meta("stride_" + dir))
+	return stride_src * fit * art_scale * _space_scale
 
 
 func _anim_name(prefix: String, dir: String) -> String:
@@ -509,10 +638,8 @@ func _ground_sprite() -> void:
 		_sprite.position = global_position.round() - global_position
 	else:
 		_sprite.position = Vector2.ZERO
-	if _animated != null:
-		_animated.rotation_degrees = 0.0
-		_animated.offset = _base_offset
-	queue_redraw()
+	if _can_show_talk_mark() or debug_ground:
+		queue_redraw()
 
 
 func _apply_base_scale() -> void:
@@ -537,15 +664,7 @@ func _play_anim(anim_name: String) -> void:
 		if not _animated.is_playing():
 			_animated.play(anim_name)
 		return
-	var keep_stride := _animated.animation.begins_with(walk_prefix) and anim_name.begins_with(walk_prefix)
-	var frame := _animated.frame
-	var progress := _animated.frame_progress
 	_animated.play(anim_name)
-	if keep_stride:
-		var count := _animated.sprite_frames.get_frame_count(anim_name)
-		if count > 0:
-			_animated.frame = frame % count
-			_animated.frame_progress = progress
 
 
 func _octant_name(dir: Vector2) -> String:
@@ -554,7 +673,7 @@ func _octant_name(dir: Vector2) -> String:
 	var idx := posmod(int(round(dir.angle() / (PI * 0.25))), 8)
 	if idx != _octant_idx:
 		var current_angle := float(_octant_idx) * PI * 0.25
-		if absf(angle_difference(dir.angle(), current_angle)) > PI * 0.20:
+		if absf(angle_difference(dir.angle(), current_angle)) > FACE_DEAD_ZONE:
 			_octant_idx = idx
 	return OCTANTS[_octant_idx]
 
@@ -672,11 +791,23 @@ func _draw() -> void:
 	if not visible:
 		return
 	var s := maxf(_space_scale, 0.2)
+	var sole := _sole_local_y()
+	var drop := sole - 4.0 * s
 	var oval := PackedVector2Array([
-		Vector2(-16.0, -3.0) * s, Vector2(-8.0, 4.0) * s, Vector2(8.0, 4.0) * s,
-		Vector2(16.0, -3.0) * s, Vector2(8.0, -7.0) * s, Vector2(-8.0, -7.0) * s,
+		Vector2(-16.0, -3.0) * s + Vector2(0.0, drop),
+		Vector2(-8.0, 4.0) * s + Vector2(0.0, drop),
+		Vector2(8.0, 4.0) * s + Vector2(0.0, drop),
+		Vector2(16.0, -3.0) * s + Vector2(0.0, drop),
+		Vector2(8.0, -7.0) * s + Vector2(0.0, drop),
+		Vector2(-8.0, -7.0) * s + Vector2(0.0, drop),
 	])
 	draw_colored_polygon(oval, Color(0.02, 0.02, 0.03, 0.32))
+	if debug_ground:
+		draw_circle(Vector2.ZERO, 2.5, Color(1.0, 0.2, 0.2, 0.9))
+		draw_line(Vector2(-22.0, sole), Vector2(22.0, sole), Color(0.2, 0.9, 0.35), 1.5)
+		var feet := get_node_or_null("CollisionShape2D") as CollisionShape2D
+		if feet != null and feet.shape is CircleShape2D:
+			draw_arc(feet.position, (feet.shape as CircleShape2D).radius, 0.0, TAU, 24, Color(0.3, 0.6, 1.0), 1.5)
 	if not _can_show_talk_mark():
 		return
 	var vis := art_scale * s

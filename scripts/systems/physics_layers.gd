@@ -3,12 +3,13 @@ extends RefCounted
 ## Shared 2D physics layer bits for Dreamweaver.
 ##
 ## Project Settings → Layer Names → 2D Physics should list:
-##   1 player · 2 enemies · 3 world · 4 sensors
+##   1 player · 2 enemies · 3 world · 4 sensors · 5 npcs
 ##
 ## Numeric values already used across the project (kept for compatibility):
 ##   Player CharacterBody2D   collision_layer = 1,  mask = 4  (hits world)
 ##   World StaticBody2D       collision_layer = 4,  mask = 0
 ##   Enemies CharacterBody2D  collision_layer = 2,  mask = 0
+##   NPC CharacterBody2D      collision_layer = 16, mask = 4  (hits world)
 ##
 ## Godot stores layers as bits: layer N → value 1 << (N - 1).
 ## So value 4 means **editor layer 3** ("world" below).
@@ -16,9 +17,20 @@ extends RefCounted
 const LAYER_PLAYER := 1
 const LAYER_ENEMIES := 2
 const LAYER_WORLD := 4
+const LAYER_SENSORS := 8
+const LAYER_NPCS := 16
 
 const MASK_PLAYER_MOVES := LAYER_WORLD
+const MASK_NPC_MOVES := LAYER_WORLD
 const MASK_WORLD_STATIC := 0
+const NPC_AGENT_RADIUS := 16.0
+
+
+static func configure_npc(body: CharacterBody2D) -> void:
+	body.collision_layer = LAYER_NPCS
+	body.collision_mask = MASK_NPC_MOVES
+	body.motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
+	body.safe_margin = 0.1
 
 
 ## Round feet footprint — circles are the most reliable CharacterBody2D blockers.

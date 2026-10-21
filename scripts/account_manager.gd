@@ -220,7 +220,7 @@ func clear_progress() -> void:
 	_save_to_disk()
 
 
-## Ranked weavers: username, houses, chapter, score, rank title.
+## Ranked weavers by score. A new game saves a fresh progress row, so this list follows it.
 ## Cloud uses fetch_leaderboard(); otherwise local accounts on this machine.
 func fetch_leaderboard() -> Dictionary:
 	var you := current_username().strip_edges().to_lower()
@@ -496,18 +496,8 @@ func _leaderboard_before(a: Variant, b: Variant) -> bool:
 		left = a
 	if typeof(b) == TYPE_DICTIONARY:
 		right = b
-	var left_done := 1 if bool(left.get("completed", false)) else 0
-	var right_done := 1 if bool(right.get("completed", false)) else 0
-	if left_done != right_done:
-		return left_done > right_done
-	if int(left.get("houses", 0)) != int(right.get("houses", 0)):
-		return int(left.get("houses", 0)) > int(right.get("houses", 0))
-	if int(left.get("chapter", 0)) != int(right.get("chapter", 0)):
-		return int(left.get("chapter", 0)) > int(right.get("chapter", 0))
 	if int(left.get("score", 0)) != int(right.get("score", 0)):
 		return int(left.get("score", 0)) > int(right.get("score", 0))
-	if int(left.get("lore", 0)) != int(right.get("lore", 0)):
-		return int(left.get("lore", 0)) > int(right.get("lore", 0))
 	return str(left.get("username", "")).nocasecmp_to(str(right.get("username", ""))) < 0
 
 
