@@ -393,13 +393,13 @@ func _run_chapter() -> void:
 
 	await say([
 		{"speaker": "Fun Kdungon", "text": "There. The fibre remembers you."},
-		{"speaker": "Fun Kdungon", "text": "The vat on the right. The sorted fibre is waiting. Click a strand, then its match. Four pairs make a cloth."},
+		{"speaker": "Fun Kdungon", "text": "The loom on the right. The sorted fibre is waiting. Bind the resist pattern, dye the open warp, and pack the picks."},
 	])
 
 	_set_steps(4)
 	_light_station("vat")
 	_vat_trigger.set_enabled(true)
-	objective("The vat on the right. Press [E] to match the sorted abaca into a cloth.")
+	objective("The loom on the right. Press [E] to bind, dye, and pack the sorted abaca.")
 	await _vat_trigger.interacted
 	_vat_trigger.set_enabled(false)
 

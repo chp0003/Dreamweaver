@@ -1,0 +1,258 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/weaving/WeavingGame.gd" id="1_game"]
+[ext_resource type="Script" path="res://scripts/weaving/GuidePreview.gd" id="2_guide"]
+[ext_resource type="Script" path="res://scripts/weaving/Loom.gd" id="3_loom"]
+
+[node name="SampleWeave" type="Control"]
+offset_right = 320.0
+offset_bottom = 180.0
+script = ExtResource("1_game")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.101961, 0.058824, 0.039216, 1)
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="."]
+offset_left = 6.0
+offset_top = 1.0
+offset_right = 98.0
+offset_bottom = 15.0
+theme_override_colors/font_color = Color(0.960784, 0.909804, 0.780392, 1)
+theme_override_colors/font_shadow_color = Color(0.101961, 0.058824, 0.039216, 1)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 12
+text = "Dream Loom"
+
+[node name="Subtitle" type="Label" parent="."]
+offset_left = 6.0
+offset_top = 15.0
+offset_right = 98.0
+offset_bottom = 24.0
+theme_override_colors/font_color = Color(0.784314, 0.596078, 0.298039, 1)
+theme_override_font_sizes/font_size = 7
+text = "Weave the dream pattern"
+
+[node name="PatternPalette" type="HBoxContainer" parent="."]
+offset_left = 100.0
+offset_top = 3.0
+offset_right = 316.0
+offset_bottom = 17.0
+theme_override_constants/separation = 4
+
+[node name="Diamond" type="Button" parent="PatternPalette"]
+custom_minimum_size = Vector2(68, 14)
+layout_mode = 2
+theme_override_font_sizes/font_size = 7
+text = "DIAMOND"
+
+[node name="Stripes" type="Button" parent="PatternPalette"]
+custom_minimum_size = Vector2(68, 14)
+layout_mode = 2
+theme_override_font_sizes/font_size = 7
+text = "STRIPES"
+
+[node name="Zigzag" type="Button" parent="PatternPalette"]
+custom_minimum_size = Vector2(68, 14)
+layout_mode = 2
+theme_override_font_sizes/font_size = 7
+text = "ZIGZAG"
+
+[node name="ProgressLabel" type="Label" parent="."]
+offset_left = 6.0
+offset_top = 27.0
+offset_right = 58.0
+offset_bottom = 38.0
+theme_override_colors/font_color = Color(0.784314, 0.596078, 0.298039, 1)
+theme_override_font_sizes/font_size = 8
+text = "ROW 01 / 16"
+
+[node name="TipLabel" type="Label" parent="."]
+offset_left = 62.0
+offset_top = 27.0
+offset_right = 316.0
+offset_bottom = 38.0
+theme_override_colors/font_color = Color(0.960784, 0.909804, 0.780392, 1)
+theme_override_font_sizes/font_size = 8
+text = "Trace the faded row."
+horizontal_alignment = 1
+clip_text = true
+
+[node name="YarnCaption" type="Label" parent="."]
+offset_left = 4.0
+offset_top = 44.0
+offset_right = 54.0
+offset_bottom = 53.0
+theme_override_colors/font_color = Color(0.784314, 0.596078, 0.298039, 1)
+theme_override_font_sizes/font_size = 7
+text = "YARN"
+horizontal_alignment = 1
+
+[node name="YarnPalette" type="VBoxContainer" parent="."]
+offset_left = 4.0
+offset_top = 54.0
+offset_right = 54.0
+offset_bottom = 122.0
+theme_override_constants/separation = 4
+
+[node name="Beige" type="Button" parent="YarnPalette"]
+custom_minimum_size = Vector2(50, 20)
+layout_mode = 2
+theme_override_font_sizes/font_size = 7
+text = "BEIGE 1"
+
+[node name="Red" type="Button" parent="YarnPalette"]
+custom_minimum_size = Vector2(50, 20)
+layout_mode = 2
+theme_override_font_sizes/font_size = 7
+text = "RED 2"
+
+[node name="Black" type="Button" parent="YarnPalette"]
+custom_minimum_size = Vector2(50, 20)
+layout_mode = 2
+theme_override_font_sizes/font_size = 7
+text = "BLACK 3"
+
+[node name="YarnStatus" type="Label" parent="."]
+offset_left = 2.0
+offset_top = 126.0
+offset_right = 58.0
+offset_bottom = 135.0
+theme_override_colors/font_color = Color(0.960784, 0.909804, 0.780392, 1)
+theme_override_font_sizes/font_size = 7
+text = "BEIGE (1)"
+horizontal_alignment = 1
+clip_text = true
+
+[node name="Loom" type="Node2D" parent="."]
+script = ExtResource("3_loom")
+
+[node name="GuideCaption" type="Label" parent="."]
+offset_left = 274.0
+offset_top = 44.0
+offset_right = 320.0
+offset_bottom = 53.0
+theme_override_colors/font_color = Color(0.784314, 0.596078, 0.298039, 1)
+theme_override_font_sizes/font_size = 7
+text = "GUIDE"
+horizontal_alignment = 1
+
+[node name="Guide" type="Node2D" parent="."]
+position = Vector2(281, 56)
+script = ExtResource("2_guide")
+
+[node name="PatternName" type="Label" parent="."]
+offset_left = 274.0
+offset_top = 91.0
+offset_right = 320.0
+offset_bottom = 100.0
+theme_override_colors/font_color = Color(0.960784, 0.909804, 0.780392, 1)
+theme_override_font_sizes/font_size = 7
+text = "DIAMOND"
+horizontal_alignment = 1
+clip_text = true
+
+[node name="StatsLabel" type="Label" parent="."]
+offset_left = 276.0
+offset_top = 106.0
+offset_right = 320.0
+offset_bottom = 128.0
+theme_override_colors/font_color = Color(0.784314, 0.596078, 0.298039, 1)
+theme_override_font_sizes/font_size = 7
+text = "ERRORS 0
+TIME 0:00"
+
+[node name="KeysHint" type="Label" parent="."]
+offset_left = 58.0
+offset_top = 163.0
+offset_right = 274.0
+offset_bottom = 172.0
+theme_override_colors/font_color = Color(0.560784, 0.415686, 0.266667, 1)
+theme_override_font_sizes/font_size = 6
+text = "KEYS 1 2 3 CHANGE YARN    R REDOES THE ROW"
+horizontal_alignment = 1
+clip_text = true
+
+[node name="CompletePanel" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PanelBackground" type="ColorRect" parent="CompletePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.101961, 0.058824, 0.039216, 0.96)
+
+[node name="Title" type="Label" parent="CompletePanel"]
+offset_left = 80.0
+offset_top = 5.0
+offset_right = 240.0
+offset_bottom = 17.0
+theme_override_colors/font_color = Color(0.960784, 0.909804, 0.780392, 1)
+theme_override_font_sizes/font_size = 10
+text = "CLOTH COMPLETE"
+horizontal_alignment = 1
+
+[node name="Cloth" type="Node2D" parent="CompletePanel"]
+position = Vector2(160, 64)
+script = ExtResource("2_guide")
+
+[node name="Stats" type="Label" parent="CompletePanel"]
+offset_left = 24.0
+offset_top = 124.0
+offset_right = 296.0
+offset_bottom = 134.0
+theme_override_colors/font_color = Color(0.784314, 0.596078, 0.298039, 1)
+theme_override_font_sizes/font_size = 8
+text = "TIME 0:00    MISTAKES 0"
+horizontal_alignment = 1
+
+[node name="Fact" type="Label" parent="CompletePanel"]
+offset_left = 24.0
+offset_top = 134.0
+offset_right = 296.0
+offset_bottom = 150.0
+theme_override_colors/font_color = Color(0.960784, 0.909804, 0.780392, 1)
+theme_override_font_sizes/font_size = 8
+text = "T'nalak is woven from abaca fiber."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="WeaveAgain" type="Button" parent="CompletePanel"]
+offset_left = 56.0
+offset_top = 154.0
+offset_right = 152.0
+offset_bottom = 172.0
+theme_override_font_sizes/font_size = 8
+text = "Weave again"
+
+[node name="NextPattern" type="Button" parent="CompletePanel"]
+offset_left = 168.0
+offset_top = 154.0
+offset_right = 264.0
+offset_bottom = 172.0
+theme_override_font_sizes/font_size = 8
+text = "Next pattern"
+
+[node name="SfxStitch" type="AudioStreamPlayer" parent="."]
+
+[node name="SfxTight" type="AudioStreamPlayer" parent="."]
+
+[node name="SfxDone" type="AudioStreamPlayer" parent="."]
+
+[node name="SfxWrong" type="AudioStreamPlayer" parent="."]

@@ -312,7 +312,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -430.0
-offset_top = -600.0
+offset_top = -700.0
 offset_right = -40.0
 offset_bottom = -40.0
 grow_horizontal = 0
@@ -389,6 +389,16 @@ theme_override_font_sizes/font_size = 15
 theme_override_styles/normal = SubResource("StyleBoxFlat_secondary")
 theme_override_styles/hover = SubResource("StyleBoxFlat_secondary_hover")
 text = "LOAD GAME"
+
+[node name="TryWeavingButton" type="Button" parent="MenuHost/Menu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("6_cinzel_b")
+theme_override_font_sizes/font_size = 15
+theme_override_styles/normal = SubResource("StyleBoxFlat_secondary")
+theme_override_styles/hover = SubResource("StyleBoxFlat_secondary_hover")
+text = "TRY WEAVING"
 
 [node name="CodexButton" type="Button" parent="MenuHost/Menu"]
 unique_name_in_owner = true

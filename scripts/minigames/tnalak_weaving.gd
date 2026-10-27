@@ -1,7 +1,8 @@
 extends MiniGameBase
 
-## Chapter 1 vat — simple matching. Click a strand, then its twin.
-## Completing every pair reveals a finished T'nalak cloth.
+## Chapter 1 loom — bind, dye, and weave a small pixel-draft.
+## The draft uses geometric T'nalak-inspired motifs rather than copying a
+## particular community pattern.
 
 signal cloth_completed(cloth: TnalakCloth)
 
@@ -10,14 +11,14 @@ const CLOTH_PATH := "res://assets/images/props/tnalak_cloth.png"
 var last_cloth: TnalakCloth
 
 var _hint: Label
-var _board: ConnectBoard
+var _board: PixelLoomBoard
 var _cloth_tex: Texture2D
 
 
 func _configure() -> void:
 	mini_game_title = "T'nalak Weaving"
 	mini_game_subtitle = "House of the Black Foundation"
-	instructions = "Click a coloured strand, then click its matching colour. Join all four pairs and the T'nalak appears."
+	instructions = "Bind the cream cells to preserve them, dye the open warp, then weave the cloth. Match the pixel draft to reveal the motif."
 	time_limit = 0.0
 	max_attempts = 3
 	reward_score = 320
@@ -33,14 +34,12 @@ func _build_content(parent: Control) -> void:
 	_hint.add_theme_color_override("font_color", Palette.GOLD_SACRED)
 	parent.add_child(_hint)
 
-	_board = ConnectBoard.new()
+	_board = PixelLoomBoard.new()
 	_board.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_board.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_board.custom_minimum_size = Vector2(420.0, 280.0)
-	_board.cloth_texture = _cloth_tex
-	_board.pair_joined.connect(_on_pair_joined)
-	_board.mismatch.connect(_on_mismatch)
-	_board.all_joined.connect(_on_all_joined)
+	_board.custom_minimum_size = Vector2(420.0, 320.0)
+	_board.step_changed.connect(_on_step_changed)
+	_board.pattern_completed.connect(_on_all_joined)
 	parent.add_child(_board)
 
 
@@ -60,23 +59,16 @@ func _reset_round() -> void:
 	last_cloth = null
 	if _board != null:
 		_board.reset()
-	_hint.text = "Click a strand, then its match."
-	set_status("Join the sorted abaca. 0 of 4.")
+	_hint.text = "Bind the cream cells, then dye and weave."
+	set_status("Bind the resist pattern. 0% complete.")
 
 
-func _on_pair_joined(joined: int, total: int) -> void:
+func _on_step_changed(message: String, progress: int) -> void:
 	if not running:
 		return
 	Audio.play_sfx(Audio.Sfx.CHIME)
-	_hint.text = "Strand in. %d of %d." % [joined, total]
-	set_status("Joined  %d / %d" % [joined, total])
-
-
-func _on_mismatch() -> void:
-	if not running:
-		return
-	Audio.play_sfx(Audio.Sfx.FAIL)
-	_hint.text = "Those two are not the same fibre. Try another pair."
+	_hint.text = message
+	set_status("Pattern progress: %d%%" % progress)
 
 
 func _on_all_joined() -> void:
@@ -84,13 +76,13 @@ func _on_all_joined() -> void:
 		return
 	last_cloth = _board.to_cloth()
 	cloth_completed.emit(last_cloth)
-	_hint.text = "The T'nalak is finished."
+	_hint.text = "The warp settles into a finished T'nalak-inspired cloth."
 	set_status("Cloth complete.")
 	set_result_texture(_cloth_tex)
-	succeed("The first T'nalak holds — cream, red, and black, as the dream gave it.")
+	succeed("The first cloth holds a pixel-drafted bird and diamond motif in cream, red, and black.")
 
 
-## Two columns of coloured knobs. Click a colour, then its twin.
+## Legacy matching board kept below for compatibility with older saved scenes.
 class ConnectBoard extends Control:
 	signal pair_joined(joined: int, total: int)
 	signal mismatch
@@ -309,3 +301,147 @@ class ConnectBoard extends Control:
 			{"id": 2, "title": "Red", "color": Palette.RED_SACRED, "dye": TnalakCloth.SegmentState.DYED_RED},
 			{"id": 3, "title": "Gold", "color": Palette.GOLD_BRASS, "dye": TnalakCloth.SegmentState.RAW},
 		]
+
+
+	class PixelLoomBoard extends Control:
+		signal step_changed(message: String, progress: int)
+		signal pattern_completed
+
+		const SIZE := 12
+		const RAW := 0
+		const RESISTED := 1
+		const RED := 2
+		const BLACK := 3
+
+		var current: Array = []
+		var target: Array = []
+		var is_complete := false
+		var _motif := 0
+		var _pulse := 0.0
+
+		func _ready() -> void:
+			mouse_filter = Control.MOUSE_FILTER_STOP
+			mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+			resized.connect(queue_redraw)
+			_make_pattern()
+			set_process(true)
+
+		func _process(delta: float) -> void:
+			_pulse += delta
+			queue_redraw()
+
+		func reset() -> void:
+			is_complete = false
+			_make_pattern()
+			queue_redraw()
+
+		func _make_pattern() -> void:
+			current.clear()
+			target.clear()
+			_motif = randi_range(0, 2)
+			for y in range(SIZE):
+				var current_row: Array[int] = []
+				var target_row: Array[int] = []
+				for x in range(SIZE):
+					current_row.append(RAW)
+					target_row.append(_pattern_state(x, y))
+				current.append(current_row)
+				target.append(target_row)
+
+		func _pattern_state(x: int, y: int) -> int:
+			var edge := x == 0 or y == 0 or x == SIZE - 1 or y == SIZE - 1
+			var diamond := absi(x - 5) + absi(y - 5) == 4 or absi(x - 6) + absi(y - 6) == 4
+			var bird := (y == 4 and x >= 3 and x <= 8) or (y == 5 and (x == 2 or x == 9))
+			var wing := (y == 3 and (x == 4 or x == 7)) or (y == 6 and (x == 4 or x == 7))
+			if _motif == 1:
+				diamond = absi(x - 5) + absi(y - 5) == 3 or absi(x - 6) + absi(y - 6) == 3
+				bird = (x == 5 and y >= 3 and y <= 8) or (x == 6 and (y == 2 or y == 9))
+				wing = (x == 4 and (y == 4 or y == 7)) or (x == 7 and (y == 4 or y == 7))
+			elif _motif == 2:
+				diamond = (x == y or x + y == SIZE - 1) and x > 1 and x < SIZE - 2
+				bird = (y == 5 and x >= 3 and x <= 8) or (y == 6 and x >= 4 and x <= 7)
+				wing = (y == 4 and (x == 3 or x == 8)) or (y == 7 and (x == 3 or x == 8))
+			if edge or diamond:
+				return BLACK
+			if bird or wing:
+				return RED
+			return RAW
+
+		func to_cloth() -> TnalakCloth:
+			var cloth := TnalakCloth.new()
+			cloth.start_new_cloth(Vector2i(SIZE, SIZE), TnalakCloth.Axis.ROWS)
+			for y in range(SIZE):
+				var strand: TnalakCloth.Strand = cloth.strands[y]
+				for x in range(SIZE):
+					var value := int(target[y][x])
+					strand.segments[x] = TnalakCloth.SegmentState.RAW if value == RAW else \
+						(TnalakCloth.SegmentState.DYED_RED if value == RED else TnalakCloth.SegmentState.DYED_BLACK)
+				strand.stage = TnalakCloth.StrandStage.WOVEN
+				strand.dye_id = TnalakCloth.DYE_RED if y % 2 == 0 else TnalakCloth.DYE_BLACK
+			cloth.is_complete = true
+			cloth.completion = 1.0
+			cloth.active_index = -1
+			return cloth
+
+		func _gui_input(event: InputEvent) -> void:
+			if is_complete or not (event is InputEventMouseButton):
+				return
+			var click := event as InputEventMouseButton
+			if not click.pressed or click.button_index != MOUSE_BUTTON_LEFT:
+				return
+			var cell := _cell_at(click.position)
+			if cell.x < 0:
+				return
+			var next := (int(current[cell.y][cell.x]) + 1) % 4
+			current[cell.y][cell.x] = next
+			var matched := 0
+			for y in range(SIZE):
+				for x in range(SIZE):
+					if int(current[y][x]) == int(target[y][x]):
+						matched += 1
+			var progress := int(round(float(matched) / float(SIZE * SIZE) * 100.0))
+			var message := "Bind the cream highlights, then pass the open warp through the red and black baths."
+			if next == RESISTED:
+				message = "Resist tied. The dye will stay out of this pixel."
+			elif next == RED:
+				message = "Red root dye takes. Keep the pixel draft in view."
+			elif next == BLACK:
+				message = "Black earth dye takes. The motif is emerging."
+			step_changed.emit(message, progress)
+			if matched == SIZE * SIZE:
+				is_complete = true
+				pattern_completed.emit()
+			accept_event()
+
+		func _draw() -> void:
+			var rect := _grid_rect()
+			draw_rect(rect.grow(18.0), Palette.EARTH_WOOD)
+			draw_rect(rect.grow(18.0), Palette.GOLD_BRASS, false, 2.0)
+			for y in range(SIZE):
+				for x in range(SIZE):
+					var cell := Rect2(rect.position + Vector2(x, y) * rect.size / SIZE, rect.size / SIZE)
+					draw_rect(cell, _color_for(int(current[y][x])))
+					draw_rect(cell, Palette.alpha(Palette.CREAM_PAPER, 0.22), false, 1.0)
+					if int(current[y][x]) == RESISTED:
+						draw_line(cell.position + cell.size * 0.25, cell.end - cell.size * 0.25, Palette.GOLD_SUN, 2.0)
+						draw_line(Vector2(cell.end.x - cell.size.x * 0.25, cell.position.y + cell.size.y * 0.25), Vector2(cell.position.x + cell.size.x * 0.25, cell.end.y - cell.size.y * 0.25), Palette.GOLD_SUN, 2.0)
+			if is_complete:
+				draw_rect(rect.grow(7.0 + sin(_pulse * 3.0) * 2.0), Palette.GOLD_SUN, false, 3.0)
+
+		func _color_for(state: int) -> Color:
+			match state:
+				RESISTED: return Palette.CREAM_PAPER
+				RED: return Palette.RED_SACRED
+				BLACK: return Palette.BLACK_SOOT
+				_: return Palette.CREAM_WARP
+
+		func _grid_rect() -> Rect2:
+			var side := minf(size.x - 56.0, size.y - 36.0)
+			return Rect2(Vector2((size.x - side) * 0.5, (size.y - side) * 0.5), Vector2(side, side))
+
+		func _cell_at(point: Vector2) -> Vector2i:
+			var rect := _grid_rect()
+			if not rect.has_point(point):
+				return Vector2i(-1, -1)
+			var local := point - rect.position
+			return Vector2i(clampi(int(local.x / rect.size.x * SIZE), 0, SIZE - 1), clampi(int(local.y / rect.size.y * SIZE), 0, SIZE - 1))

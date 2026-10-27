@@ -10,6 +10,7 @@ const SETTINGS_SCENE := "res://scenes/ui/SettingsOverlay.tscn"
 @onready var continue_button: Button = %ContinueButton
 @onready var new_game_button: Button = %NewGameButton
 @onready var load_game_button: Button = %LoadGameButton
+@onready var try_weaving_button: Button = %TryWeavingButton
 @onready var codex_button: Button = %CodexButton
 @onready var leaderboard_button: Button = %LeaderboardButton
 @onready var settings_button: Button = %SettingsButton
@@ -41,6 +42,7 @@ func _ready() -> void:
 	continue_button.pressed.connect(_on_continue_pressed)
 	new_game_button.pressed.connect(_on_new_game_pressed)
 	load_game_button.pressed.connect(_on_load_game_pressed)
+	try_weaving_button.pressed.connect(_on_try_weaving_pressed)
 	codex_button.pressed.connect(_on_codex_pressed)
 	leaderboard_button.pressed.connect(_on_leaderboard_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)
@@ -137,6 +139,12 @@ func _on_load_game_pressed() -> void:
 		return
 	GameState.load_from_account()
 	SceneFader.fade_to_scene(AccountManager.MAIN_GAME_SCENE)
+
+
+func _on_try_weaving_pressed() -> void:
+	if SceneFader.is_busy():
+		return
+	SceneFader.fade_to_scene(SampleWeave.SCENE)
 
 
 func _build_chapter_picker() -> void:
