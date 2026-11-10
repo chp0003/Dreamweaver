@@ -8,7 +8,6 @@ extends "res://scripts/chapters/house_quest.gd"
 
 const STRAND_TOTAL := 10
 const FIBER_SORTING := "res://scenes/minigames/FiberSorting.tscn"
-const TNALAK_WEAVING := "res://scenes/minigames/TnalakWeaving.tscn"
 const COLLISION_SCENE := "res://scenes/world/House1Collision.tscn"
 const STEPS: Array[String] = [
 	"Speak with Fun Kdungon",
@@ -404,7 +403,7 @@ func _run_chapter() -> void:
 	_vat_trigger.set_enabled(false)
 
 	_finished_cloth = {}
-	var woven: bool = await run_mini_game(TNALAK_WEAVING, {}, _bind_weaving_game)
+	var woven: bool = await run_house_weaving("house_1", _bind_weaving_game)
 	if not woven:
 		await say([
 			{"speaker": "Fun Kdungon", "text": "The cloth is not yet on the loom. Come back when the last strand is in."},

@@ -590,6 +590,11 @@ func _phase_three_finish() -> void:
 	objective("")
 	if not _finisher_done:
 		await _play_finisher()
+	objective("Reproduce the Sacred Loom pattern and restore the final house.")
+	var woven: bool = await run_house_weaving("house_5")
+	if not woven:
+		await fail_chapter()
+		return
 	await _color_burst()
 	await _closing_cutscene()
 

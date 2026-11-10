@@ -401,6 +401,15 @@ func _run_chapter() -> void:
 		await fail_chapter()
 		return
 
+	objective("The loom waits for the House of Red Courage pattern.")
+	var woven: bool = await run_house_weaving("house_2")
+	if not woven:
+		await say([
+			{"speaker": "The Harvest Queen", "text": "The red is ready, but the cloth is not. Try the pattern again when your hands are steady."},
+		])
+		await fail_chapter()
+		return
+
 	set_player_input(false)
 	banner("Red rises in the mortar", 1.8)
 	Audio.play_sfx(Audio.Sfx.CHIME)

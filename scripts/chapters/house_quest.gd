@@ -13,6 +13,7 @@ var _quest_finished := false
 var _quest_started := false
 var _quest_running := false
 var _color_anchor: Node2D
+const HOUSE_WEAVING_SCENE := "res://scenes/minigames/SampleWeave.tscn"
 
 var player: Slang:
 	get:
@@ -195,6 +196,13 @@ func run_mini_game(scene_path: String, setup := {}, on_instance := Callable()) -
 	if host == null:
 		return false
 	return await host.run_mini_game(scene_path, setup, on_instance)
+
+
+func run_house_weaving(pattern_id: String, on_instance := Callable()) -> bool:
+	return await run_mini_game(HOUSE_WEAVING_SCENE, {
+		"assigned_pattern_id": pattern_id,
+		"locked_to_assignment": true,
+	}, on_instance)
 
 
 func spawn_prop(label: String, cell: Vector2, config := {}) -> PlaceholderProp:

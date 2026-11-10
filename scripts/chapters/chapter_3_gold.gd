@@ -463,6 +463,15 @@ func _run_chapter() -> void:
 		await fail_chapter()
 		return
 
+	objective("The golden thread is ready. Reproduce the House of the Golden Sun pattern.")
+	var woven: bool = await run_house_weaving("house_3")
+	if not woven:
+		await say([
+			{"speaker": "Golden Spindle", "text": "The light remembers another order. Try the cloth again."},
+		])
+		await fail_chapter()
+		return
+
 	set_player_input(false)
 	banner("The spindle turns", 1.8)
 	Audio.play_sfx(Audio.Sfx.CHIME)

@@ -42,7 +42,7 @@ func _ready() -> void:
 	continue_button.pressed.connect(_on_continue_pressed)
 	new_game_button.pressed.connect(_on_new_game_pressed)
 	load_game_button.pressed.connect(_on_load_game_pressed)
-	try_weaving_button.pressed.connect(_on_try_weaving_pressed)
+	try_weaving_button.visible = false
 	codex_button.pressed.connect(_on_codex_pressed)
 	leaderboard_button.pressed.connect(_on_leaderboard_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)

@@ -2,6 +2,8 @@ class_name WeavingGame
 extends Control
 
 signal weaving_completed
+signal cloth_completed(cloth: Variant)
+signal finished(success: bool)
 
 const PATTERN_DATA_SCRIPT = preload("res://scripts/weaving/PatternData.gd")
 const WEAVE_SFX = preload("res://scripts/weaving/WeaveSfx.gd")
@@ -28,7 +30,9 @@ const ORANGE := Color("#C96B32")
 @onready var sfx_done: AudioStreamPlayer = $SfxDone
 @onready var sfx_wrong: AudioStreamPlayer = $SfxWrong
 
-var current_pattern_id := "diamond"
+var current_pattern_id := "house_1"
+var assigned_pattern_id := ""
+var locked_to_assignment := false
 var pattern: Array = []
 var current_row := 0
 var mistakes := 0
@@ -58,7 +62,8 @@ func _ready() -> void:
 	loom.beat_hit.connect(_on_beat_hit)
 	loom.row_settled.connect(_on_row_settled)
 	loom.row_cleared.connect(_on_row_cleared)
-	start_weaving("diamond")
+	var initial_pattern := assigned_pattern_id if not assigned_pattern_id.is_empty() else "house_1"
+	start_weaving(initial_pattern)
 
 func _process(delta: float) -> void:
 	if not weaving_active:
@@ -101,14 +106,18 @@ func _setup_buttons() -> void:
 		yarn_buttons[i].focus_mode = Control.FOCUS_NONE
 		yarn_buttons[i].pressed.connect(_select_yarn.bind(i))
 	pattern_buttons = {
-		"diamond": $PatternPalette/Diamond,
-		"stripes": $PatternPalette/Stripes,
-		"zigzag": $PatternPalette/Zigzag,
+		"house_1": $PatternPalette/Diamond,
+		"house_2": $PatternPalette/Stripes,
+		"house_3": $PatternPalette/Zigzag,
 	}
 	for id in pattern_buttons:
 		var button: Button = pattern_buttons[id]
 		button.focus_mode = Control.FOCUS_NONE
-		button.pressed.connect(start_weaving.bind(id))
+		if not locked_to_assignment:
+			button.pressed.connect(start_weaving.bind(id))
+		else:
+			button.disabled = true
+	$PatternPalette.visible = not locked_to_assignment
 	var again: Button = $CompletePanel/WeaveAgain
 	var next: Button = $CompletePanel/NextPattern
 	again.focus_mode = Control.FOCUS_NONE
@@ -136,6 +145,10 @@ func _apply_button_style(button: Button, fill: Color, border: Color, text: Color
 # ---------------------------------------------------------------- flow
 
 func start_weaving(pattern_id: String) -> void:
+	if locked_to_assignment and pattern_id != assigned_pattern_id:
+		return
+	if not PATTERN_DATA_SCRIPT.IDS.has(pattern_id):
+		pattern_id = "house_1"
 	current_pattern_id = pattern_id
 	pattern = PATTERN_DATA_SCRIPT.pattern(pattern_id)
 	current_row = 0
@@ -240,6 +253,8 @@ func _show_complete() -> void:
 	create_tween().tween_property(complete_panel, "modulate:a", 1.0, 0.4)
 	sfx_done.play()
 	weaving_completed.emit()
+	cloth_completed.emit(null)
+	finished.emit(true)
 
 # ---------------------------------------------------------------- UI
 

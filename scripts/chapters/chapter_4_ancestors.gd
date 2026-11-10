@@ -253,6 +253,16 @@ func _run_chapter() -> void:
 	GameState.unlock_lore("lang_dulay")
 	await _reveal_lore_if_new("lang_dulay", [])
 
+	objective("Reproduce the Ancestor Lattice before the house can be restored.")
+	var woven: bool = await run_house_weaving("house_4")
+	if not woven:
+		await say([
+			{"speaker": "Fun Kdungon", "text": "The ancestors showed you the order. The loom will wait until you can hold it."},
+		])
+		await fail_chapter()
+		return
+
+	set_player_input(false)
 	if _plate != null:
 		_plate.bloom_restore(2.8)
 		_plate.bloom_sanctity(1.0, 2.2)
