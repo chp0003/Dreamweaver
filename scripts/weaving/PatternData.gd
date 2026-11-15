@@ -8,6 +8,53 @@ const RED := 1
 const BLACK := 2
 
 const IDS: Array[String] = ["house_1", "house_2", "house_3", "house_4", "house_5"]
+const SLOT_ORDER: Array[int] = [1, 2, 5, 3, 4]
+const CHAPTER_TITLES: Dictionary = {
+	1: "Heart Diamond",
+	2: "River Zigzag",
+	3: "Star Bloom",
+	4: "Dreamer's Eye",
+	5: "Fu Dalu, the Dreamweaver",
+}
+const CHAPTER_FILES: Dictionary = {
+	1: "chapter1_heart_diamond.png",
+	2: "chapter2_river_zigzag.png",
+	3: "chapter3_star_bloom.png",
+	4: "chapter4_dreamers_eye.png",
+	5: "chapter5_fu_dalu.png",
+}
+const _PANEL_STRINGS: Dictionary = {
+	1: [
+		"2111111331111112", "1111113223111111", "1111132112311111", "1111321111231111",
+		"1113211331123111", "1132113333112311", "1321133223311231", "3211332222331123",
+		"3211332222331123", "1321133223311231", "1132113333112311", "1113211331123111",
+		"1111321111231111", "1112232112322111", "1121123223211211", "1211112332111121",
+	],
+	2: [
+		"2111111331111112", "1111113223111111", "1111132332311111", "1111321111231111",
+		"1113231111323111", "1132213113122311", "1322221331222231", "3223322112233223",
+		"3231132222311323", "1321113223111231", "1132111331112311", "1113211111123111",
+		"1111321111231111", "1112232112322111", "1121123223211211", "1211112332111121",
+	],
+	3: [
+		"2111111331111112", "1111113223111111", "1111132332311111", "1111321331231111",
+		"1113211331123111", "1132121331212311", "1321112222111231", "3233332222333323",
+		"3233332222333323", "1321112222111231", "1132121331212311", "1113211331123111",
+		"1111321331231111", "1112232332322111", "1121123223211211", "1211112332111121",
+	],
+	4: [
+		"2111111331111112", "1111113223111111", "1111132112311111", "1111321111231111",
+		"1113213333123111", "1132131111312311", "1321112222111231", "3211312332131123",
+		"3211312332131123", "1321112222111231", "1132131111312311", "1113213333123111",
+		"1111321111231111", "1112232112322111", "1121123223211211", "1211112332111121",
+	],
+	5: [
+		"2111111331111112", "1111113223111111", "1111132332311111", "1111322332231111",
+		"1113221221223111", "1132233223322311", "1322132332312231", "3233223113223323",
+		"3233223113223323", "1322132332312231", "1132233223322311", "1113221221223111",
+		"1111322332231111", "1112232332322111", "1121123223211211", "1211112332111121",
+	],
+}
 
 # These are respectful, T'nalak-inspired pixel studies rather than copies of
 # any particular community-owned textile or named motif.
@@ -66,6 +113,16 @@ static func yarn_highlight(color_id: int) -> Color:
 			return Color("#F5E8C7")
 
 static func pattern(pattern_id: String) -> Array:
+	var chapter: int = IDS.find(pattern_id) + 1
+	if chapter >= 1 and chapter <= 5:
+		var panel: Array = get_panel(chapter)
+		var legacy: Array = []
+		for row in panel:
+			var converted: Array[int] = []
+			for value in row:
+				converted.append(int(value) - 1)
+			legacy.append(converted)
+		return legacy
 	var result: Array = []
 	for row in range(ROWS):
 		var values: Array[int] = []
@@ -84,6 +141,23 @@ static func pattern(pattern_id: String) -> Array:
 		_:
 			_fill_foundation_diamond(result)
 	return result
+
+static func get_panel(chapter: int) -> Array:
+	var rows: Array = []
+	var source: Array = _PANEL_STRINGS.get(chapter, [])
+	for row_text in source:
+		var row: PackedInt32Array = PackedInt32Array()
+		for character in str(row_text):
+			row.append(int(character))
+		rows.append(row)
+	return rows
+
+static func color_changes(row: PackedInt32Array) -> int:
+	var changes: int = 0
+	for index in range(1, row.size()):
+		if row[index] != row[index - 1]:
+			changes += 1
+	return changes
 
 static func next_id(pattern_id: String) -> String:
 	var index := IDS.find(pattern_id)

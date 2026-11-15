@@ -45,6 +45,22 @@ const DYE_RED := SegmentState.DYED_RED
 const DYE_BLACK := SegmentState.DYED_BLACK
 const DYE_CUSTOM_BASE := 10
 const ITEM_ID := "tnalak_cloth"
+const SLOT_ORDER: Array[int] = [1, 2, 5, 3, 4]
+
+static func get_cloth(finished: Array[int]) -> Array:
+	var cloth: Array = []
+	for y in range(16):
+		var row: PackedInt32Array = PackedInt32Array()
+		for x in range(80):
+			var slot: int = x / 16
+			var chapter: int = SLOT_ORDER[slot]
+			var value: int = 0
+			if finished.has(chapter):
+				var panel: Array = PatternData.get_panel(chapter)
+				value = int(panel[y][x % 16])
+			row.append(value)
+		cloth.append(row)
+	return cloth
 
 signal segment_changed(strand_index: int, segment_index: int, state: int)
 signal strand_stage_changed(strand_index: int, from_stage: StrandStage, to_stage: StrandStage)
