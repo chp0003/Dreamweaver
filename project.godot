@@ -36,8 +36,13 @@ TurnCombat="*res://scripts/combat/turn_combat.gd"
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/size/mode=2
+window/size/borderless=true
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/stretch/scale_mode="fractional"
 
 [input]
 
@@ -140,3 +145,5 @@ common/physics_interpolation=true
 
 rendering_device/driver.windows="d3d12"
 environment/defaults/default_clear_color=Color(0.027, 0.035, 0.071, 1)
+textures/canvas_textures/default_texture_filter=0
+2d/snap/snap_2d_transforms_to_pixel=true

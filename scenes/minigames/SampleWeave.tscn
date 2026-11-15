@@ -1,12 +1,20 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/weaving/WeavingGame.gd" id="1_game"]
 [ext_resource type="Script" path="res://scripts/weaving/GuidePreview.gd" id="2_guide"]
 [ext_resource type="Script" path="res://scripts/weaving/Loom.gd" id="3_loom"]
+[ext_resource type="Theme" path="res://assets/themes/dreamweaver.tres" id="4_theme"]
+[ext_resource type="FontFile" path="res://assets/fonts/CrimsonPro-Regular.ttf" id="5_body_font"]
 
-[node name="SampleWeave" type="Control"]
-offset_right = 320.0
-offset_bottom = 180.0
+[node name="WeaveRoot" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("4_theme")
+theme_override_fonts/font = ExtResource("5_body_font")
 script = ExtResource("1_game")
 
 [node name="Background" type="ColorRect" parent="."]
@@ -51,18 +59,21 @@ theme_override_constants/separation = 4
 custom_minimum_size = Vector2(68, 14)
 layout_mode = 2
 theme_override_font_sizes/font_size = 7
+theme_override_fonts/font = ExtResource("5_body_font")
 text = "DIAMOND"
 
 [node name="Stripes" type="Button" parent="PatternPalette"]
 custom_minimum_size = Vector2(68, 14)
 layout_mode = 2
 theme_override_font_sizes/font_size = 7
+theme_override_fonts/font = ExtResource("5_body_font")
 text = "STRIPES"
 
 [node name="Zigzag" type="Button" parent="PatternPalette"]
 custom_minimum_size = Vector2(68, 14)
 layout_mode = 2
 theme_override_font_sizes/font_size = 7
+theme_override_fonts/font = ExtResource("5_body_font")
 text = "ZIGZAG"
 
 [node name="ProgressLabel" type="Label" parent="."]
@@ -106,18 +117,21 @@ theme_override_constants/separation = 4
 custom_minimum_size = Vector2(50, 20)
 layout_mode = 2
 theme_override_font_sizes/font_size = 7
+theme_override_fonts/font = ExtResource("5_body_font")
 text = "BEIGE 1"
 
 [node name="Red" type="Button" parent="YarnPalette"]
 custom_minimum_size = Vector2(50, 20)
 layout_mode = 2
 theme_override_font_sizes/font_size = 7
+theme_override_fonts/font = ExtResource("5_body_font")
 text = "RED 2"
 
 [node name="Black" type="Button" parent="YarnPalette"]
 custom_minimum_size = Vector2(50, 20)
 layout_mode = 2
 theme_override_font_sizes/font_size = 7
+theme_override_fonts/font = ExtResource("5_body_font")
 text = "BLACK 3"
 
 [node name="YarnStatus" type="Label" parent="."]

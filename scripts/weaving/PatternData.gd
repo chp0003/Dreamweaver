@@ -147,7 +147,7 @@ static func _fill_sacred_loom(result: Array) -> void:
 	_fill_ancestor_lattice(result)
 	for row in range(ROWS):
 		for col in range(COLS):
-			var outer := min(mini(col, COLS - 1 - col), mini(row, ROWS - 1 - row))
+			var outer: int = mini(mini(col, COLS - 1 - col), mini(row, ROWS - 1 - row))
 			if outer == 0:
 				result[row][col] = RED
 			elif outer == 1 and (row + col) % 2 == 0:

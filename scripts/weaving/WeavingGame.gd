@@ -7,6 +7,8 @@ signal finished(success: bool)
 
 const PATTERN_DATA_SCRIPT = preload("res://scripts/weaving/PatternData.gd")
 const WEAVE_SFX = preload("res://scripts/weaving/WeaveSfx.gd")
+const UI_FONT = preload("res://assets/fonts/CrimsonPro-Regular.ttf")
+const TITLE_FONT = preload("res://assets/fonts/Cinzel-Bold.ttf")
 
 const GOLD := Color("#C99A4B")
 const CREAM := Color("#F5E8C7")
@@ -30,6 +32,9 @@ const ORANGE := Color("#C96B32")
 @onready var sfx_done: AudioStreamPlayer = $SfxDone
 @onready var sfx_wrong: AudioStreamPlayer = $SfxWrong
 
+const ART_SIZE := Vector2(320.0, 180.0)
+const DISPLAY_SCALE := 4.0
+
 var current_pattern_id := "house_1"
 var assigned_pattern_id := ""
 var locked_to_assignment := false
@@ -48,13 +53,14 @@ var _last_second := -1
 var _last_stitch_ms := 0
 var _last_wrong_ms := 0
 var _tip_tween: Tween
+var _art_viewport: SubViewport
+var _completion_emitted := false
 
 func _ready() -> void:
-	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_fit_pixel_canvas()
-	get_viewport().size_changed.connect(_fit_pixel_canvas)
+	_apply_ui_text_style()
 	_setup_audio()
 	_setup_buttons()
+	_setup_resolution_layers()
 	loom.stitch_changed.connect(_on_stitch_changed)
 	loom.mistake_made.connect(_on_mistake_made)
 	loom.yarn_changed.connect(_refresh_yarn_ui)
@@ -65,6 +71,108 @@ func _ready() -> void:
 	var initial_pattern := assigned_pattern_id if not assigned_pattern_id.is_empty() else "house_1"
 	start_weaving(initial_pattern)
 
+func _apply_ui_text_style() -> void:
+	_style_text($Title, 44, TITLE_FONT, false)
+	_style_text($Subtitle, 22)
+	_style_text($ProgressLabel, 24)
+	_style_text($TipLabel, 26)
+	_style_text($YarnCaption, 22)
+	_style_text($YarnPalette/Beige, 22)
+	_style_text($YarnPalette/Red, 22)
+	_style_text($YarnPalette/Black, 22)
+	_style_text($YarnStatus, 22)
+	_style_text($GuideCaption, 22)
+	_style_text($PatternName, 20)
+	_style_text($StatsLabel, 22)
+	_style_text($KeysHint, 20)
+	_style_text($CompletePanel/Title, 44, TITLE_FONT, false)
+	_style_text($CompletePanel/Stats, 26)
+	_style_text($CompletePanel/Fact, 26)
+	_style_text($CompletePanel/WeaveAgain, 24)
+	_style_text($CompletePanel/NextPattern, 24)
+
+func _style_text(control: Control, font_size: int, font: Font = UI_FONT, outlined: bool = true) -> void:
+	control.add_theme_font_override("font", font)
+	control.add_theme_font_size_override("font_size", font_size)
+	if outlined:
+		control.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
+		control.add_theme_constant_override("outline_size", 3)
+
+func _setup_resolution_layers() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var art_view := SubViewportContainer.new()
+	art_view.name = "ArtView"
+	art_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	art_view.stretch = true
+	art_view.stretch_shrink = int(DISPLAY_SCALE)
+	art_view.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	add_child(art_view)
+	move_child(art_view, 0)
+
+	var art_viewport := SubViewport.new()
+	art_viewport.name = "ArtViewport"
+	art_viewport.size = Vector2i(320, 180)
+	art_viewport.transparent_bg = false
+	art_viewport.handle_input_locally = false
+	art_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	art_viewport.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+	art_view.add_child(art_viewport)
+	_art_viewport = art_viewport
+
+	var hud := Control.new()
+	hud.name = "Hud"
+	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hud.mouse_filter = Control.MOUSE_FILTER_PASS
+	hud.z_index = 100
+	add_child(hud)
+
+	var background: Control = $Background
+	background.reparent(art_viewport)
+	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	$Loom.reparent(art_viewport)
+	$Guide.reparent(art_viewport)
+	complete_cloth.reparent(art_viewport)
+	complete_cloth.position = Vector2(160.0, 64.0)
+
+	for child in get_children():
+		if child is Control and child != art_view and child != hud:
+			(child as Control).reparent(hud)
+	_scale_hud_tree(hud)
+	_layout_yarn_palette()
+
+func _scale_hud_tree(node: Control) -> void:
+	for child in node.get_children():
+		if child is Control:
+			var control := child as Control
+			if control == complete_panel:
+				_scale_hud_tree(control)
+				continue
+			control.offset_left *= DISPLAY_SCALE
+			control.offset_top *= DISPLAY_SCALE
+			control.offset_right *= DISPLAY_SCALE
+			control.offset_bottom *= DISPLAY_SCALE
+			control.custom_minimum_size *= DISPLAY_SCALE
+			if control is Container:
+				var separation := control.get_theme_constant("separation")
+				control.add_theme_constant_override("separation", int(separation * DISPLAY_SCALE))
+			_scale_hud_tree(control)
+
+func _layout_yarn_palette() -> void:
+	var palette: VBoxContainer = $Hud/YarnPalette
+	palette.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	palette.position = Vector2(16.0, 216.0)
+	palette.size = Vector2(200.0, 272.0)
+	palette.custom_minimum_size = Vector2(200.0, 272.0)
+	palette.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	palette.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	palette.add_theme_constant_override("separation", 8)
+	for button in yarn_buttons:
+		button.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+		button.custom_minimum_size = Vector2(200.0, 80.0)
+		button.size = Vector2(200.0, 80.0)
+		button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+
 func _process(delta: float) -> void:
 	if not weaving_active:
 		return
@@ -73,18 +181,19 @@ func _process(delta: float) -> void:
 		_last_second = int(elapsed)
 		_refresh_stats()
 
+func _input(event: InputEvent) -> void:
+	if _art_viewport == null:
+		return
+	if event is InputEventMouseButton or event is InputEventMouseMotion:
+		loom.handle_input_event(event, _art_viewport.get_mouse_position())
+	elif event is InputEventKey:
+		loom.handle_input_event(event, Vector2.ZERO)
+
 func _unhandled_input(event: InputEvent) -> void:
 	if complete_panel.visible and event is InputEventKey:
 		var key := event as InputEventKey
 		if key.pressed and not key.echo and (key.keycode == KEY_ENTER or key.keycode == KEY_SPACE):
 			start_weaving(current_pattern_id)
-
-func _fit_pixel_canvas() -> void:
-	var viewport_size := get_viewport_rect().size
-	var pixel_scale: float = floor(minf(viewport_size.x / 320.0, viewport_size.y / 180.0))
-	pixel_scale = maxf(pixel_scale, 1.0)
-	scale = Vector2.ONE * pixel_scale
-	position = (viewport_size - Vector2(320.0, 180.0) * pixel_scale) * 0.5
 
 # ---------------------------------------------------------------- setup
 
@@ -157,6 +266,7 @@ func start_weaving(pattern_id: String) -> void:
 	_last_second = -1
 	_prev_column = -1
 	_direction = 1
+	_completion_emitted = false
 	weaving_active = true
 	complete_panel.visible = false
 	guide.set_pattern(pattern)
@@ -254,7 +364,13 @@ func _show_complete() -> void:
 	sfx_done.play()
 	weaving_completed.emit()
 	cloth_completed.emit(null)
-	finished.emit(true)
+	if not _completion_emitted:
+		_completion_emitted = true
+		call_deferred("_emit_finished")
+
+func _emit_finished() -> void:
+	if is_inside_tree():
+		finished.emit(true)
 
 # ---------------------------------------------------------------- UI
 

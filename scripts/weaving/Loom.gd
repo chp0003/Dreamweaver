@@ -125,6 +125,9 @@ func _process(delta: float) -> void:
 # ---------------------------------------------------------------- input
 
 func _input(event: InputEvent) -> void:
+	handle_input_event(event, get_local_mouse_position())
+
+func handle_input_event(event: InputEvent, local_point: Vector2) -> void:
 	if not input_enabled or _locked or pattern.is_empty():
 		return
 	if event is InputEventKey:
@@ -145,7 +148,6 @@ func _input(event: InputEvent) -> void:
 		var mouse := event as InputEventMouseButton
 		if mouse.button_index != MOUSE_BUTTON_LEFT:
 			return
-		var local_point := get_local_mouse_position()
 		if mouse.pressed:
 			if _grab_rect().has_point(local_point):
 				is_dragging = true
@@ -154,7 +156,7 @@ func _input(event: InputEvent) -> void:
 		elif is_dragging:
 			_end_drag()
 	elif event is InputEventMouseMotion and is_dragging:
-		_paint_at(get_local_mouse_position().x)
+		_paint_at(local_point.x)
 
 func _end_drag() -> void:
 	is_dragging = false

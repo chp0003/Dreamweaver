@@ -56,7 +56,7 @@ signal cloth_completed(cloth: TnalakCloth)
 var grid_size := Vector2i(8, 8)
 var axis: Axis = Axis.ROWS
 ## Ordered. Index is the row (ROWS) or column (COLUMNS) the strand will occupy.
-var strands: Array = []
+var strands: Array[Strand] = []
 var completion := 0.0
 var is_complete := false
 ## Index of the strand currently in BINDING or DYEING. -1 when complete.
@@ -147,7 +147,7 @@ func woven_count() -> int:
 
 ## Tie or untie one segment. Only legal in BINDING, before the vat.
 func toggle_resist(segment_index: int) -> bool:
-	var strand := active_strand()
+	var strand: Strand = active_strand()
 	if strand == null or strand.stage != StrandStage.BINDING:
 		return false
 	if segment_index < 0 or segment_index >= strand.segments.size():
@@ -161,7 +161,7 @@ func toggle_resist(segment_index: int) -> bool:
 
 
 func resist_count() -> int:
-	var strand := active_strand()
+	var strand: Strand = active_strand()
 	if strand == null:
 		return 0
 	var n := 0
@@ -173,7 +173,7 @@ func resist_count() -> int:
 
 ## BINDING -> DYEING. Ties lock; dye is the only legal next input.
 func commit_binding() -> bool:
-	var strand := active_strand()
+	var strand: Strand = active_strand()
 	if strand == null or strand.stage != StrandStage.BINDING:
 		return false
 	_set_stage(strand, StrandStage.DYEING)
@@ -187,7 +187,7 @@ func commit_binding() -> bool:
 ## Untied segments take `dye_id`. Tied segments shed their resist and set as
 ## cream (RAW). One bath per strand — ikat is not undone.
 func apply_dye(dye_id: int) -> bool:
-	var strand := active_strand()
+	var strand: Strand = active_strand()
 	if strand == null or strand.stage != StrandStage.DYEING:
 		return false
 	if strand.dye_is_set():
@@ -228,7 +228,7 @@ func dye_name(dye_id: int) -> String:
 ## good. Then the next UNSTARTED strand opens for binding, or the cloth
 ## completes.
 func weave() -> bool:
-	var strand := active_strand()
+	var strand: Strand = active_strand()
 	if strand == null or strand.stage != StrandStage.DYEING:
 		return false
 	if not strand.dye_is_set():
@@ -249,7 +249,7 @@ func weave() -> bool:
 ## BINDING or DYEING -> dye this strand and weave it in one step.
 ## View shortcut so a House can skip the extra buttons.
 func dye_and_weave(dye_id: int) -> bool:
-	var strand := active_strand()
+	var strand: Strand = active_strand()
 	if strand == null:
 		return false
 	if strand.stage == StrandStage.BINDING:
