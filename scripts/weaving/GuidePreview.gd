@@ -8,17 +8,29 @@ const PREVIEW_CELL := 2
 const CLOTH_CELL := 5
 const GOLD := Color("#C99A4B")
 const FRINGE := Color("#BFA878")
+const PIECE_WIDTH := 288.0
+const FULL_CLOTH_TEXTURE := preload("res://textured/full_cloth_all_5_pieces.png")
 
 var pattern: Array = []
 var current_row := 0
 var cloth_mode := false
 var stars := 0
+var photo_texture: Texture2D
+var cloth_piece_count := 0
 
 func set_pattern(new_pattern: Array) -> void:
 	pattern = new_pattern
 	current_row = 0
 	cloth_mode = false
 	stars = 0
+	queue_redraw()
+
+func set_photo_texture(texture: Texture2D) -> void:
+	photo_texture = texture
+	queue_redraw()
+
+func set_cloth_piece_count(count: int) -> void:
+	cloth_piece_count = clampi(count, 0, 5)
 	queue_redraw()
 
 func set_current_row(row: int) -> void:
@@ -42,6 +54,10 @@ func _draw() -> void:
 		_draw_preview()
 
 func _draw_preview() -> void:
+	if photo_texture != null:
+		draw_rect(Rect2(-2, -2, 36, 36), GOLD)
+		draw_texture_rect(photo_texture, Rect2(0, 0, 32, 32), false)
+		return
 	var size := PATTERN_DATA_SCRIPT.COLS * PREVIEW_CELL
 	draw_rect(Rect2(-2, -2, size + 4, size + 4), GOLD)
 	draw_rect(Rect2(-1, -1, size + 2, size + 2), Color("#1A0F0A"))
@@ -57,6 +73,9 @@ func _draw_preview() -> void:
 	draw_rect(Rect2(size + 3, marker_y, 2, PREVIEW_CELL), GOLD)
 
 func _draw_cloth() -> void:
+	if photo_texture != null:
+		_draw_photo_cloth()
+		return
 	var size := PATTERN_DATA_SCRIPT.COLS * CLOTH_CELL
 	var origin := Vector2(-size / 2.0, -size / 2.0)
 	# Fringe of loose warp ends above and below the cloth.
@@ -77,6 +96,23 @@ func _draw_cloth() -> void:
 		var lit := i < stars
 		var color := GOLD if lit else Color("#3A2C27")
 		_draw_star(Vector2(-14 + i * 14, size / 2.0 + 9.0), 6.0, color)
+
+func _draw_photo_cloth() -> void:
+	var cloth_size := Vector2(280.0, 75.0)
+	var origin := -cloth_size / 2.0
+	var frame := Rect2(origin - Vector2(3.0, 3.0), cloth_size + Vector2(6.0, 6.0))
+	draw_rect(frame, GOLD)
+	draw_rect(Rect2(origin, cloth_size), Color("#0E0A09"))
+	var destination := Rect2(origin, cloth_size)
+	draw_texture_rect(FULL_CLOTH_TEXTURE, destination, false, Color(0.25, 0.22, 0.2, 1.0))
+	if cloth_piece_count > 0:
+		var revealed_destination := Rect2(origin, Vector2(cloth_size.x * float(cloth_piece_count) / 5.0, cloth_size.y))
+		var source := Rect2(0.0, 0.0, PIECE_WIDTH * float(cloth_piece_count), 384.0)
+		draw_texture_rect_region(FULL_CLOTH_TEXTURE, revealed_destination, source)
+	for i in range(3):
+		var lit := i < mini(stars, 3)
+		var color := GOLD if lit else Color("#3A2C27")
+		_draw_star(Vector2(-14 + i * 14, cloth_size.y / 2.0 + 12.0), 6.0, color)
 
 func _draw_star(center: Vector2, outer: float, color: Color) -> void:
 	var points := PackedVector2Array()

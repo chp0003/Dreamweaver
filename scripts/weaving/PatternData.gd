@@ -117,7 +117,11 @@ static func pattern(pattern_id: String) -> Array:
 	if chapter >= 1 and chapter <= 5:
 		var panel: Array = get_panel(chapter)
 		var legacy: Array = []
-		for row in panel:
+		# The reference photos are stored top-to-bottom. The loom builds upward
+		# from row 0 at the bottom, so reverse only the row order to keep the
+		# woven result aligned with the photographed motif.
+		for row_index in range(panel.size() - 1, -1, -1):
+			var row: PackedInt32Array = panel[row_index]
 			var converted: Array[int] = []
 			for value in row:
 				converted.append(int(value) - 1)

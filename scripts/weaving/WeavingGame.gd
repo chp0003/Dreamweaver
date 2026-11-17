@@ -9,6 +9,13 @@ const PATTERN_DATA_SCRIPT = preload("res://scripts/weaving/PatternData.gd")
 const WEAVE_SFX = preload("res://scripts/weaving/WeaveSfx.gd")
 const UI_FONT = preload("res://assets/fonts/CrimsonPro-Regular.ttf")
 const TITLE_FONT = preload("res://assets/fonts/Cinzel-Bold.ttf")
+const CLOTH_PHOTOS: Array[Texture2D] = [
+	preload("res://textured/chapter1_heart_diamond.png"),
+	preload("res://textured/chapter2_river_zigzag.png"),
+	preload("res://textured/chapter3_star_bloom.png"),
+	preload("res://textured/chapter4_dreamers_eye.png"),
+	preload("res://textured/chapter5_fu_dalu.png"),
+]
 
 const GOLD := Color("#C99A4B")
 const CREAM := Color("#F5E8C7")
@@ -270,6 +277,7 @@ func start_weaving(pattern_id: String) -> void:
 	weaving_active = true
 	complete_panel.visible = false
 	guide.set_pattern(pattern)
+	guide.set_photo_texture(_photo_for_pattern(pattern_id))
 	guide.set_current_row(0)
 	loom.configure(pattern)
 	pattern_name.text = PATTERN_DATA_SCRIPT.display_name(pattern_id)
@@ -354,10 +362,12 @@ func _show_complete() -> void:
 	loom.input_enabled = false
 	var stars := 3 if mistakes <= 4 else (2 if mistakes <= 16 else 1)
 	complete_cloth.set_pattern(pattern)
+	complete_cloth.set_photo_texture(CLOTH_PHOTOS[_chapter_index()])
+	complete_cloth.set_cloth_piece_count(_cloth_piece_count())
 	complete_cloth.show_cloth()
 	complete_cloth.set_stars(stars)
 	complete_stats.text = "TIME %s    MISTAKES %d" % [_format_time(elapsed), mistakes]
-	complete_fact.text = PATTERN_DATA_SCRIPT.random_fact()
+	complete_fact.text = "Cloth pieces collected: %d / %d" % [_cloth_piece_count(), CLOTH_PHOTOS.size()]
 	complete_panel.modulate.a = 0.0
 	complete_panel.visible = true
 	create_tween().tween_property(complete_panel, "modulate:a", 1.0, 0.4)
@@ -408,3 +418,22 @@ func _flash_tip(color: Color) -> void:
 func _format_time(seconds: float) -> String:
 	var total := int(seconds)
 	return "%d:%02d" % [floori(total / 60.0), total % 60]
+
+func _chapter_index() -> int:
+	var index := PATTERN_DATA_SCRIPT.IDS.find(current_pattern_id)
+	return clampi(index, 0, CLOTH_PHOTOS.size() - 1)
+
+func _photo_for_pattern(pattern_id: String) -> Texture2D:
+	var index := PATTERN_DATA_SCRIPT.IDS.find(pattern_id)
+	if index < 0:
+		index = 0
+	return CLOTH_PHOTOS[clampi(index, 0, CLOTH_PHOTOS.size() - 1)]
+
+func _cloth_piece_count() -> int:
+	var current := _chapter_index() + 1
+	var completed := 0
+	if get_node_or_null("/root/GameState") != null:
+		var state := get_node("/root/GameState")
+		if state.get("completed_houses") is Array:
+			completed = (state.get("completed_houses") as Array).size()
+	return clampi(maxi(current, completed), 0, CLOTH_PHOTOS.size())
